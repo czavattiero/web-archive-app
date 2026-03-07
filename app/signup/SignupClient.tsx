@@ -20,22 +20,20 @@ export default function SignupClient() {
 
   const handleSignup = async () => {
 
-    setLoading(true)
+  const { data, error } = await supabase.auth.signUp({
+    email: email,
+    password: password
+  })
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
+  console.log("Signup result:", data, error)
 
-    setLoading(false)
-
-    if (error) {
-      alert(error.message)
-      return
-    }
-
-    alert("Account created! Check your email.")
+  if (error) {
+    alert(error.message)
+    return
   }
+
+  alert("Account created!")
+}
 
   return (
     <div style={{padding:40}}>
