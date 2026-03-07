@@ -3,12 +3,6 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
 
-  experimental: {
-    serverActions: {
-      allowedOrigins: ["*"],
-    },
-  },
-
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -17,18 +11,8 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
 
-  async headers() {
-    return [
-      {
-        source: "/(.*)",
-        headers: [
-          {
-            key: "x-render-mode",
-            value: "dynamic",
-          },
-        ],
-      },
-    ];
+  experimental: {
+    missingSuspenseWithCSRBailout: false,
   },
 };
 
