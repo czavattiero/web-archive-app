@@ -12,7 +12,7 @@ const supabase = createClient(
 export default function SignupClient() {
 
   const params = useSearchParams()
-  const plan = params.get("plan")
+  const plan = params.get("plan") || "basic"
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -22,7 +22,7 @@ export default function SignupClient() {
 
     setLoading(true)
 
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password
     })
@@ -33,9 +33,14 @@ export default function SignupClient() {
       return
     }
 
-    // call stripe checkout API
     const res = await fetch("/api/checkout", {
-      method: "POST"
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        plan: plan
+      })
     })
 
     const checkout = await res.json()
@@ -46,7 +51,6 @@ export default function SignupClient() {
       return
     }
 
-    // redirect to stripe
     window.location.href = checkout.url
   }
 
@@ -55,11 +59,9 @@ export default function SignupClient() {
 
       <h1>Create your account</h1>
 
-      {plan && (
-        <p>
-          Selected plan: <strong>{plan}</strong>
-        </p>
-      )}
+      <p>
+        Selected plan: <strong>{plan}</strong>
+      </p>
 
       <input
         placeholder="Email"
@@ -67,7 +69,7 @@ export default function SignupClient() {
         onChange={(e) => setEmail(e.target.value)}
       />
 
-      <br/><br/>
+      <br /><br />
 
       <input
         type="password"
@@ -76,7 +78,7 @@ export default function SignupClient() {
         onChange={(e) => setPassword(e.target.value)}
       />
 
-      <br/><br/>
+      <br /><br />
 
       <button onClick={handleSignup} disabled={loading}>
         {loading ? "Creating..." : "Create Account"}
