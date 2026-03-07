@@ -1,6 +1,3 @@
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 "use client";
 
 import { Suspense } from "react";
@@ -32,3 +29,5 @@ export default function SignupPage() {
     </Suspense>
   );
 }
+
+export const dynamic = "force-dynamic";
