@@ -20,23 +20,38 @@ export default function SignupClient() {
 
   const handleSignup = async () => {
 
-  const { data, error } = await supabase.auth.signUp({
-    email: email,
-    password: password
-  })
+    setLoading(true)
 
-  console.log("Signup result:", data, error)
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password
+    })
 
-  if (error) {
-    alert(error.message)
-    return
+    if (error) {
+      alert(error.message)
+      setLoading(false)
+      return
+    }
+
+    // call stripe checkout API
+    const res = await fetch("/api/checkout", {
+      method: "POST"
+    })
+
+    const checkout = await res.json()
+
+    if (!checkout.url) {
+      alert("Stripe checkout failed")
+      setLoading(false)
+      return
+    }
+
+    // redirect to stripe
+    window.location.href = checkout.url
   }
 
-  alert("Account created!")
-}
-
   return (
-    <div style={{padding:40}}>
+    <div style={{ padding: "40px" }}>
 
       <h1>Create your account</h1>
 
@@ -49,7 +64,7 @@ export default function SignupClient() {
       <input
         placeholder="Email"
         value={email}
-        onChange={(e)=>setEmail(e.target.value)}
+        onChange={(e) => setEmail(e.target.value)}
       />
 
       <br/><br/>
@@ -58,12 +73,12 @@ export default function SignupClient() {
         type="password"
         placeholder="Password"
         value={password}
-        onChange={(e)=>setPassword(e.target.value)}
+        onChange={(e) => setPassword(e.target.value)}
       />
 
       <br/><br/>
 
-      <button onClick={handleSignup}>
+      <button onClick={handleSignup} disabled={loading}>
         {loading ? "Creating..." : "Create Account"}
       </button>
 
