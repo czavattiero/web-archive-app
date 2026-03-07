@@ -1,12 +1,7 @@
-import dynamic from "next/dynamic"
+import SignupClient from "./SignupClient";
 
-export const dynamic = "force-dynamic"
-
-const SignupClient = dynamic(
-  () => import("./SignupClient"),
-  { ssr: false }
-)
+export const dynamic = "force-dynamic";
 
 export default function Page() {
-  return <SignupClient />
+  return <SignupClient />;
 }
