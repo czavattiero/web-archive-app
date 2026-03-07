@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 
 function SignupContent() {
   const searchParams = useSearchParams();
-
   const plan = searchParams.get("plan");
 
   return (
