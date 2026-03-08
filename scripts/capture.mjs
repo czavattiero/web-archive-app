@@ -54,7 +54,34 @@ async function runCapture() {
   viewport: { width: 1920, height: 1080 }
 })
 
-      await page.goto(item.url, { waitUntil: "networkidle" })
+      let success = false
+let attempts = 0
+
+while (!success && attempts < 3) {
+  try {
+
+    attempts++
+
+    console.log(`Attempt ${attempts} for ${item.url}`)
+
+    await page.goto(item.url, {
+      waitUntil: "networkidle",
+      timeout: 60000
+    })
+
+    success = true
+
+  } catch (err) {
+
+    console.log("Navigation failed:", err)
+
+    if (attempts >= 3) {
+      throw err
+    }
+
+    await page.waitForTimeout(5000)
+  }
+}
 
       await page.waitForTimeout(3000)
 
