@@ -1,3 +1,5 @@
+process.env.TZ = "America/Edmonton"
+
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
 
