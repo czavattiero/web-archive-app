@@ -17,8 +17,8 @@ async function runCapture() {
   console.log("Connecting to database...")
 
   const { data: urls, error } = await supabase
-    .from("urls")
-    .select("*")
+  .from("screenshot_jobs")
+  .select("*")
 
   if (error) {
     console.log("Database error:", error)
