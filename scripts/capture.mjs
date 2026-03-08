@@ -90,7 +90,7 @@ async function runCapture() {
 
       const { data: uploadData, error: uploadError } = await supabase.storage
   .from("captures")
-  .upload(`captures/${fileName}`, pdf, {
+  .upload(fileName, pdf, {
     contentType: "application/pdf",
     upsert: true
   })
