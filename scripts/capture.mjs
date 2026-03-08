@@ -54,7 +54,9 @@ async function runCapture() {
 
       await page.goto(item.url, { waitUntil: "networkidle" })
 
-      const timestamp = new Date().toISOString()
+      const timestamp = new Date().toLocaleString("en-CA", {
+  timeZone: "America/Edmonton"
+})
 
       await page.addStyleTag({
         content: `
