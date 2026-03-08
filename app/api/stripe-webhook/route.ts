@@ -1,6 +1,8 @@
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
 
+export const dynamic = "force-dynamic"
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16"
 })
@@ -9,6 +11,10 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
+export async function GET() {
+  return new Response("Stripe webhook endpoint is live.", { status: 200 })
+}
 
 export async function POST(req: Request) {
 
@@ -28,7 +34,7 @@ export async function POST(req: Request) {
 
   } catch (err) {
 
-    console.error("Webhook error:", err)
+    console.error("Webhook signature verification failed:", err)
 
     return new Response("Webhook Error", { status: 400 })
   }
@@ -48,6 +54,7 @@ export async function POST(req: Request) {
         status: "active"
       })
 
+    console.log("Subscription stored")
   }
 
   return new Response("ok", { status: 200 })
