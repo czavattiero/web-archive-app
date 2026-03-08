@@ -5,6 +5,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
     "playwright": "^1.41.2",
-    "luxon": "^3.4.4"
+    "luxon": "^3.4.4",
+    "resend": "^3.2.0"
   }
 }
