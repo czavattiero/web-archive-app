@@ -3,7 +3,7 @@
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 
-export default function LandingPage() {
+export default function Home() {
 
   const router = useRouter()
 
@@ -26,80 +26,70 @@ export default function LandingPage() {
 
   return (
 
-    <main className="min-h-screen bg-white text-center">
+    <main className="min-h-screen bg-white flex flex-col items-center">
 
-      {/* TOP BAR */}
+      {/* TOP RIGHT LOGIN */}
 
-      <div className="flex justify-end p-6">
-
+      <div className="w-full flex justify-end p-6">
         <button
           onClick={() => router.push("/login")}
           className="text-purple-700 font-semibold hover:underline"
         >
           Log in
         </button>
-
       </div>
 
 
       {/* LOGO */}
 
-      <div className="flex flex-col items-center mt-10">
+      <Image
+        src="/screenly-logo.png"
+        alt="Screenly"
+        width={420}
+        height={120}
+      />
 
-        <Image
-          src="/screenly-logo.png"
-          alt="Screenly"
-          width={420}
-          height={120}
-        />
+      {/* TAGLINE */}
 
-        <h2 className="text-2xl mt-6 text-gray-700">
-          Because you have more important things to do
-        </h2>
-
-      </div>
+      <h2 className="text-2xl mt-6 text-gray-700">
+        Because you have more important things to do
+      </h2>
 
 
       {/* DESCRIPTION */}
 
-      <div className="max-w-2xl mx-auto mt-8 text-gray-600 text-lg">
+      <p className="max-w-2xl text-center text-gray-600 mt-6">
 
-        Screenly allows you to automate the capture of URLs and schedule
-        future captures. The PDFs can then be downloaded whenever you need.
+        Screenly allows you to automate the captures of URLs and schedule
+        future captures. The PDFs can then be downloaded.
 
-      </div>
+      </p>
 
 
       {/* PRICING */}
 
-      <div className="grid md:grid-cols-2 gap-10 max-w-4xl mx-auto mt-16">
+      <div className="grid md:grid-cols-2 gap-10 mt-16 max-w-4xl">
 
 
-        {/* BASIC PLAN */}
+        {/* BASIC */}
 
-        <div className="border rounded-xl p-8 shadow-sm">
+        <div className="border rounded-xl p-8 shadow-sm text-center">
 
           <h3 className="text-2xl font-semibold text-purple-700">
             Basic
           </h3>
 
-          <p className="text-4xl mt-4 font-bold">
+          <p className="text-4xl font-bold mt-4">
             $15
           </p>
 
-          <p className="text-gray-500 mt-2">
+          <p className="text-gray-500">
             per month
           </p>
 
-          <ul className="mt-6 text-gray-600 space-y-2">
-            <li>50 URLs</li>
-            <li>Automated captures</li>
-            <li>Download PDFs</li>
-          </ul>
-
           <button
             onClick={() => startCheckout("basic")}
-            className="mt-8 bg-purple-700 text-white px-6 py-3 rounded-lg hover:bg-purple-800"
+            className="mt-8 bg-purple-700 text-white px-6 py-3 rounded-lg"
           >
             Choose Basic
           </button>
@@ -107,31 +97,25 @@ export default function LandingPage() {
         </div>
 
 
-        {/* PROFESSIONAL PLAN */}
+        {/* PRO */}
 
-        <div className="border rounded-xl p-8 shadow-sm">
+        <div className="border rounded-xl p-8 shadow-sm text-center">
 
           <h3 className="text-2xl font-semibold text-teal-500">
             Professional
           </h3>
 
-          <p className="text-4xl mt-4 font-bold">
+          <p className="text-4xl font-bold mt-4">
             $30
           </p>
 
-          <p className="text-gray-500 mt-2">
+          <p className="text-gray-500">
             per month
           </p>
 
-          <ul className="mt-6 text-gray-600 space-y-2">
-            <li>Unlimited URLs</li>
-            <li>Automated captures</li>
-            <li>Download PDFs</li>
-          </ul>
-
           <button
             onClick={() => startCheckout("pro")}
-            className="mt-8 bg-teal-500 text-white px-6 py-3 rounded-lg hover:bg-teal-600"
+            className="mt-8 bg-teal-500 text-white px-6 py-3 rounded-lg"
           >
             Choose Professional
           </button>
@@ -141,6 +125,5 @@ export default function LandingPage() {
       </div>
 
     </main>
-
   )
 }
