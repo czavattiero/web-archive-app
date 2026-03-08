@@ -88,11 +88,18 @@ async function runCapture() {
 
       console.log("Uploading file:", fileName)
 
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(fileName, pdf, {
-          contentType: "application/pdf"
-        })
+      const { data: uploadData, error: uploadError } = await supabase.storage
+  .from("captures")
+  .upload(`captures/${fileName}`, pdf, {
+    contentType: "application/pdf",
+    upsert: true
+  })
+
+if (uploadError) {
+  console.log("UPLOAD ERROR:", uploadError)
+} else {
+  console.log("UPLOAD SUCCESS:", uploadData)
+}
 
       if (uploadError) {
         console.log("Upload error:", uploadError)
