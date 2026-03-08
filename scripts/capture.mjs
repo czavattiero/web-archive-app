@@ -50,10 +50,24 @@ async function runCapture() {
     try {
 
       const browser = await chromium.launch()
-      const page = await browser.newPage()
+      const page = await browser.newPage({
+  viewport: { width: 1920, height: 1080 }
+})
 
       await page.goto(item.url, { waitUntil: "networkidle" })
 
+      await page.waitForTimeout(3000)
+
+await page.evaluate(() => {
+  window.scrollTo(0, document.body.scrollHeight)
+})
+
+await page.waitForTimeout(2000)
+
+await page.evaluate(() => {
+  window.scrollTo(0, 0)
+})
+      
       const timestamp = new Date().toLocaleString("en-CA", {
   timeZone: "America/Edmonton"
 })
@@ -82,9 +96,16 @@ async function runCapture() {
       }, timestamp)
 
       const pdf = await page.pdf({
-        format: "A4",
-        printBackground: true
-      })
+  format: "A4",
+  printBackground: true,
+  displayHeaderFooter: false,
+  margin: {
+    top: "40px",
+    bottom: "40px",
+    left: "20px",
+    right: "20px"
+  }
+})
 
       const fileName = `${item.id}-${Date.now()}.pdf`
 
