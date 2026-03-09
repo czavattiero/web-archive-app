@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
-export default function Dashboard(){
+export default function Dashboard() {
 
   const router = useRouter()
 
@@ -20,14 +20,14 @@ export default function Dashboard(){
 
     async function init(){
 
-      const { data:sessionData } = await supabase.auth.getSession()
+      const { data } = await supabase.auth.getSession()
 
-      if(!sessionData.session){
+      if(!data.session){
         router.push("/login")
         return
       }
 
-      const currentUser = sessionData.session.user
+      const currentUser = data.session.user
       setUser(currentUser)
 
       await loadUrls(currentUser.id)
@@ -59,7 +59,7 @@ export default function Dashboard(){
     e.preventDefault()
 
     if(!url){
-      alert("Please enter a URL")
+      alert("Enter a URL")
       return
     }
 
@@ -98,26 +98,17 @@ export default function Dashboard(){
 
     <main style={{padding:40,fontFamily:"system-ui"}}>
 
-      {/* HEADER */}
-
-      <div
-        style={{
-          display:"flex",
-          justifyContent:"space-between",
-          alignItems:"center",
-          marginBottom:30
-        }}
-      >
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:30}}>
 
         <h1>Dashboard</h1>
 
         <button
           onClick={handleLogout}
           style={{
-            padding:"8px 14px",
-            background:"#e63946",
+            background:"#e74c3c",
             color:"white",
             border:"none",
+            padding:"8px 14px",
             borderRadius:6,
             cursor:"pointer"
           }}
@@ -127,45 +118,35 @@ export default function Dashboard(){
 
       </div>
 
-      {/* ADD URL */}
-
-      <h2>Add URL to Track</h2>
+      <h2>Add URL</h2>
 
       <form onSubmit={handleAddUrl} style={{marginBottom:40}}>
 
         <input
           type="text"
-          placeholder="Paste full URL here (https://example.com/page)"
+          placeholder="Paste full URL here"
           value={url}
           onChange={(e)=>setUrl(e.target.value)}
           style={{
             width:"100%",
             padding:10,
-            marginBottom:10,
-            border:"1px solid #ccc",
-            borderRadius:4
+            marginBottom:10
           }}
         />
 
-        <div style={{marginBottom:10}}>
-
-          <label>Capture schedule</label>
-
-          <select
-            value={schedule}
-            onChange={(e)=>setSchedule(e.target.value)}
-            style={{
-              width:"100%",
-              padding:8,
-              marginTop:5
-            }}
-          >
-            <option value="hourly">Hourly</option>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-          </select>
-
-        </div>
+        <select
+          value={schedule}
+          onChange={(e)=>setSchedule(e.target.value)}
+          style={{
+            width:"100%",
+            padding:10,
+            marginBottom:10
+          }}
+        >
+          <option value="hourly">Hourly</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+        </select>
 
         <button
           type="submit"
@@ -183,25 +164,17 @@ export default function Dashboard(){
 
       </form>
 
-      {/* URL TABLE */}
-
       <h2>Tracked URLs</h2>
 
-      <table
-        style={{
-          width:"100%",
-          borderCollapse:"collapse",
-          marginBottom:40
-        }}
-      >
+      <table style={{width:"100%",borderCollapse:"collapse"}}>
 
         <thead>
 
-          <tr style={{background:"#f5f5f5"}}>
+          <tr>
 
-            <th style={{padding:10,border:"1px solid #ddd"}}>URL</th>
-            <th style={{padding:10,border:"1px solid #ddd"}}>Schedule</th>
-            <th style={{padding:10,border:"1px solid #ddd"}}>Created</th>
+            <th style={{border:"1px solid #ddd",padding:10}}>URL</th>
+            <th style={{border:"1px solid #ddd",padding:10}}>Schedule</th>
+            <th style={{border:"1px solid #ddd",padding:10}}>Created</th>
 
           </tr>
 
@@ -211,65 +184,29 @@ export default function Dashboard(){
 
           {urls.length === 0 && (
             <tr>
-              <td colSpan={3} style={{padding:10}}>
-                No URLs added yet
-              </td>
+              <td colSpan={3} style={{padding:10}}>No URLs yet</td>
             </tr>
           )}
 
           {urls.map((u)=>(
+
             <tr key={u.id}>
 
-              <td style={{padding:10,border:"1px solid #ddd"}}>
+              <td style={{border:"1px solid #ddd",padding:10}}>
                 {u.url}
               </td>
 
-              <td style={{padding:10,border:"1px solid #ddd"}}>
+              <td style={{border:"1px solid #ddd",padding:10}}>
                 {u.schedule_type}
               </td>
 
-              <td style={{padding:10,border:"1px solid #ddd"}}>
+              <td style={{border:"1px solid #ddd",padding:10}}>
                 {new Date(u.created_at).toLocaleString()}
               </td>
 
             </tr>
+
           ))}
-
-        </tbody>
-
-      </table>
-
-      {/* CAPTURE TABLE */}
-
-      <h2>Capture History</h2>
-
-      <table
-        style={{
-          width:"100%",
-          borderCollapse:"collapse"
-        }}
-      >
-
-        <thead>
-
-          <tr style={{background:"#f5f5f5"}}>
-
-            <th style={{padding:10,border:"1px solid #ddd"}}>URL</th>
-            <th style={{padding:10,border:"1px solid #ddd"}}>Captured At</th>
-            <th style={{padding:10,border:"1px solid #ddd"}}>Status</th>
-            <th style={{padding:10,border:"1px solid #ddd"}}>PDF</th>
-
-          </tr>
-
-        </thead>
-
-        <tbody>
-
-          <tr>
-            <td colSpan={4} style={{padding:10}}>
-              No captures yet
-            </td>
-          </tr>
 
         </tbody>
 
