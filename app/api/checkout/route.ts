@@ -28,6 +28,11 @@ export async function POST(req: Request) {
       )
     }
 
+    // fallback so URL is always valid
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://web-archive-app.vercel.app"
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
 
@@ -40,9 +45,9 @@ export async function POST(req: Request) {
         },
       ],
 
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
 
-      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}`,
+      cancel_url: `${siteUrl}`,
     })
 
     if (!session.url) {
