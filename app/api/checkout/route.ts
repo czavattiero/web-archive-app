@@ -33,21 +33,22 @@ export async function POST(req: Request) {
       "https://web-archive-app.vercel.app"
 
     const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
+  mode: "subscription",
 
-      customer_email: email,
+  customer_email: email,
 
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
+  payment_method_types: ["card"],
 
-      success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+  line_items: [
+    {
+      price: priceId,
+      quantity: 1,
+    },
+  ],
 
-      cancel_url: `${siteUrl}`,
-    })
+  success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+  cancel_url: `${siteUrl}`,
+})
 
     return NextResponse.json({
       url: session.url
