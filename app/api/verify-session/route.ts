@@ -20,19 +20,19 @@ export async function POST(req: Request) {
 
     if (!sessionId) {
       return NextResponse.json(
-        { error: "Missing sessionId" },
+        { success: false, error: "Missing sessionId" },
         { status: 400 }
       )
     }
 
-    // Retrieve checkout session with expanded subscription
+    // Retrieve Stripe session
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ["subscription"]
+      expand: ["subscription"],
     })
 
     if (!session) {
       return NextResponse.json(
-        { error: "Session not found" },
+        { success: false, error: "Session not found" },
         { status: 404 }
       )
     }
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
 
     if (!email) {
       return NextResponse.json(
-        { error: "Customer email not found" },
+        { success: false, error: "Customer email not found" },
         { status: 400 }
       )
     }
@@ -56,11 +56,11 @@ export async function POST(req: Request) {
         ? session.customer
         : session.customer?.id
 
-    // Store subscription in Supabase
+    // Store or update subscription
     const { error } = await supabase
       .from("subscriptions")
       .upsert({
-        email: email,
+        email,
         stripe_customer_id: customerId,
         stripe_subscription_id: subscriptionId,
         status: "active",
@@ -70,14 +70,14 @@ export async function POST(req: Request) {
       console.error("Supabase error:", error)
 
       return NextResponse.json(
-        { error: "Database error" },
+        { success: false, error: "Database error" },
         { status: 500 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      email: email
+      email,
     })
 
   } catch (err) {
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     console.error("Verify session error:", err)
 
     return NextResponse.json(
-      { error: "Internal server error" },
+      { success: false, error: "Internal server error" },
       { status: 500 }
     )
   }
