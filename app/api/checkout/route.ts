@@ -9,7 +9,7 @@ export async function POST(req: Request) {
 
   try {
 
-    const { plan, email } = await req.json()
+    const { plan, email, userId } = await req.json()
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL!
 
@@ -25,21 +25,24 @@ export async function POST(req: Request) {
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      payment_method_types: ["card"],
       customer_email: email,
+
       line_items: [
         {
           price: priceId,
           quantity: 1
         }
       ],
+
+      metadata: {
+        user_id: userId
+      },
+
       success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/`
     })
 
-    return NextResponse.json({
-      url: session.url
-    })
+    return NextResponse.json({ url: session.url })
 
   } catch (error) {
 
