@@ -1,83 +1,64 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { supabase } from "../../lib/supabase"
+import { useSearchParams, useRouter } from "next/navigation"
+import { createClient } from "@supabase/supabase-js"
 
-export default function SuccessPage(){
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
-  const router = useRouter()
+export default function SuccessPage() {
+
   const params = useSearchParams()
+  const router = useRouter()
 
-  useEffect(()=>{
+  useEffect(() => {
 
-    const sessionId = params.get("session_id")
+    async function verify() {
 
-    if(!sessionId){
-      router.push("/")
-      return
-    }
+      const sessionId = params.get("session_id")
 
-    async function verify(){
-
-      try{
-
-        const res = await fetch("/api/verify-session",{
-          method:"POST",
-          headers:{
-            "Content-Type":"application/json"
-          },
-          body:JSON.stringify({
-            sessionId
-          })
-        })
-
-        const data = await res.json()
-
-        if(!data.success){
-          router.push("/")
-          return
-        }
-
-        // wait for Supabase auth session
-        const { data:sessionData } = await supabase.auth.getSession()
-
-        if(!sessionData.session){
-          router.push("/login")
-          return
-        }
-
-        router.push("/dashboard")
-
-      }catch(err){
-
-        console.error(err)
+      if (!sessionId) {
         router.push("/")
+        return
+      }
 
+      const { data: session } = await supabase.auth.getSession()
+
+      if (!session?.session) {
+        router.push("/")
+        return
+      }
+
+      const res = await fetch("/api/verify-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          session_id: sessionId
+        })
+      })
+
+      const result = await res.json()
+
+      if (result.success) {
+        router.push("/dashboard")
+      } else {
+        router.push("/")
       }
 
     }
 
     verify()
 
-  },[params])
+  }, [])
 
-  return(
-
-    <main
-      style={{
-        minHeight:"100vh",
-        display:"flex",
-        justifyContent:"center",
-        alignItems:"center",
-        fontFamily:"system-ui"
-      }}
-    >
-
-      <h2>Payment successful. Redirecting to dashboard...</h2>
-
-    </main>
-
+  return (
+    <div className="flex items-center justify-center h-screen">
+      <p>Finalizing your subscription...</p>
+    </div>
   )
-
 }
