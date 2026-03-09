@@ -1,19 +1,12 @@
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
-import { createClient } from "@supabase/supabase-js"
 
-// Stripe client
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2023-10-16",
+  apiVersion: "2023-10-16"
 })
 
-// Supabase admin client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 export async function POST(req: Request) {
+
   try {
 
     const { plan, email } = await req.json()
@@ -25,23 +18,6 @@ export async function POST(req: Request) {
       )
     }
 
-    // Get the Supabase user
-    const { data: userData, error: userError } = await supabase
-      .from("auth.users")
-      .select("id,email")
-      .eq("email", email)
-      .single()
-
-    if (userError || !userData) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      )
-    }
-
-    const userId = userData.id
-
-    // Determine Stripe price
     let priceId: string | undefined
 
     if (plan === "basic") {
@@ -54,7 +30,7 @@ export async function POST(req: Request) {
 
     if (!priceId) {
       return NextResponse.json(
-        { error: "Invalid plan selected" },
+        { error: "Invalid plan" },
         { status: 400 }
       )
     }
@@ -63,32 +39,28 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_SITE_URL ||
       "https://web-archive-app.vercel.app"
 
-    // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
+
       mode: "subscription",
 
       payment_method_types: ["card"],
 
       customer_email: email,
 
-      metadata: {
-        user_id: userId,
-        plan: plan
-      },
-
       line_items: [
         {
           price: priceId,
-          quantity: 1,
-        },
+          quantity: 1
+        }
       ],
 
       success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}`,
+      cancel_url: `${siteUrl}`
+
     })
 
     return NextResponse.json({
-      url: session.url,
+      url: session.url
     })
 
   } catch (error) {
@@ -99,5 +71,7 @@ export async function POST(req: Request) {
       { error: "Internal server error" },
       { status: 500 }
     )
+
   }
+
 }
