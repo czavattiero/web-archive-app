@@ -23,9 +23,19 @@ export async function POST(req: Request) {
       priceId = process.env.STRIPE_PRO_PRICE_ID!
     }
 
+    // Create Stripe customer
+    const customer = await stripe.customers.create({
+      email: email,
+      metadata: {
+        user_id: userId
+      }
+    })
+
+    // Create checkout session
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      customer_email: email,
+
+      customer: customer.id,
 
       line_items: [
         {
@@ -42,7 +52,9 @@ export async function POST(req: Request) {
       cancel_url: `${siteUrl}/`
     })
 
-    return NextResponse.json({ url: session.url })
+    return NextResponse.json({
+      url: session.url
+    })
 
   } catch (error) {
 
