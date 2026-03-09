@@ -9,7 +9,11 @@ export async function POST(req: Request) {
 
   try {
 
-    const { plan, email, userId } = await req.json()
+    const body = await req.json()
+
+    const plan = body.plan
+    const email = body.email
+    const userId = body.userId || ""
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL!
 
@@ -19,23 +23,18 @@ export async function POST(req: Request) {
       priceId = process.env.STRIPE_BASIC_PRICE_ID!
     }
 
-    if (plan === "professional") {
+    if (plan === "professional" || plan === "pro") {
       priceId = process.env.STRIPE_PRO_PRICE_ID!
     }
 
-    // Create Stripe customer
-    const customer = await stripe.customers.create({
-      email: email,
-      metadata: {
-        user_id: userId
-      }
-    })
+    if (!priceId) {
+      throw new Error("Invalid plan")
+    }
 
-    // Create checkout session
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
 
-      customer: customer.id,
+      customer_email: email,
 
       line_items: [
         {
@@ -58,7 +57,7 @@ export async function POST(req: Request) {
 
   } catch (error) {
 
-    console.error(error)
+    console.error("Stripe error:", error)
 
     return NextResponse.json(
       { error: "Stripe checkout failed" },
@@ -66,4 +65,5 @@ export async function POST(req: Request) {
     )
 
   }
+
 }
