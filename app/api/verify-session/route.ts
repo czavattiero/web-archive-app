@@ -25,8 +25,10 @@ export async function POST(req: Request) {
       )
     }
 
-    // Retrieve checkout session
-    const session = await stripe.checkout.sessions.retrieve(sessionId)
+    // Retrieve checkout session with expanded subscription
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ["subscription"]
+    })
 
     if (!session) {
       return NextResponse.json(
@@ -44,18 +46,29 @@ export async function POST(req: Request) {
       )
     }
 
+    const subscriptionId =
+      typeof session.subscription === "string"
+        ? session.subscription
+        : session.subscription?.id
+
+    const customerId =
+      typeof session.customer === "string"
+        ? session.customer
+        : session.customer?.id
+
     // Store subscription in Supabase
     const { error } = await supabase
       .from("subscriptions")
       .upsert({
         email: email,
-        stripe_customer_id: session.customer,
-        stripe_subscription_id: session.subscription,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscriptionId,
         status: "active",
       })
 
     if (error) {
       console.error("Supabase error:", error)
+
       return NextResponse.json(
         { error: "Database error" },
         { status: 500 }
