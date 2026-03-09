@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
-export default function Dashboard(){
+export default function Dashboard() {
 
   const router = useRouter()
 
@@ -54,7 +54,7 @@ export default function Dashboard(){
     return <p style={{padding:40}}>Loading dashboard...</p>
   }
 
-  return(
+  return (
 
     <main style={{padding:40,fontFamily:"system-ui"}}>
 
@@ -82,10 +82,12 @@ export default function Dashboard(){
             cursor:"pointer"
           }}
         >
-          Log out
+          Sign out
         </button>
 
       </div>
+
+      {/* TRACKED URLS */}
 
       <h2>Tracked URLs</h2>
 
