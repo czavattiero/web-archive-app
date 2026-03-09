@@ -1,7 +1,6 @@
+import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
-
-export const dynamic = "force-dynamic"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16"
@@ -12,19 +11,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-export async function GET() {
-  return new Response("Stripe webhook endpoint is live.", { status: 200 })
-}
-
 export async function POST(req: Request) {
 
   const body = await req.text()
 
-  const signature = req.headers.get("stripe-signature")
-
-  if (!signature) {
-    return new Response("Missing Stripe signature", { status: 400 })
-  }
+  const signature = req.headers.get("stripe-signature")!
 
   let event: Stripe.Event
 
@@ -38,57 +29,27 @@ export async function POST(req: Request) {
 
   } catch (err) {
 
-    console.error("Webhook signature verification failed:", err)
+    console.error("Webhook signature verification failed")
 
-    return new Response("Webhook Error", { status: 400 })
+    return NextResponse.json({ error: "Webhook error" }, { status: 400 })
+
   }
 
-  try {
+  if (event.type === "checkout.session.completed") {
 
-    if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session
 
-      const session = event.data.object as Stripe.Checkout.Session
+    const userId = session.metadata?.user_id
 
-      const email = session.customer_details?.email
+    await supabase.from("subscriptions").upsert({
+      user_id: userId,
+      stripe_customer_id: session.customer,
+      stripe_subscription_id: session.subscription,
+      status: "active"
+    })
 
-      const subscriptionId =
-        typeof session.subscription === "string"
-          ? session.subscription
-          : session.subscription?.id
-
-      const customerId =
-        typeof session.customer === "string"
-          ? session.customer
-          : session.customer?.id
-
-      if (!email || !subscriptionId || !customerId) {
-        console.error("Missing required Stripe data")
-        return new Response("Missing data", { status: 400 })
-      }
-
-      const { error } = await supabase
-        .from("subscriptions")
-        .upsert({
-          email: email,
-          stripe_customer_id: customerId,
-          stripe_subscription_id: subscriptionId,
-          status: "active"
-        })
-
-      if (error) {
-        console.error("Supabase error:", error)
-        return new Response("Database error", { status: 500 })
-      }
-
-      console.log("Subscription stored successfully")
-    }
-
-    return new Response("ok", { status: 200 })
-
-  } catch (err) {
-
-    console.error("Webhook processing error:", err)
-
-    return new Response("Server error", { status: 500 })
   }
+
+  return NextResponse.json({ received: true })
+
 }
