@@ -8,13 +8,11 @@ export default function Dashboard(){
 
   const router = useRouter()
 
-  const [loading,setLoading] = useState(true)
   const [user,setUser] = useState<any>(null)
+  const [loading,setLoading] = useState(true)
 
   const [url,setUrl] = useState("")
   const [schedule,setSchedule] = useState("weekly")
-
-  const [urls,setUrls] = useState<any[]>([])
 
   useEffect(()=>{
 
@@ -27,11 +25,7 @@ export default function Dashboard(){
         return
       }
 
-      const currentUser = sessionData.session.user
-      setUser(currentUser)
-
-      await loadUrls(currentUser.id)
-
+      setUser(sessionData.session.user)
       setLoading(false)
 
     }
@@ -40,53 +34,21 @@ export default function Dashboard(){
 
   },[])
 
-  async function loadUrls(userId:string){
-
-    const { data } = await supabase
-      .from("urls")
-      .select("*")
-      .eq("user_id",userId)
-      .order("created_at",{ascending:false})
-
-    if(data){
-      setUrls(data)
-    }
-
-  }
-
-  async function handleAddUrl(e:any){
-
-    e.preventDefault()
-
-    if(!url){
-      alert("Enter a URL")
-      return
-    }
-
-    const { error } = await supabase
-      .from("urls")
-      .insert({
-        user_id:user.id,
-        url:url,
-        schedule_type:schedule
-      })
-
-    if(error){
-      alert(error.message)
-      return
-    }
-
-    setUrl("")
-
-    await loadUrls(user.id)
-
-  }
-
   async function handleLogout(){
 
     await supabase.auth.signOut()
 
     router.push("/")
+
+  }
+
+  function handleAddUrl(e:any){
+
+    e.preventDefault()
+
+    alert("URL added (database step next)")
+
+    setUrl("")
 
   }
 
@@ -99,6 +61,7 @@ export default function Dashboard(){
     <main style={{padding:40,fontFamily:"system-ui"}}>
 
       {/* HEADER */}
+
       <div
         style={{
           display:"flex",
@@ -107,6 +70,7 @@ export default function Dashboard(){
           marginBottom:30
         }}
       >
+
         <h1>Dashboard</h1>
 
         <button
@@ -122,9 +86,8 @@ export default function Dashboard(){
         >
           Log out
         </button>
-      </div>
 
-      {/* TRACKED URLS */}
+      </div>
 
       <h2>Tracked URLs</h2>
 
@@ -157,20 +120,6 @@ export default function Dashboard(){
         </button>
 
       </form>
-
-      <hr style={{margin:"30px 0"}}/>
-
-      {/* URL LIST */}
-
-      <h3>Your URLs</h3>
-
-      {urls.length === 0 && <p>No URLs yet.</p>}
-
-      {urls.map((u)=>(
-        <div key={u.id} style={{marginBottom:10}}>
-          {u.url} — {u.schedule_type}
-        </div>
-      ))}
 
       <hr style={{margin:"30px 0"}}/>
 
