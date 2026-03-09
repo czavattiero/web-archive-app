@@ -2,32 +2,31 @@
 
 import { useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { supabase } from "../../lib/supabase"
 
 export default function SuccessPage() {
 
-  const searchParams = useSearchParams()
   const router = useRouter()
+  const params = useSearchParams()
 
   useEffect(() => {
 
-    const sessionId = searchParams.get("session_id")
+    const sessionId = params.get("session_id")
 
     if (!sessionId) {
       router.push("/")
       return
     }
 
-    async function verify() {
+    async function verifyPayment() {
 
       const res = await fetch("/api/verify-session", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          sessionId,
-        }),
+          sessionId
+        })
       })
 
       const data = await res.json()
@@ -38,11 +37,12 @@ export default function SuccessPage() {
       }
 
       router.push("/dashboard")
+
     }
 
-    verify()
+    verifyPayment()
 
-  }, [searchParams, router])
+  }, [params, router])
 
   return (
     <main
@@ -51,10 +51,10 @@ export default function SuccessPage() {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        fontFamily: "system-ui",
+        fontFamily: "system-ui"
       }}
     >
-      <h1>Payment successful. Setting up your dashboard...</h1>
+      <h2>Payment successful. Preparing your dashboard...</h2>
     </main>
   )
 }
