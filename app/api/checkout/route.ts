@@ -39,7 +39,7 @@ export async function POST(req: Request) {
         user_id: userId
       },
 
-      success_url: `${siteUrl}/dashboard`,
+      success_url: `${siteUrl}/login`,
       cancel_url: `${siteUrl}/`
     })
 
