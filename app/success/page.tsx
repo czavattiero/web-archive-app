@@ -4,75 +4,63 @@ import { useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
-export default function SuccessPage() {
+export default function SuccessPage(){
 
   const router = useRouter()
   const params = useSearchParams()
 
-  useEffect(() => {
+  useEffect(()=>{
 
     const sessionId = params.get("session_id")
 
-    if (!sessionId) {
+    if(!sessionId){
       router.push("/")
       return
     }
 
-    async function verifyPayment() {
+    async function verify(){
 
-      try {
-
-        // verify Stripe session
-        const res = await fetch("/api/verify-session", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            sessionId
-          })
+      const res = await fetch("/api/verify-session",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          sessionId
         })
+      })
 
-        const data = await res.json()
+      const data = await res.json()
 
-        if (!data.success) {
-          router.push("/")
-          return
-        }
-
-        // wait for Supabase session
-        const { data:sessionData } = await supabase.auth.getSession()
-
-        if (!sessionData.session) {
-          router.push("/login")
-          return
-        }
-
-        // redirect to dashboard
-        router.push("/dashboard")
-
-      } catch (err) {
-
-        console.error(err)
+      if(!data.success){
         router.push("/")
-
+        return
       }
+
+      const { data:sessionData } = await supabase.auth.getSession()
+
+      if(!sessionData.session){
+        router.push("/login")
+        return
+      }
+
+      router.push("/dashboard")
 
     }
 
-    verifyPayment()
+    verify()
 
-  }, [params, router])
+  },[params])
 
-  return (
+  return(
 
     <main
       style={{
-        minHeight: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        fontFamily: "system-ui"
+        minHeight:"100vh",
+        display:"flex",
+        justifyContent:"center",
+        alignItems:"center",
+        fontFamily:"system-ui"
       }}
     >
 
