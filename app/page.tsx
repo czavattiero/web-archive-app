@@ -3,35 +3,52 @@ export default function Home() {
     <main
       style={{
         minHeight: "100vh",
-        background: "#f8f9fb",
+        background: "#f7f8fb",
         fontFamily: "system-ui, sans-serif",
+        padding: "40px 80px",
       }}
     >
-      {/* Header */}
-      <header
+
+      {/* Top bar */}
+      <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
-          padding: "40px 60px",
         }}
       >
-        {/* Logo + tagline */}
         <div>
+          {/* Large logo */}
           <img
             src="/screenly.png"
             alt="Screenly"
-            style={{ height: 120 }}
+            style={{ height: 140 }}
           />
 
-          <p
+          {/* Tagline */}
+          <h2
             style={{
               marginTop: 10,
-              fontSize: 16,
-              color: "#444",
+              fontSize: 24,
+              fontWeight: 600,
             }}
           >
             Because you have more important things to do
+          </h2>
+
+          {/* Description */}
+          <p
+            style={{
+              marginTop: 10,
+              maxWidth: 600,
+              fontSize: 14,
+              color: "#666",
+              lineHeight: 1.6,
+            }}
+          >
+            Screenly allows you to automate the capture of URLs and schedule
+            future captures. Each capture is stored as a PDF that can be
+            downloaded anytime from your dashboard.
           </p>
         </div>
 
@@ -42,40 +59,24 @@ export default function Home() {
               background: "#5B4DFF",
               color: "white",
               border: "none",
-              padding: "10px 18px",
+              padding: "10px 20px",
               borderRadius: 8,
-              cursor: "pointer",
               fontWeight: 600,
+              cursor: "pointer",
             }}
           >
             Log in
           </button>
         </a>
-      </header>
+      </div>
 
-      {/* Description */}
-      <section
-        style={{
-          maxWidth: 650,
-          marginLeft: 60,
-          marginTop: 20,
-          color: "#666",
-          fontSize: 15,
-          lineHeight: 1.6,
-        }}
-      >
-        Screenly allows you to automate the capture of URLs and schedule
-        future captures. Each capture is stored as a PDF that can be
-        downloaded anytime from your dashboard.
-      </section>
-
-      {/* Pricing */}
+      {/* Pricing section */}
       <section
         style={{
           display: "flex",
           justifyContent: "center",
           gap: 40,
-          marginTop: 80,
+          marginTop: 120,
         }}
       >
         {/* Basic */}
@@ -85,25 +86,17 @@ export default function Home() {
             padding: 40,
             borderRadius: 14,
             width: 280,
-            boxShadow: "0 8px 25px rgba(0,0,0,0.08)",
             textAlign: "center",
+            boxShadow: "0 8px 25px rgba(0,0,0,0.08)",
           }}
         >
           <h3>Basic</h3>
 
           <p style={{ fontSize: 34, fontWeight: 700 }}>$9</p>
 
-          <p style={{ color: "#666" }}>per month</p>
+          <p style={{ color: "#777" }}>per month</p>
 
-          <ul
-            style={{
-              listStyle: "none",
-              padding: 0,
-              marginTop: 20,
-              marginBottom: 25,
-              color: "#555",
-            }}
-          >
+          <ul style={{ listStyle: "none", padding: 0, marginTop: 20 }}>
             <li>10 monitored URLs</li>
             <li>Daily captures</li>
             <li>PDF download</li>
@@ -112,13 +105,13 @@ export default function Home() {
           <a href="/api/checkout?plan=basic">
             <button
               style={{
+                marginTop: 20,
                 background: "#5B4DFF",
                 color: "white",
                 border: "none",
                 padding: "12px 22px",
                 borderRadius: 8,
                 cursor: "pointer",
-                fontWeight: 600,
               }}
             >
               Choose Basic
@@ -133,26 +126,18 @@ export default function Home() {
             padding: 40,
             borderRadius: 14,
             width: 280,
-            boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
             textAlign: "center",
             border: "2px solid #5B4DFF",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
           }}
         >
           <h3>Professional</h3>
 
           <p style={{ fontSize: 34, fontWeight: 700 }}>$29</p>
 
-          <p style={{ color: "#666" }}>per month</p>
+          <p style={{ color: "#777" }}>per month</p>
 
-          <ul
-            style={{
-              listStyle: "none",
-              padding: 0,
-              marginTop: 20,
-              marginBottom: 25,
-              color: "#555",
-            }}
-          >
+          <ul style={{ listStyle: "none", padding: 0, marginTop: 20 }}>
             <li>Unlimited URLs</li>
             <li>Hourly captures</li>
             <li>Priority processing</li>
@@ -162,13 +147,13 @@ export default function Home() {
           <a href="/api/checkout?plan=pro">
             <button
               style={{
+                marginTop: 20,
                 background: "#5B4DFF",
                 color: "white",
                 border: "none",
                 padding: "12px 22px",
                 borderRadius: 8,
                 cursor: "pointer",
-                fontWeight: 600,
               }}
             >
               Choose Professional
@@ -176,6 +161,7 @@ export default function Home() {
           </a>
         </div>
       </section>
+
     </main>
   )
 }
