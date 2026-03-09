@@ -7,6 +7,7 @@ import { supabase } from "../../lib/supabase"
 export default function SignupPage() {
 
   const params = useSearchParams()
+
   const plan = params.get("plan")
 
   const [email,setEmail] = useState("")
@@ -21,7 +22,7 @@ export default function SignupPage() {
 
     try{
 
-      // Try to create account
+      // 1️⃣ create user
       const { error } = await supabase.auth.signUp({
         email,
         password
@@ -29,7 +30,7 @@ export default function SignupPage() {
 
       if(error){
 
-        // If user exists → log them in
+        // if user already exists → try login
         if(error.message.includes("already registered")){
 
           const { error:loginError } =
@@ -39,7 +40,7 @@ export default function SignupPage() {
             })
 
           if(loginError){
-            alert("User exists. Please log in instead.")
+            alert("User exists. Please log in.")
             setLoading(false)
             return
           }
@@ -54,7 +55,26 @@ export default function SignupPage() {
 
       }
 
-      // Start Stripe checkout
+      // 2️⃣ ensure session exists
+      const { data:sessionData } = await supabase.auth.getSession()
+
+      if(!sessionData.session){
+
+        const { error:loginError } =
+          await supabase.auth.signInWithPassword({
+            email,
+            password
+          })
+
+        if(loginError){
+          alert("Login failed")
+          setLoading(false)
+          return
+        }
+
+      }
+
+      // 3️⃣ start Stripe checkout
       const res = await fetch("/api/checkout",{
         method:"POST",
         headers:{
@@ -74,6 +94,7 @@ export default function SignupPage() {
         return
       }
 
+      // 4️⃣ redirect to Stripe
       window.location.href = data.url
 
     }catch(err){
@@ -84,6 +105,7 @@ export default function SignupPage() {
     }
 
     setLoading(false)
+
   }
 
   return(
@@ -168,5 +190,7 @@ export default function SignupPage() {
       </div>
 
     </main>
+
   )
+
 }
