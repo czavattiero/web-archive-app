@@ -21,19 +21,40 @@ export default function SignupPage() {
 
     try{
 
-      // create user
-      const { data,error } = await supabase.auth.signUp({
+      // Try to create account
+      const { error } = await supabase.auth.signUp({
         email,
         password
       })
 
       if(error){
-        alert(error.message)
-        setLoading(false)
-        return
+
+        // If user exists → log them in
+        if(error.message.includes("already registered")){
+
+          const { error:loginError } =
+            await supabase.auth.signInWithPassword({
+              email,
+              password
+            })
+
+          if(loginError){
+            alert("User exists. Please log in instead.")
+            setLoading(false)
+            return
+          }
+
+        } else {
+
+          alert(error.message)
+          setLoading(false)
+          return
+
+        }
+
       }
 
-      // call checkout
+      // Start Stripe checkout
       const res = await fetch("/api/checkout",{
         method:"POST",
         headers:{
@@ -45,16 +66,15 @@ export default function SignupPage() {
         })
       })
 
-      const dataCheckout = await res.json()
+      const data = await res.json()
 
-      if(!dataCheckout.url){
+      if(!data.url){
         alert("Stripe checkout failed")
         setLoading(false)
         return
       }
 
-      // redirect to stripe
-      window.location.href = dataCheckout.url
+      window.location.href = data.url
 
     }catch(err){
 
