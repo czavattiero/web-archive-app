@@ -100,9 +100,7 @@ export default function Home() {
             <li>PDF download</li>
           </ul>
 
-          <form action="/api/checkout" method="POST">
-            <input type="hidden" name="plan" value="basic" />
-
+          <a href="/signup?plan=basic">
             <button
               style={{
                 marginTop: 20,
@@ -116,7 +114,8 @@ export default function Home() {
             >
               Choose Basic
             </button>
-          </form>
+          </a>
+
         </div>
 
         {/* PROFESSIONAL PLAN */}
@@ -144,9 +143,7 @@ export default function Home() {
             <li>PDF archive</li>
           </ul>
 
-          <form action="/api/checkout" method="POST">
-            <input type="hidden" name="plan" value="pro" />
-
+          <a href="/signup?plan=pro">
             <button
               style={{
                 marginTop: 20,
@@ -160,7 +157,8 @@ export default function Home() {
             >
               Choose Professional
             </button>
-          </form>
+          </a>
+
         </div>
 
       </section>
