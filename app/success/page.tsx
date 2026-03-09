@@ -20,31 +20,41 @@ export default function SuccessPage(){
 
     async function verify(){
 
-      const res = await fetch("/api/verify-session",{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json"
-        },
-        body:JSON.stringify({
-          sessionId
+      try{
+
+        const res = await fetch("/api/verify-session",{
+          method:"POST",
+          headers:{
+            "Content-Type":"application/json"
+          },
+          body:JSON.stringify({
+            sessionId
+          })
         })
-      })
 
-      const data = await res.json()
+        const data = await res.json()
 
-      if(!data.success){
+        if(!data.success){
+          router.push("/")
+          return
+        }
+
+        // wait for Supabase auth session
+        const { data:sessionData } = await supabase.auth.getSession()
+
+        if(!sessionData.session){
+          router.push("/login")
+          return
+        }
+
+        router.push("/dashboard")
+
+      }catch(err){
+
+        console.error(err)
         router.push("/")
-        return
+
       }
-
-      const { data:sessionData } = await supabase.auth.getSession()
-
-      if(!sessionData.session){
-        router.push("/login")
-        return
-      }
-
-      router.push("/dashboard")
 
     }
 
@@ -64,7 +74,7 @@ export default function SuccessPage(){
       }}
     >
 
-      <h2>Payment successful. Loading dashboard...</h2>
+      <h2>Payment successful. Redirecting to dashboard...</h2>
 
     </main>
 
