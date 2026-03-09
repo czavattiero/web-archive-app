@@ -16,7 +16,11 @@ export default function Home() {
           padding: "25px 60px",
         }}
       >
-        <img src="/screenly.png" alt="Screenly" style={{ height: 45 }} />
+        <img
+          src="/screenly.png"
+          alt="Screenly"
+          style={{ height: 60 }}
+        />
 
         <a href="/login">
           <button
@@ -39,17 +43,15 @@ export default function Home() {
       <section
         style={{
           textAlign: "center",
-          paddingTop: 60,
+          paddingTop: 100,
           paddingBottom: 40,
         }}
       >
-        <img src="/screenly.png" style={{ width: 220 }} />
-
         <h1
           style={{
-            marginTop: 30,
-            fontSize: 34,
+            fontSize: 40,
             fontWeight: 700,
+            marginBottom: 10,
           }}
         >
           Because you have more important things to do
@@ -57,10 +59,10 @@ export default function Home() {
 
         <p
           style={{
-            maxWidth: 700,
-            margin: "20px auto",
-            fontSize: 18,
-            color: "#555",
+            maxWidth: 600,
+            margin: "0 auto",
+            fontSize: 14,
+            color: "#666",
             lineHeight: 1.6,
           }}
         >
@@ -77,9 +79,10 @@ export default function Home() {
           justifyContent: "center",
           gap: 40,
           paddingBottom: 80,
+          marginTop: 40,
         }}
       >
-        {/* Basic Plan */}
+        {/* Basic */}
         <div
           style={{
             background: "white",
@@ -135,7 +138,7 @@ export default function Home() {
           </a>
         </div>
 
-        {/* Professional Plan */}
+        {/* Professional */}
         <div
           style={{
             background: "white",
