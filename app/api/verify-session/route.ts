@@ -15,43 +15,55 @@ export async function POST(req: Request) {
 
   try {
 
-    const { session_id } = await req.json()
+    const body = await req.json()
+    const sessionId = body.session_id
 
-    const session = await stripe.checkout.sessions.retrieve(session_id)
+    if (!sessionId) {
+      console.log("Missing session id")
+      return NextResponse.json({ success: false })
+    }
 
-    if (!session || session.payment_status !== "paid") {
-      return NextResponse.json(
-        { error: "Payment not completed" },
-        { status: 400 }
-      )
+    const session = await stripe.checkout.sessions.retrieve(sessionId)
+
+    if (!session) {
+      console.log("Stripe session not found")
+      return NextResponse.json({ success: false })
+    }
+
+    if (session.payment_status !== "paid") {
+      console.log("Payment not completed")
+      return NextResponse.json({ success: false })
     }
 
     const userId = session.metadata?.user_id
 
     if (!userId) {
-      return NextResponse.json(
-        { error: "User ID missing from metadata" },
-        { status: 400 }
-      )
+      console.log("User ID missing from metadata")
+      return NextResponse.json({ success: false })
     }
 
-    await supabase.from("subscriptions").upsert({
-      user_id: userId,
-      stripe_customer_id: session.customer,
-      stripe_subscription_id: session.subscription,
-      status: "active"
-    })
+    const { error } = await supabase
+      .from("subscriptions")
+      .upsert({
+        user_id: userId,
+        stripe_customer_id: session.customer,
+        stripe_subscription_id: session.subscription,
+        status: "active"
+      })
+
+    if (error) {
+      console.log("Supabase insert error", error)
+      return NextResponse.json({ success: false })
+    }
 
     return NextResponse.json({ success: true })
 
   } catch (error) {
 
-    console.error(error)
+    console.error("Verification error:", error)
 
-    return NextResponse.json(
-      { error: "Verification failed" },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false })
 
   }
+
 }
