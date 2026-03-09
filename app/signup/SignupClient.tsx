@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useSearchParams } from "next/navigation"
 import { createClient } from "@supabase/supabase-js"
 
 const supabase = createClient(
@@ -9,81 +8,104 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export default function SignupClient() {
-
-  const params = useSearchParams()
-  const plan = params.get("plan") || "basic"
+export default function SignupClient({ plan }: { plan: string }) {
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const handleSignup = async () => {
+  async function handleSignup(e: React.FormEvent) {
+    e.preventDefault()
 
     setLoading(true)
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password
-    })
+    try {
 
-    if (error) {
-      alert(error.message)
-      setLoading(false)
-      return
-    }
-
-    const res = await fetch("/api/checkout", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        plan: plan
+      // Create Supabase user
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password
       })
-    })
 
-    const checkout = await res.json()
+      if (error) {
+        alert(error.message)
+        setLoading(false)
+        return
+      }
 
-    if (!checkout.url) {
-      alert("Stripe checkout failed")
-      setLoading(false)
-      return
+      const userId = data.user?.id
+
+      if (!userId) {
+        alert("User creation failed")
+        setLoading(false)
+        return
+      }
+
+      // Call checkout API
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          plan,
+          email,
+          userId
+        })
+      })
+
+      const result = await response.json()
+
+      if (!result.url) {
+        alert("Stripe checkout failed")
+        setLoading(false)
+        return
+      }
+
+      // Redirect to Stripe
+      window.location.href = result.url
+
+    } catch (err) {
+
+      console.error(err)
+      alert("Signup failed")
+
     }
 
-    window.location.href = checkout.url
+    setLoading(false)
   }
 
   return (
-    <div style={{ padding: "40px" }}>
 
-      <h1>Create your account</h1>
-
-      <p>
-        Selected plan: <strong>{plan}</strong>
-      </p>
+    <form onSubmit={handleSignup} className="space-y-4">
 
       <input
+        type="email"
         placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
+        required
+        className="w-full border p-2 rounded"
       />
-
-      <br /><br />
 
       <input
         type="password"
         placeholder="Password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        required
+        className="w-full border p-2 rounded"
       />
 
-      <br /><br />
-
-      <button onClick={handleSignup} disabled={loading}>
-        {loading ? "Creating..." : "Create Account"}
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full bg-indigo-600 text-white p-2 rounded"
+      >
+        {loading ? "Creating..." : "Create account"}
       </button>
 
-    </div>
+    </form>
+
   )
 }
