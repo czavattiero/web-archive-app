@@ -1,73 +1,71 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { createClient } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
-import { supabase } from "../../lib/supabase"
 
-export default function Dashboard(){
+const supabase = createClient(
+process.env.NEXT_PUBLIC_SUPABASE_URL!,
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
-  const router = useRouter()
+export default function Dashboard() {
 
-  const [loading,setLoading] = useState(true)
+const router = useRouter()
 
-  useEffect(()=>{
+const [loading, setLoading] = useState(true)
+const [user, setUser] = useState<any>(null)
 
-    async function checkUser(){
+useEffect(() => {
 
-      const { data } = await supabase.auth.getSession()
+async function loadUser() {
 
-      if(!data.session){
-        router.push("/login")
-        return
-      }
+const { data } = await supabase.auth.getUser()
 
-      setLoading(false)
+if (!data.user) {
+router.push("/")
+return
+}
 
-    }
+setUser(data.user)
 
-    checkUser()
+const { data: sub } = await supabase
+.from("subscriptions")
+.select("*")
+.eq("user_id", data.user.id)
+.single()
 
-  },[])
+if (!sub) {
+router.push("/")
+return
+}
 
-  async function handleLogout(){
+setLoading(false)
 
-    await supabase.auth.signOut()
+}
 
-    router.push("/")
+loadUser()
 
-  }
+}, [router])
 
-  if(loading){
-    return <p style={{padding:40}}>Loading dashboard...</p>
-  }
+if (loading) {
+return <div className="p-8">Loading dashboard...</div>
+}
 
-  return(
+return (
 
-    <main style={{padding:40,fontFamily:"system-ui"}}>
+<div className="p-8">
 
-      <div style={{display:"flex",justifyContent:"space-between"}}>
+<h1 className="text-2xl font-bold mb-6">
+Dashboard
+</h1>
 
-        <h1>Dashboard</h1>
+<p className="mb-6">
+Welcome {user.email}
+</p>
 
-        <button
-          onClick={handleLogout}
-          style={{
-            background:"#e74c3c",
-            color:"white",
-            border:"none",
-            padding:"8px 14px",
-            borderRadius:6
-          }}
-        >
-          Sign out
-        </button>
+</div>
 
-      </div>
-
-      <p>Welcome to your dashboard.</p>
-
-    </main>
-
-  )
+)
 
 }
