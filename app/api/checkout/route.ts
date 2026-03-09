@@ -6,10 +6,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 })
 
 export async function POST(req: Request) {
+
   try {
 
-    const formData = await req.formData()
-    const plan = formData.get("plan")
+    const { plan, email } = await req.json()
 
     let priceId: string | undefined
 
@@ -23,12 +23,11 @@ export async function POST(req: Request) {
 
     if (!priceId) {
       return NextResponse.json(
-        { error: "Invalid plan selected" },
+        { error: "Invalid plan" },
         { status: 400 }
       )
     }
 
-    // fallback so URL is always valid
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
       "https://web-archive-app.vercel.app"
@@ -36,7 +35,7 @@ export async function POST(req: Request) {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
 
-      payment_method_types: ["card"],
+      customer_email: email,
 
       line_items: [
         {
@@ -50,15 +49,8 @@ export async function POST(req: Request) {
       cancel_url: `${siteUrl}`,
     })
 
-    if (!session.url) {
-      return NextResponse.json(
-        { error: "Stripe session creation failed" },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.redirect(session.url, {
-      status: 303,
+    return NextResponse.json({
+      url: session.url
     })
 
   } catch (error) {
