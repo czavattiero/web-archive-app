@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
-export default function Dashboard() {
+export default function Dashboard(){
 
   const router = useRouter()
 
@@ -14,44 +14,47 @@ export default function Dashboard() {
   const [url,setUrl] = useState("")
   const [schedule,setSchedule] = useState("weekly")
 
-  useEffect(() => {
+  const [urls,setUrls] = useState<any[]>([])
 
-    async function loadUser(){
+  useEffect(()=>{
+
+    async function init(){
 
       const { data:sessionData } = await supabase.auth.getSession()
 
-      if(sessionData.session){
-        setUser(sessionData.session.user)
-        setLoading(false)
-        return
-      }
-
-      const { data:userData } = await supabase.auth.getUser()
-
-      if(!userData.user){
+      if(!sessionData.session){
         router.push("/login")
         return
       }
 
-      setUser(userData.user)
+      const currentUser = sessionData.session.user
+      setUser(currentUser)
+
+      await loadUrls(currentUser.id)
+
       setLoading(false)
 
     }
 
-    loadUser()
+    init()
 
-  },[router])
+  },[])
 
-  // LOGOUT FUNCTION
-  async function handleLogout(){
+  async function loadUrls(userId:string){
 
-    await supabase.auth.signOut()
+    const { data } = await supabase
+      .from("urls")
+      .select("*")
+      .eq("user_id",userId)
+      .order("created_at",{ascending:false})
 
-    router.push("/")
+    if(data){
+      setUrls(data)
+    }
 
   }
 
-  function handleAddUrl(e:any){
+  async function handleAddUrl(e:any){
 
     e.preventDefault()
 
@@ -60,9 +63,30 @@ export default function Dashboard() {
       return
     }
 
-    alert("URL added (backend connection comes later)")
+    const { error } = await supabase
+      .from("urls")
+      .insert({
+        user_id:user.id,
+        url:url,
+        schedule_type:schedule
+      })
+
+    if(error){
+      alert(error.message)
+      return
+    }
 
     setUrl("")
+
+    await loadUrls(user.id)
+
+  }
+
+  async function handleLogout(){
+
+    await supabase.auth.signOut()
+
+    router.push("/")
 
   }
 
@@ -70,11 +94,11 @@ export default function Dashboard() {
     return <p style={{padding:40}}>Loading dashboard...</p>
   }
 
-  return (
+  return(
 
     <main style={{padding:40,fontFamily:"system-ui"}}>
 
-      {/* Header */}
+      {/* HEADER */}
       <div
         style={{
           display:"flex",
@@ -83,7 +107,6 @@ export default function Dashboard() {
           marginBottom:30
         }}
       >
-
         <h1>Dashboard</h1>
 
         <button
@@ -99,10 +122,10 @@ export default function Dashboard() {
         >
           Log out
         </button>
-
       </div>
 
-      {/* Tracked URLs */}
+      {/* TRACKED URLS */}
+
       <h2>Tracked URLs</h2>
 
       <form onSubmit={handleAddUrl} style={{marginBottom:30}}>
@@ -137,7 +160,20 @@ export default function Dashboard() {
 
       <hr style={{margin:"30px 0"}}/>
 
-      {/* Capture History */}
+      {/* URL LIST */}
+
+      <h3>Your URLs</h3>
+
+      {urls.length === 0 && <p>No URLs yet.</p>}
+
+      {urls.map((u)=>(
+        <div key={u.id} style={{marginBottom:10}}>
+          {u.url} — {u.schedule_type}
+        </div>
+      ))}
+
+      <hr style={{margin:"30px 0"}}/>
+
       <h3>URL Capture History</h3>
 
       <p>No captures yet.</p>
