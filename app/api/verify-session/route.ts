@@ -18,6 +18,8 @@ export async function POST(req: Request) {
     const body = await req.json()
     const sessionId = body.session_id
 
+    console.log("SESSION ID:", sessionId)
+
     if (!sessionId) {
       console.log("Missing session id")
       return NextResponse.json({ success: false })
@@ -25,17 +27,21 @@ export async function POST(req: Request) {
 
     const session = await stripe.checkout.sessions.retrieve(sessionId)
 
+    console.log("STRIPE SESSION:", session)
+
     if (!session) {
       console.log("Stripe session not found")
       return NextResponse.json({ success: false })
     }
 
     if (session.payment_status !== "paid") {
-      console.log("Payment not completed")
+      console.log("Payment not completed:", session.payment_status)
       return NextResponse.json({ success: false })
     }
 
     const userId = session.metadata?.user_id
+
+    console.log("USER ID:", userId)
 
     if (!userId) {
       console.log("User ID missing from metadata")
@@ -52,9 +58,11 @@ export async function POST(req: Request) {
       })
 
     if (error) {
-      console.log("Supabase insert error", error)
+      console.log("Supabase error:", error)
       return NextResponse.json({ success: false })
     }
+
+    console.log("Subscription stored successfully")
 
     return NextResponse.json({ success: true })
 
