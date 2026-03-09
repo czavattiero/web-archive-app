@@ -9,7 +9,7 @@ export default function Home() {
       }}
     >
 
-      {/* Top bar */}
+      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -18,14 +18,13 @@ export default function Home() {
         }}
       >
         <div>
-          {/* Large logo */}
+
           <img
             src="/screenly.png"
             alt="Screenly"
             style={{ height: 140 }}
           />
 
-          {/* Tagline */}
           <h2
             style={{
               marginTop: 10,
@@ -36,7 +35,6 @@ export default function Home() {
             Because you have more important things to do
           </h2>
 
-          {/* Description */}
           <p
             style={{
               marginTop: 10,
@@ -52,7 +50,6 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Login button */}
         <a href="/login">
           <button
             style={{
@@ -70,7 +67,7 @@ export default function Home() {
         </a>
       </div>
 
-      {/* Pricing section */}
+      {/* Pricing */}
       <section
         style={{
           display: "flex",
@@ -79,7 +76,8 @@ export default function Home() {
           marginTop: 120,
         }}
       >
-        {/* Basic */}
+
+        {/* BASIC PLAN */}
         <div
           style={{
             background: "white",
@@ -102,7 +100,9 @@ export default function Home() {
             <li>PDF download</li>
           </ul>
 
-          <a href="/api/checkout?plan=basic">
+          <form action="/api/checkout" method="POST">
+            <input type="hidden" name="plan" value="basic" />
+
             <button
               style={{
                 marginTop: 20,
@@ -116,10 +116,10 @@ export default function Home() {
             >
               Choose Basic
             </button>
-          </a>
+          </form>
         </div>
 
-        {/* Professional */}
+        {/* PROFESSIONAL PLAN */}
         <div
           style={{
             background: "white",
@@ -144,7 +144,9 @@ export default function Home() {
             <li>PDF archive</li>
           </ul>
 
-          <a href="/api/checkout?plan=pro">
+          <form action="/api/checkout" method="POST">
+            <input type="hidden" name="plan" value="pro" />
+
             <button
               style={{
                 marginTop: 20,
@@ -158,8 +160,9 @@ export default function Home() {
             >
               Choose Professional
             </button>
-          </a>
+          </form>
         </div>
+
       </section>
 
     </main>
