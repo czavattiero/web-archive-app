@@ -1,59 +1,42 @@
+import { NextResponse } from "next/server"
 import Stripe from "stripe"
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2023-10-16",
+})
 
 export async function POST(req: Request) {
 
-  try {
+  const formData = await req.formData()
+  const plan = formData.get("plan")
 
-    let body: any = {}
+  let priceId: string | undefined
 
-    try {
-      body = await req.json()
-    } catch {
-      body = {}
-    }
-
-    const plan = body.plan || "basic"
-
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: "2023-10-16"
-    })
-
-    let priceId = process.env.STRIPE_BASIC_PRICE_ID
-
-    if (plan === "professional") {
-      priceId = process.env.STRIPE_PRO_PRICE_ID
-    }
-
-    const session = await stripe.checkout.sessions.create({
-
-      mode: "subscription",
-
-      payment_method_types: ["card"],
-
-      line_items: [
-        {
-          price: priceId!,
-          quantity: 1
-        }
-      ],
-
-      success_url: "https://web-archive-app.vercel.app/dashboard",
-      cancel_url: "https://web-archive-app.vercel.app/signup"
-
-    })
-
-    return new Response(JSON.stringify({
-      url: session.url
-    }), { status: 200 })
-
-  } catch (error: any) {
-
-    console.error("Stripe error:", error)
-
-    return new Response(JSON.stringify({
-      error: error.message
-    }), { status: 500 })
-
+  if (plan === "basic") {
+    priceId = process.env.STRIPE_BASIC_PRICE_ID
   }
 
+  if (plan === "pro") {
+    priceId = process.env.STRIPE_PRO_PRICE_ID
+  }
+
+  if (!priceId) {
+    return NextResponse.json({ error: "Invalid plan" }, { status: 400 })
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+
+    line_items: [
+      {
+        price: priceId,
+        quantity: 1,
+      },
+    ],
+
+    success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}`,
+  })
+
+  return NextResponse.redirect(session.url!)
 }
