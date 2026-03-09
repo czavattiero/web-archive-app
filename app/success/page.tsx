@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 export default function SuccessPage() {
 
@@ -19,24 +19,34 @@ export default function SuccessPage() {
 
     async function verifyPayment() {
 
-      const res = await fetch("/api/verify-session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          sessionId
+      try {
+
+        const res = await fetch("/api/verify-session", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            sessionId
+          })
         })
-      })
 
-      const data = await res.json()
+        const data = await res.json()
 
-      if (!data.success) {
+        if (!data.success) {
+          router.push("/")
+          return
+        }
+
+        // redirect to dashboard
+        router.push("/dashboard")
+
+      } catch (err) {
+
+        console.error(err)
         router.push("/")
-        return
-      }
 
-      router.push("/dashboard")
+      }
 
     }
 
@@ -45,6 +55,7 @@ export default function SuccessPage() {
   }, [params, router])
 
   return (
+
     <main
       style={{
         minHeight: "100vh",
@@ -54,7 +65,11 @@ export default function SuccessPage() {
         fontFamily: "system-ui"
       }}
     >
-      <h2>Payment successful. Preparing your dashboard...</h2>
+
+      <h2>Payment successful. Loading dashboard...</h2>
+
     </main>
+
   )
+
 }
