@@ -12,16 +12,30 @@ export default function Home() {
         style={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
-          padding: "25px 60px",
+          alignItems: "flex-start",
+          padding: "40px 60px",
         }}
       >
-        <img
-          src="/screenly.png"
-          alt="Screenly"
-          style={{ height: 60 }}
-        />
+        {/* Logo + tagline */}
+        <div>
+          <img
+            src="/screenly.png"
+            alt="Screenly"
+            style={{ height: 120 }}
+          />
 
+          <p
+            style={{
+              marginTop: 10,
+              fontSize: 16,
+              color: "#444",
+            }}
+          >
+            Because you have more important things to do
+          </p>
+        </div>
+
+        {/* Login button */}
         <a href="/login">
           <button
             style={{
@@ -39,47 +53,29 @@ export default function Home() {
         </a>
       </header>
 
-      {/* Hero Section */}
+      {/* Description */}
       <section
         style={{
-          textAlign: "center",
-          paddingTop: 100,
-          paddingBottom: 40,
+          maxWidth: 650,
+          marginLeft: 60,
+          marginTop: 20,
+          color: "#666",
+          fontSize: 15,
+          lineHeight: 1.6,
         }}
       >
-        <h1
-          style={{
-            fontSize: 40,
-            fontWeight: 700,
-            marginBottom: 10,
-          }}
-        >
-          Because you have more important things to do
-        </h1>
-
-        <p
-          style={{
-            maxWidth: 600,
-            margin: "0 auto",
-            fontSize: 14,
-            color: "#666",
-            lineHeight: 1.6,
-          }}
-        >
-          Screenly allows you to automate the capture of URLs and schedule
-          future captures. Each capture is stored as a PDF that can be
-          downloaded anytime from your dashboard.
-        </p>
+        Screenly allows you to automate the capture of URLs and schedule
+        future captures. Each capture is stored as a PDF that can be
+        downloaded anytime from your dashboard.
       </section>
 
-      {/* Pricing Section */}
+      {/* Pricing */}
       <section
         style={{
           display: "flex",
           justifyContent: "center",
           gap: 40,
-          paddingBottom: 80,
-          marginTop: 40,
+          marginTop: 80,
         }}
       >
         {/* Basic */}
@@ -93,27 +89,19 @@ export default function Home() {
             textAlign: "center",
           }}
         >
-          <h3 style={{ fontSize: 22 }}>Basic</h3>
+          <h3>Basic</h3>
 
-          <p
-            style={{
-              fontSize: 34,
-              fontWeight: 700,
-              margin: "10px 0",
-            }}
-          >
-            $9
-          </p>
+          <p style={{ fontSize: 34, fontWeight: 700 }}>$9</p>
 
-          <p style={{ color: "#666", marginBottom: 25 }}>per month</p>
+          <p style={{ color: "#666" }}>per month</p>
 
           <ul
             style={{
               listStyle: "none",
               padding: 0,
+              marginTop: 20,
               marginBottom: 25,
               color: "#555",
-              lineHeight: 1.8,
             }}
           >
             <li>10 monitored URLs</li>
@@ -150,27 +138,19 @@ export default function Home() {
             border: "2px solid #5B4DFF",
           }}
         >
-          <h3 style={{ fontSize: 22 }}>Professional</h3>
+          <h3>Professional</h3>
 
-          <p
-            style={{
-              fontSize: 34,
-              fontWeight: 700,
-              margin: "10px 0",
-            }}
-          >
-            $29
-          </p>
+          <p style={{ fontSize: 34, fontWeight: 700 }}>$29</p>
 
-          <p style={{ color: "#666", marginBottom: 25 }}>per month</p>
+          <p style={{ color: "#666" }}>per month</p>
 
           <ul
             style={{
               listStyle: "none",
               padding: 0,
+              marginTop: 20,
               marginBottom: 25,
               color: "#555",
-              lineHeight: 1.8,
             }}
           >
             <li>Unlimited URLs</li>
