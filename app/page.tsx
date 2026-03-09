@@ -90,7 +90,7 @@ export default function Home() {
         >
           <h3>Basic</h3>
 
-          <p style={{ fontSize: 34, fontWeight: 700 }}>$9</p>
+          <p style={{ fontSize: 34, fontWeight: 700 }}>$15</p>
 
           <p style={{ color: "#777" }}>per month</p>
 
@@ -133,7 +133,7 @@ export default function Home() {
         >
           <h3>Professional</h3>
 
-          <p style={{ fontSize: 34, fontWeight: 700 }}>$29</p>
+          <p style={{ fontSize: 34, fontWeight: 700 }}>$30</p>
 
           <p style={{ color: "#777" }}>per month</p>
 
