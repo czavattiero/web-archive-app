@@ -2,12 +2,6 @@
 
 import { useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { createClient } from "@supabase/supabase-js"
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 export default function SuccessPage() {
 
@@ -21,13 +15,6 @@ export default function SuccessPage() {
       const sessionId = params.get("session_id")
 
       if (!sessionId) {
-        router.push("/")
-        return
-      }
-
-      const { data: session } = await supabase.auth.getSession()
-
-      if (!session?.session) {
         router.push("/")
         return
       }
@@ -54,7 +41,7 @@ export default function SuccessPage() {
 
     verify()
 
-  }, [])
+  }, [params, router])
 
   return (
     <div className="flex items-center justify-center h-screen">
