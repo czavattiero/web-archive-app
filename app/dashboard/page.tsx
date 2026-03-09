@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
-export default function Dashboard() {
+export default function Dashboard(){
 
   const router = useRouter()
 
@@ -56,76 +56,90 @@ export default function Dashboard() {
 
   return (
 
-    <main style={{padding:40,fontFamily:"system-ui"}}>
+    <main style={{fontFamily:"system-ui"}}>
 
-      {/* HEADER */}
+      {/* NAVBAR */}
 
       <div
         style={{
           display:"flex",
           justifyContent:"space-between",
           alignItems:"center",
-          marginBottom:30
+          padding:"16px 40px",
+          borderBottom:"1px solid #ddd"
         }}
       >
 
-        <h1>Dashboard</h1>
+        <h2 style={{margin:0}}>Screenly</h2>
 
-        <button
-          onClick={handleLogout}
-          style={{
-            padding:"8px 14px",
-            background:"#e63946",
-            color:"white",
-            border:"none",
-            borderRadius:6,
-            cursor:"pointer"
-          }}
-        >
-          Sign out
-        </button>
+        <div style={{display:"flex",gap:20,alignItems:"center"}}>
+
+          <span style={{cursor:"pointer"}}>Dashboard</span>
+          <span style={{cursor:"pointer"}}>URLs</span>
+          <span style={{cursor:"pointer"}}>Captures</span>
+          <span style={{cursor:"pointer"}}>Billing</span>
+
+          <button
+            onClick={handleLogout}
+            style={{
+              padding:"6px 12px",
+              background:"#e63946",
+              color:"white",
+              border:"none",
+              borderRadius:6,
+              cursor:"pointer"
+            }}
+          >
+            Sign out
+          </button>
+
+        </div>
 
       </div>
 
-      {/* TRACKED URLS */}
+      {/* PAGE CONTENT */}
 
-      <h2>Tracked URLs</h2>
+      <div style={{padding:40}}>
 
-      <form onSubmit={handleAddUrl} style={{marginBottom:30}}>
+        <h2>Tracked URLs</h2>
 
-        <input
-          type="text"
-          placeholder="https://example.com"
-          value={url}
-          onChange={(e)=>setUrl(e.target.value)}
-          style={{
-            padding:8,
-            width:250,
-            marginRight:10
-          }}
-        />
+        <form onSubmit={handleAddUrl} style={{marginBottom:30}}>
 
-        <select
-          value={schedule}
-          onChange={(e)=>setSchedule(e.target.value)}
-          style={{padding:8,marginRight:10}}
-        >
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="hourly">Hourly</option>
-        </select>
+          <input
+            type="text"
+            placeholder="https://example.com"
+            value={url}
+            onChange={(e)=>setUrl(e.target.value)}
+            style={{
+              padding:8,
+              width:250,
+              marginRight:10
+            }}
+          />
 
-        <button type="submit">
-          Add URL
-        </button>
+          <select
+            value={schedule}
+            onChange={(e)=>setSchedule(e.target.value)}
+            style={{padding:8,marginRight:10}}
+          >
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="hourly">Hourly</option>
+          </select>
 
-      </form>
+          <button type="submit">
+            Add URL
+          </button>
 
-      <hr style={{margin:"30px 0"}}/>
+        </form>
 
-      <h3>URL Capture History</h3>
+        <hr style={{margin:"30px 0"}}/>
 
-      <p>No captures yet.</p>
+        <h3>URL Capture History</h3>
+
+        <p>No captures yet.</p>
+
+      </div>
 
     </main>
 
