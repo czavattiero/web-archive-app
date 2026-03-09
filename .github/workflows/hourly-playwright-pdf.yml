@@ -1,0 +1,35 @@
+name: Hourly Playwright PDF Capture
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # every hour
+  workflow_dispatch:
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Capture PDFs
+        run: |
+          mkdir -p captures
+          node -e '
+          const { chromium } = require("playwright");
+          (async () => {
+            const urls = ["https://example.com","https://example.org"];
+            const browser = await chromium.launch({ headless: true });
+            for (const u of urls) {
+              const p = await browser.newPage();
+              await p.goto(u, { waitUntil: "networkidle", timeout: 60000 });
+              const f = "captures/" + new URL(u).hostname + ".pdf";
+              await p.pdf({ path: f, format: "A4", printBackground: true });
+              await p.close();
+            }
+            await browser.close();
+          })();'
+      - uses: actions/upload-artifact@v4
+        with: { name: hourly-pdfs, path: captures/*.pdf }
