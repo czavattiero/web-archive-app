@@ -24,9 +24,18 @@ export async function POST(req: Request) {
       )
     }
 
+    // Retrieve Stripe checkout session
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
       expand: ["subscription"]
     })
+
+    // Ensure payment completed
+    if (session.payment_status !== "paid") {
+      return NextResponse.json(
+        { success: false, error: "Payment not completed" },
+        { status: 400 }
+      )
+    }
 
     const email = session.customer_details?.email
 
@@ -47,6 +56,7 @@ export async function POST(req: Request) {
         ? session.customer
         : session.customer?.id
 
+    // Save subscription in Supabase
     const { error } = await supabase
       .from("subscriptions")
       .upsert({
@@ -58,7 +68,7 @@ export async function POST(req: Request) {
 
     if (error) {
 
-      console.error(error)
+      console.error("Supabase error:", error)
 
       return NextResponse.json(
         { success: false, error: "Database error" },
