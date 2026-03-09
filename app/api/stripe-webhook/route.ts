@@ -20,7 +20,11 @@ export async function POST(req: Request) {
 
   const body = await req.text()
 
-  const signature = req.headers.get("stripe-signature")!
+  const signature = req.headers.get("stripe-signature")
+
+  if (!signature) {
+    return new Response("Missing Stripe signature", { status: 400 })
+  }
 
   let event: Stripe.Event
 
@@ -39,23 +43,52 @@ export async function POST(req: Request) {
     return new Response("Webhook Error", { status: 400 })
   }
 
-  if (event.type === "checkout.session.completed") {
+  try {
 
-    const session: any = event.data.object
+    if (event.type === "checkout.session.completed") {
 
-    const subscriptionId = session.subscription
-    const customerId = session.customer
+      const session = event.data.object as Stripe.Checkout.Session
 
-    await supabase
-      .from("subscriptions")
-      .insert({
-        stripe_customer_id: customerId,
-        stripe_subscription_id: subscriptionId,
-        status: "active"
-      })
+      const email = session.customer_details?.email
 
-    console.log("Subscription stored")
+      const subscriptionId =
+        typeof session.subscription === "string"
+          ? session.subscription
+          : session.subscription?.id
+
+      const customerId =
+        typeof session.customer === "string"
+          ? session.customer
+          : session.customer?.id
+
+      if (!email || !subscriptionId || !customerId) {
+        console.error("Missing required Stripe data")
+        return new Response("Missing data", { status: 400 })
+      }
+
+      const { error } = await supabase
+        .from("subscriptions")
+        .upsert({
+          email: email,
+          stripe_customer_id: customerId,
+          stripe_subscription_id: subscriptionId,
+          status: "active"
+        })
+
+      if (error) {
+        console.error("Supabase error:", error)
+        return new Response("Database error", { status: 500 })
+      }
+
+      console.log("Subscription stored successfully")
+    }
+
+    return new Response("ok", { status: 200 })
+
+  } catch (err) {
+
+    console.error("Webhook processing error:", err)
+
+    return new Response("Server error", { status: 500 })
   }
-
-  return new Response("ok", { status: 200 })
 }
