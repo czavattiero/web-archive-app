@@ -1,32 +1,40 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
 export default function Dashboard() {
 
   const router = useRouter()
+  const [loading,setLoading] = useState(true)
 
   useEffect(() => {
 
-    async function checkUser() {
+    async function loadUser(){
 
       const { data } = await supabase.auth.getUser()
 
-      if (!data.user) {
+      if(!data.user){
         router.push("/login")
+        return
       }
+
+      setLoading(false)
 
     }
 
-    checkUser()
+    loadUser()
 
-  }, [])
+  },[])
+
+  if(loading){
+    return <p style={{padding:40}}>Loading dashboard...</p>
+  }
 
   return (
 
-    <main style={{ padding: 40 }}>
+    <main style={{padding:40}}>
 
       <h1>Dashboard</h1>
 
