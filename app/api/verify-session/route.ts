@@ -15,82 +15,50 @@ export async function POST(req: Request) {
 
   try {
 
-    const { sessionId } = await req.json()
+    const { session_id } = await req.json()
 
-    if (!sessionId) {
-      return NextResponse.json(
-        { success: false, error: "Missing sessionId" },
-        { status: 400 }
-      )
+    if (!session_id) {
+      return NextResponse.json({ error: "Missing session_id" }, { status: 400 })
     }
 
-    // Retrieve Stripe checkout session
-    const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ["subscription"]
-    })
+    const session = await stripe.checkout.sessions.retrieve(session_id)
 
-    // Ensure payment completed
     if (session.payment_status !== "paid") {
-      return NextResponse.json(
-        { success: false, error: "Payment not completed" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Payment not completed" }, { status: 400 })
     }
 
-    const email = session.customer_details?.email
+    const email = session.customer_email
 
     if (!email) {
-      return NextResponse.json(
-        { success: false, error: "Customer email not found" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Missing email" }, { status: 400 })
     }
 
-    const subscriptionId =
-      typeof session.subscription === "string"
-        ? session.subscription
-        : session.subscription?.id
+    const { data: user } = await supabase.auth.admin.listUsers()
 
-    const customerId =
-      typeof session.customer === "string"
-        ? session.customer
-        : session.customer?.id
+    const matchedUser = user.users.find((u) => u.email === email)
 
-    // Save subscription in Supabase
-    const { error } = await supabase
+    if (!matchedUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    const userId = matchedUser.id
+
+    await supabase
       .from("subscriptions")
       .upsert({
-        email: email,
-        stripe_customer_id: customerId,
-        stripe_subscription_id: subscriptionId,
+        user_id: userId,
+        stripe_customer_id: session.customer,
+        stripe_subscription_id: session.subscription,
         status: "active"
       })
 
-    if (error) {
+    return NextResponse.json({ success: true })
 
-      console.error("Supabase error:", error)
+  } catch (error) {
 
-      return NextResponse.json(
-        { success: false, error: "Database error" },
-        { status: 500 }
-      )
+    console.error(error)
 
-    }
-
-    return NextResponse.json({
-      success: true,
-      email
-    })
-
-  } catch (err) {
-
-    console.error("Verify session error:", err)
-
-    return NextResponse.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Verification failed" }, { status: 500 })
 
   }
-
 }
