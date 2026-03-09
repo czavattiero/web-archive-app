@@ -8,7 +8,6 @@ export default function Dashboard(){
 
   const router = useRouter()
 
-  const [user,setUser] = useState<any>(null)
   const [loading,setLoading] = useState(true)
 
   const [url,setUrl] = useState("")
@@ -16,21 +15,20 @@ export default function Dashboard(){
 
   useEffect(()=>{
 
-    async function init(){
+    async function checkUser(){
 
-      const { data:sessionData } = await supabase.auth.getSession()
+      const { data } = await supabase.auth.getSession()
 
-      if(!sessionData.session){
+      if(!data.session){
         router.push("/login")
         return
       }
 
-      setUser(sessionData.session.user)
       setLoading(false)
 
     }
 
-    init()
+    checkUser()
 
   },[])
 
@@ -46,7 +44,7 @@ export default function Dashboard(){
 
     e.preventDefault()
 
-    alert("URL added (database step next)")
+    alert("URL added (database connection next)")
 
     setUrl("")
 
