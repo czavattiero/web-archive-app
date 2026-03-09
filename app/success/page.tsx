@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { supabase } from "../../lib/supabase"
 
 export default function SuccessPage() {
 
@@ -21,6 +22,7 @@ export default function SuccessPage() {
 
       try {
 
+        // verify Stripe session
         const res = await fetch("/api/verify-session", {
           method: "POST",
           headers: {
@@ -35,6 +37,14 @@ export default function SuccessPage() {
 
         if (!data.success) {
           router.push("/")
+          return
+        }
+
+        // wait for Supabase session
+        const { data:sessionData } = await supabase.auth.getSession()
+
+        if (!sessionData.session) {
+          router.push("/login")
           return
         }
 
