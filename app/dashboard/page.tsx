@@ -31,7 +31,7 @@ return
 
 setUser(data.user)
 
-/* load urls */
+/* load tracked URLs */
 
 const { data:urlsData } = await supabase
 .from("urls")
@@ -47,13 +47,15 @@ setUrls(urlsData)
 
 const { data:capturesData } = await supabase
 .from("captures")
-.select(`id,
+.select(`
+id,
 captured_at,
 file_path,
 urls!inner(
 url,
 user_id
-)`)
+)
+`)
 .eq("urls.user_id",data.user.id)
 .order("captured_at",{ascending:false})
 
@@ -73,9 +75,7 @@ async function addUrl(){
 
 if(!url) return
 
-/* insert URL */
-
-const { data:newUrl, error:urlError } = await supabase
+const { error } = await supabase
 .from("urls")
 .insert({
 user_id:user.id,
@@ -86,27 +86,9 @@ schedule === "specific_date"
 ? specificDate
 : new Date()
 })
-.select()
-.single()
 
-if(urlError){
-alert(urlError.message)
-return
-}
-
-/* create screenshot job */
-
-const { error:jobError } = await supabase
-.from("screenshot_jobs")
-.insert({
-url_id:newUrl.id,
-user_id:user.id,
-url:url,
-status:"pending"
-})
-
-if(jobError){
-alert(jobError.message)
+if(error){
+alert(error.message)
 return
 }
 
@@ -130,11 +112,15 @@ return <div style={{padding:"40px"}}>Loading dashboard...</div>
 
 return (
 
-<div style={{
+<div
+style={{
 padding:"40px",
 fontFamily:"system-ui",
 maxWidth:"1100px"
-}}>
+}}
+>
+
+{/* HEADER */}
 
 <div style={{display:"flex",justifyContent:"space-between"}}>
 
@@ -154,12 +140,13 @@ borderRadius:6,
 height:"40px",
 cursor:"pointer"
 }}
-
 >
-
-Sign Out </button>
+Sign Out
+</button>
 
 </div>
+
+{/* ADD URL */}
 
 <div style={{marginTop:"40px",marginBottom:"50px"}}>
 
@@ -186,7 +173,6 @@ padding:"10px",
 display:"block",
 marginBottom:"12px"
 }}
-
 >
 
 <option value="weekly">Weekly</option>
@@ -222,22 +208,25 @@ border:"none",
 borderRadius:6,
 cursor:"pointer"
 }}
-
 >
-
-Add URL </button>
+Add URL
+</button>
 
 </div>
+
+{/* TRACKED URLS */}
 
 <div style={{marginBottom:"60px"}}>
 
 <h2>Tracked URLs</h2>
 
-<table style={{
+<table
+style={{
 width:"100%",
 borderCollapse:"collapse",
 marginTop:"10px"
-}}>
+}}
+>
 
 <thead>
 
@@ -252,7 +241,6 @@ marginTop:"10px"
 <tbody>
 
 {urls.map((u)=>(
-
 <tr key={u.id} style={{borderBottom:"1px solid #eee"}}>
 
 <td>{u.url}</td>
@@ -272,15 +260,19 @@ marginTop:"10px"
 
 </div>
 
+{/* CAPTURE HISTORY */}
+
 <div>
 
 <h2>Capture History</h2>
 
-<table style={{
+<table
+style={{
 width:"100%",
 borderCollapse:"collapse",
 marginTop:"10px"
-}}>
+}}
+>
 
 <thead>
 
@@ -295,7 +287,6 @@ marginTop:"10px"
 <tbody>
 
 {captures.map((c)=>(
-
 <tr key={c.id} style={{borderBottom:"1px solid #eee"}}>
 
 <td>{c.urls?.url}</td>
