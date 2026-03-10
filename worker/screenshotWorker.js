@@ -1,160 +1,115 @@
-require("dotenv").config({ path: ".env.local" })
-
-const puppeteer = require("puppeteer")
+const { chromium } = require("playwright")
 const fs = require("fs")
+const path = require("path")
 const { createClient } = require("@supabase/supabase-js")
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+process.env.NEXT_PUBLIC_SUPABASE_URL,
+process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-async function createScheduledJobs() {
+async function runCapture(){
 
-  const now = new Date().toISOString()
+const { data:urls, error } = await supabase
+.from("urls")
+.select("*")
 
-  const { data: urls, error } = await supabase
-    .from("urls")
-    .select("*")
-    .lte("next_capture_at", now)
+if(error){
+console.log("Error loading URLs:",error)
+return
+}
 
-  if (error) {
-    console.log("Scheduler query error:", error)
-    return
-  }
+if(!urls || urls.length === 0){
+console.log("No URLs found")
+return
+}
 
-  console.log("Scheduled URLs found:", urls)
+for(const urlRow of urls){
 
-  if (!urls || urls.length === 0) {
-    return
-  }
+console.log("Capturing:",urlRow.url)
 
-  for (const site of urls) {
+try{
 
-    console.log("Scheduled capture triggered:", site.url)
+const browser = await chromium.launch()
 
-    await supabase.from("screenshot_jobs").insert({
-      url: site.url,
-      status: "pending"
-    })
+const page = await browser.newPage()
 
-    if (site.schedule_value > 0) {
+await page.goto(urlRow.url,{
+waitUntil:"networkidle"
+})
 
-      const nextDate = new Date()
-      nextDate.setDate(nextDate.getDate() + site.schedule_value)
+/* Alberta timestamp */
 
-      await supabase
-        .from("urls")
-        .update({ next_capture_at: nextDate.toISOString() })
-        .eq("id", site.id)
+const timestamp = new Date().toLocaleString("en-CA",{
+timeZone:"America/Edmonton"
+})
 
-    }
+await page.evaluate((timestamp)=>{
 
-  }
+const banner = document.createElement("div")
+
+banner.innerText = "Captured: "+timestamp+" Alberta Time"
+
+banner.style.position="fixed"
+banner.style.top="0"
+banner.style.left="0"
+banner.style.right="0"
+banner.style.background="white"
+banner.style.color="black"
+banner.style.fontSize="14px"
+banner.style.padding="6px"
+banner.style.zIndex="999999"
+banner.style.borderBottom="1px solid #ccc"
+
+document.body.prepend(banner)
+
+},timestamp)
+
+/* generate PDF */
+
+const fileName = `${Date.now()}.pdf`
+const filePath = path.join("/tmp",fileName)
+
+await page.pdf({
+path:filePath,
+format:"A4"
+})
+
+await browser.close()
+
+/* upload PDF to Supabase */
+
+const fileBuffer = fs.readFileSync(filePath)
+
+await supabase.storage
+.from("captures")
+.upload(fileName,fileBuffer,{
+contentType:"application/pdf"
+})
+
+const publicUrl =
+`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${fileName}`
+
+/* insert capture record */
+
+await supabase.from("captures").insert({
+
+url_id:urlRow.id,
+captured_at:new Date(),
+file_path:publicUrl
+
+})
+
+console.log("Capture stored")
+
+}catch(err){
+
+console.log("Capture failed:",err)
 
 }
 
-async function processJobs() {
-
-  const { data: jobs } = await supabase
-    .from("screenshot_jobs")
-    .select("*")
-    .eq("status", "pending")
-    .limit(1)
-
-  if (!jobs || jobs.length === 0) {
-    console.log("Checking for pending jobs...")
-    console.log("No pending jobs")
-    return
-  }
-
-  const job = jobs[0]
-
-  console.log("Processing:", job.url)
-
-  const browser = await puppeteer.launch()
-  const page = await browser.newPage()
-
-  await page.goto(job.url, { waitUntil: "networkidle2" })
-
-  // Alberta time (Mountain Time)
-  const timestamp = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Edmonton",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit"
-  }).format(new Date())
-
-  await page.evaluate((url, timestamp) => {
-
-    const header = document.createElement("div")
-
-    header.style.width = "100%"
-    header.style.background = "#f2f2f2"
-    header.style.borderBottom = "2px solid #000"
-    header.style.padding = "10px"
-    header.style.fontSize = "12px"
-    header.style.fontFamily = "Arial"
-
-    header.innerHTML = `
-      <strong>Captured URL:</strong> ${url}<br>
-      <strong>Capture Time (Alberta):</strong> ${timestamp}<br>
-      <strong>Archived by:</strong> Website Archiving Service
-    `
-
-    document.body.insertBefore(header, document.body.firstChild)
-
-  }, job.url, timestamp)
-
-  const filePath = `/tmp/${job.id}.pdf`
-
-  await page.pdf({
-    path: filePath,
-    format: "A4",
-    printBackground: true
-  })
-
-  await browser.close()
-
-  const fileBuffer = fs.readFileSync(filePath)
-
-  const { error } = await supabase.storage
-    .from("screenshots")
-    .upload(`${job.id}.pdf`, fileBuffer, {
-      contentType: "application/pdf",
-      upsert: true
-    })
-
-  if (error) {
-    console.error("Upload failed:", error)
-    return
-  }
-
-  const publicUrl =
-    
-`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/screenshots/${job.id}.pdf`
-
-  await supabase
-    .from("screenshot_jobs")
-    .update({
-      status: "complete",
-      image_url: publicUrl
-    })
-    .eq("id", job.id)
-
-  console.log("Capture saved:", publicUrl)
+}
 
 }
 
-async function workerLoop() {
-
-  await createScheduledJobs()
-
-  await processJobs()
-
-}
-
-setInterval(workerLoop, 10000)
+runCapture()
