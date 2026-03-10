@@ -1,115 +1,112 @@
-const { chromium } = require("playwright")
-const fs = require("fs")
-const path = require("path")
-const { createClient } = require("@supabase/supabase-js")
+import { createClient } from "@supabase/supabase-js"
+import playwright from "playwright"
+import fs from "fs"
+import path from "path"
+import dotenv from "dotenv"
+
+dotenv.config({ path: ".env.local" })
 
 const supabase = createClient(
-process.env.NEXT_PUBLIC_SUPABASE_URL,
-process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-async function runCapture(){
+async function run() {
 
-const { data:urls, error } = await supabase
-.from("urls")
-.select("*")
+  console.log("Fetching URLs...")
 
-if(error){
-console.log("Error loading URLs:",error)
-return
-}
+  const { data: urls, error } = await supabase
+    .from("urls")
+    .select("*")
 
-if(!urls || urls.length === 0){
-console.log("No URLs found")
-return
-}
+  if (error) {
+    console.error("Error fetching URLs:", error)
+    return
+  }
 
-for(const urlRow of urls){
+  const browser = await playwright.chromium.launch()
 
-console.log("Capturing:",urlRow.url)
+  for (const url of urls) {
 
-try{
+    try {
 
-const browser = await chromium.launch()
+      console.log("Capturing:", url.url)
 
-const page = await browser.newPage()
+      const page = await browser.newPage()
 
-await page.goto(urlRow.url,{
-waitUntil:"networkidle"
-})
+      await page.goto(url.url, { waitUntil: "networkidle" })
 
-/* Alberta timestamp */
+      const timestamp = new Date().toLocaleString("en-CA", {
+        timeZone: "America/Edmonton"
+      })
 
-const timestamp = new Date().toLocaleString("en-CA",{
-timeZone:"America/Edmonton"
-})
+      await page.evaluate((timestamp) => {
 
-await page.evaluate((timestamp)=>{
+        const banner = document.createElement("div")
 
-const banner = document.createElement("div")
+        banner.innerText = "Captured: " + timestamp
 
-banner.innerText = "Captured: "+timestamp+" Alberta Time"
+        banner.style.position = "fixed"
+        banner.style.top = "0"
+        banner.style.left = "0"
+        banner.style.width = "100%"
+        banner.style.background = "white"
+        banner.style.color = "black"
+        banner.style.padding = "6px"
+        banner.style.fontSize = "12px"
+        banner.style.zIndex = "999999"
 
-banner.style.position="fixed"
-banner.style.top="0"
-banner.style.left="0"
-banner.style.right="0"
-banner.style.background="white"
-banner.style.color="black"
-banner.style.fontSize="14px"
-banner.style.padding="6px"
-banner.style.zIndex="999999"
-banner.style.borderBottom="1px solid #ccc"
+        document.body.prepend(banner)
 
-document.body.prepend(banner)
+      }, timestamp)
 
-},timestamp)
+      const fileName = `capture-${url.id}-${Date.now()}.pdf`
+      const filePath = `./screenshots/${fileName}`
 
-/* generate PDF */
+      await page.pdf({
+        path: filePath,
+        format: "A4"
+      })
 
-const fileName = `${Date.now()}.pdf`
-const filePath = path.join("/tmp",fileName)
+      const fileBuffer = fs.readFileSync(filePath)
 
-await page.pdf({
-path:filePath,
-format:"A4"
-})
+      const { data: storageData, error: uploadError } =
+        await supabase.storage
+          .from("captures")
+          .upload(fileName, fileBuffer, {
+            contentType: "application/pdf"
+          })
 
-await browser.close()
+      if (uploadError) {
+        console.error("Upload error:", uploadError)
+        continue
+      }
 
-/* upload PDF to Supabase */
+      await supabase.from("captures").insert({
+        url_id: url.id,
+        file_path: fileName,
+        captured_at: new Date(),
+        status: "success"
+      })
 
-const fileBuffer = fs.readFileSync(filePath)
+      console.log("Capture stored")
 
-await supabase.storage
-.from("captures")
-.upload(fileName,fileBuffer,{
-contentType:"application/pdf"
-})
+    } catch (err) {
 
-const publicUrl =
-`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${fileName}`
+      console.error("Capture failed:", err)
 
-/* insert capture record */
+      await supabase.from("captures").insert({
+        url_id: url.id,
+        captured_at: new Date(),
+        status: "failed"
+      })
 
-await supabase.from("captures").insert({
+    }
 
-url_id:urlRow.id,
-captured_at:new Date(),
-file_path:publicUrl
+  }
 
-})
-
-console.log("Capture stored")
-
-}catch(err){
-
-console.log("Capture failed:",err)
+  await browser.close()
 
 }
 
-}
-
-}
-
-runCapture()
+run()
