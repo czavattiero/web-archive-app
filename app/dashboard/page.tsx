@@ -31,7 +31,7 @@ return
 
 setUser(data.user)
 
-/* Load tracked URLs */
+/* load urls */
 
 const { data:urlsData } = await supabase
 .from("urls")
@@ -43,19 +43,17 @@ if(urlsData){
 setUrls(urlsData)
 }
 
-/* Load captures belonging to this user */
+/* load captures */
 
 const { data:capturesData } = await supabase
 .from("captures")
-.select(`
-  id,
-  captured_at,
-  file_path,
-  urls!inner (
-    url,
-    user_id
-  )
-`)
+.select(`id,
+captured_at,
+file_path,
+urls!inner(
+url,
+user_id
+)`)
 .eq("urls.user_id",data.user.id)
 .order("captured_at",{ascending:false})
 
@@ -77,30 +75,44 @@ if(!url) return
 
 /* insert URL */
 
-const { data:newUrl } = await supabase
+const { data:newUrl, error:urlError } = await supabase
 .from("urls")
 .insert({
 user_id:user.id,
 url,
-schedule_type:schedule
+schedule_type:schedule,
+next_capture:
+schedule === "specific_date"
+? specificDate
+: new Date()
 })
 .select()
 .single()
 
+if(urlError){
+alert(urlError.message)
+return
+}
+
 /* create screenshot job */
 
-await fetch("/api/capture",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
+const { error:jobError } = await supabase
+.from("screenshot_jobs")
+.insert({
+url_id:newUrl.id,
+user_id:user.id,
 url:url,
-userId:user.id
-})
+status:"pending"
 })
 
+if(jobError){
+alert(jobError.message)
+return
+}
+
 setUrl("")
+setSpecificDate("")
+
 window.location.reload()
 
 }
@@ -124,8 +136,6 @@ fontFamily:"system-ui",
 maxWidth:"1100px"
 }}>
 
-{/* Header */}
-
 <div style={{display:"flex",justifyContent:"space-between"}}>
 
 <div>
@@ -144,13 +154,12 @@ borderRadius:6,
 height:"40px",
 cursor:"pointer"
 }}
+
 >
-Sign Out
-</button>
+
+Sign Out </button>
 
 </div>
-
-{/* Add URL Section */}
 
 <div style={{marginTop:"40px",marginBottom:"50px"}}>
 
@@ -177,6 +186,7 @@ padding:"10px",
 display:"block",
 marginBottom:"12px"
 }}
+
 >
 
 <option value="weekly">Weekly</option>
@@ -212,13 +222,12 @@ border:"none",
 borderRadius:6,
 cursor:"pointer"
 }}
+
 >
-Add URL
-</button>
+
+Add URL </button>
 
 </div>
-
-{/* Tracked URLs */}
 
 <div style={{marginBottom:"60px"}}>
 
@@ -243,6 +252,7 @@ marginTop:"10px"
 <tbody>
 
 {urls.map((u)=>(
+
 <tr key={u.id} style={{borderBottom:"1px solid #eee"}}>
 
 <td>{u.url}</td>
@@ -261,8 +271,6 @@ marginTop:"10px"
 </table>
 
 </div>
-
-{/* Capture History */}
 
 <div>
 
@@ -287,6 +295,7 @@ marginTop:"10px"
 <tbody>
 
 {captures.map((c)=>(
+
 <tr key={c.id} style={{borderBottom:"1px solid #eee"}}>
 
 <td>{c.urls?.url}</td>
