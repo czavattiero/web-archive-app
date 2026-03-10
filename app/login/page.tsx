@@ -18,9 +18,7 @@ e.preventDefault()
 
 setLoading(true)
 
-try{
-
-const { error } = await supabase.auth.signInWithPassword({
+const { data, error } = await supabase.auth.signInWithPassword({
 email,
 password
 })
@@ -31,17 +29,10 @@ setLoading(false)
 return
 }
 
-/*
-After successful login go to dashboard
-*/
+/* ensure user session exists */
 
+if(data.user){
 router.push("/dashboard")
-
-}catch(err){
-
-console.error(err)
-alert("Login failed")
-
 }
 
 setLoading(false)
@@ -50,20 +41,17 @@ setLoading(false)
 
 return (
 
-<div className="flex items-center justify-center h-screen">
+<div style={{display:"flex",justifyContent:"center",alignItems:"center",height:"100vh"}}>
 
-<form onSubmit={handleLogin} className="space-y-4 w-80">
+<form onSubmit={handleLogin} style={{width:"320px",display:"flex",flexDirection:"column",gap:"12px"}}>
 
-<h1 className="text-xl font-bold text-center">
-Login
-</h1>
+<h1>Login</h1>
 
 <input
 type="email"
 placeholder="Email"
 value={email}
 onChange={(e)=>setEmail(e.target.value)}
-className="w-full border p-2 rounded"
 />
 
 <input
@@ -71,22 +59,15 @@ type="password"
 placeholder="Password"
 value={password}
 onChange={(e)=>setPassword(e.target.value)}
-className="w-full border p-2 rounded"
 />
 
-<button
-type="submit"
-disabled={loading}
-className="w-full bg-indigo-600 text-white p-2 rounded"
-
->
-
-{loading ? "Logging in..." : "Login"} </button>
+<button type="submit" disabled={loading}>
+{loading ? "Logging in..." : "Login"}
+</button>
 
 </form>
 
 </div>
 
 )
-
 }
