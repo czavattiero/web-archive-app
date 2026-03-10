@@ -1,13 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { createClient } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
-
-const supabase = createClient(
-process.env.NEXT_PUBLIC_SUPABASE_URL!,
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { supabase } from "../../lib/supabase"
 
 export default function Dashboard() {
 
@@ -18,51 +13,41 @@ const [user, setUser] = useState<any>(null)
 
 useEffect(() => {
 
-async function loadUser() {
+async function loadSession() {
 
-const { data } = await supabase.auth.getUser()
+const { data, error } = await supabase.auth.getUser()
 
-if (!data.user) {
-router.push("/")
+if(error){
+console.error(error)
+router.push("/login")
+return
+}
+
+if(!data.user){
+router.push("/login")
 return
 }
 
 setUser(data.user)
-
-const { data: sub } = await supabase
-.from("subscriptions")
-.select("*")
-.eq("user_id", data.user.id)
-.single()
-
-if (!sub) {
-router.push("/")
-return
-}
-
 setLoading(false)
 
 }
 
-loadUser()
+loadSession()
 
 }, [router])
 
-if (loading) {
-return <div className="p-8">Loading dashboard...</div>
+if(loading){
+return <div style={{padding:"40px"}}>Loading dashboard...</div>
 }
 
 return (
 
-<div className="p-8">
+<div style={{padding:"40px"}}>
 
-<h1 className="text-2xl font-bold mb-6">
-Dashboard
-</h1>
+<h1>Dashboard</h1>
 
-<p className="mb-6">
-Welcome {user.email}
-</p>
+<p>Welcome {user.email}</p>
 
 </div>
 
