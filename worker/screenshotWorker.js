@@ -1,9 +1,10 @@
+import dotenv from "dotenv"
+dotenv.config({ path: ".env.local" })
+
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
 import fs from "fs"
-import dotenv from "dotenv"
-
-dotenv.config({ path: ".env.local" })
+import path from "path"
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -19,11 +20,16 @@ async function run() {
     .select("*")
 
   if (error) {
-    console.error(error)
+    console.error("Error fetching URLs:", error)
     return
   }
 
-  const browser = await chromium.launch()
+  if (!urls || urls.length === 0) {
+    console.log("No URLs found.")
+    return
+  }
+
+  const browser = await chromium.launch({ headless: true })
 
   for (const url of urls) {
 
@@ -33,7 +39,10 @@ async function run() {
 
       const page = await browser.newPage()
 
-      await page.goto(url.url, { waitUntil: "networkidle" })
+      await page.goto(url.url, {
+        waitUntil: "networkidle",
+        timeout: 60000
+      })
 
       const timestamp = new Date().toLocaleString("en-CA", {
         timeZone: "America/Edmonton"
@@ -42,6 +51,7 @@ async function run() {
       await page.evaluate((timestamp) => {
 
         const banner = document.createElement("div")
+
         banner.innerText = "Captured: " + timestamp
 
         banner.style.position = "fixed"
@@ -59,11 +69,12 @@ async function run() {
       }, timestamp)
 
       const fileName = `capture-${url.id}-${Date.now()}.pdf`
-      const filePath = `./screenshots/${fileName}`
+      const filePath = path.join("screenshots", fileName)
 
       await page.pdf({
         path: filePath,
-        format: "A4"
+        format: "A4",
+        printBackground: true
       })
 
       const fileBuffer = fs.readFileSync(filePath)
@@ -75,28 +86,36 @@ async function run() {
         })
 
       if (uploadError) {
-        console.error(uploadError)
+        console.error("Upload error:", uploadError)
         continue
       }
 
-      await supabase.from("captures").insert({
-        url_id: url.id,
-        file_path: fileName,
-        captured_at: new Date(),
-        status: "success"
-      })
+      const { error: insertError } = await supabase
+        .from("captures")
+        .insert({
+          url_id: url.id,
+          file_path: fileName,
+          captured_at: new Date(),
+          status: "success"
+        })
 
-      console.log("Capture stored")
+      if (insertError) {
+        console.error("Insert error:", insertError)
+      } else {
+        console.log("Capture stored")
+      }
 
     } catch (err) {
 
       console.error("Capture failed:", err)
 
-      await supabase.from("captures").insert({
-        url_id: url.id,
-        captured_at: new Date(),
-        status: "failed"
-      })
+      await supabase
+        .from("captures")
+        .insert({
+          url_id: url.id,
+          captured_at: new Date(),
+          status: "failed"
+        })
 
     }
 
