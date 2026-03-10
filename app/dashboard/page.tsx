@@ -75,6 +75,8 @@ async function addUrl(){
 
 if(!url) return
 
+/* insert URL */
+
 const { data:newUrl } = await supabase
 .from("urls")
 .insert({
@@ -85,7 +87,7 @@ schedule_type:schedule
 .select()
 .single()
 
-/* create capture job */
+/* create screenshot job */
 
 await fetch("/api/capture",{
 method:"POST",
