@@ -1,7 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import playwright from "playwright"
 import fs from "fs"
-import path from "path"
 import dotenv from "dotenv"
 
 dotenv.config({ path: ".env.local" })
