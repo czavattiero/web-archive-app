@@ -80,16 +80,12 @@ const { data:newUrl } = await supabase
 .insert({
 user_id:user.id,
 url,
-schedule_type:schedule,
-next_capture:
-schedule === "specific_date"
-? specificDate
-: new Date()
+schedule_type:schedule
 })
 .select()
 .single()
 
-/* Trigger immediate capture */
+/* create capture job */
 
 await fetch("/api/capture",{
 method:"POST",
@@ -103,7 +99,6 @@ userId:user.id
 })
 
 setUrl("")
-setSpecificDate("")
 window.location.reload()
 
 }
