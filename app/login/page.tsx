@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
@@ -12,13 +12,33 @@ const [email, setEmail] = useState("")
 const [password, setPassword] = useState("")
 const [loading, setLoading] = useState(false)
 
+/*
+If user already logged in, go directly to dashboard
+*/
+
+useEffect(() => {
+
+async function checkSession(){
+
+const { data } = await supabase.auth.getUser()
+
+if(data.user){
+router.push("/dashboard")
+}
+
+}
+
+checkSession()
+
+}, [router])
+
 async function handleLogin(e:any){
 
 e.preventDefault()
 
 setLoading(true)
 
-const { data, error } = await supabase.auth.signInWithPassword({
+const { error } = await supabase.auth.signInWithPassword({
 email,
 password
 })
@@ -29,11 +49,7 @@ setLoading(false)
 return
 }
 
-/* ensure user session exists */
-
-if(data.user){
 router.push("/dashboard")
-}
 
 setLoading(false)
 
