@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
-import playwright from "playwright"
+import { chromium } from "playwright"
 import fs from "fs"
 import dotenv from "dotenv"
 
@@ -19,11 +19,11 @@ async function run() {
     .select("*")
 
   if (error) {
-    console.error("Error fetching URLs:", error)
+    console.error(error)
     return
   }
 
-  const browser = await playwright.chromium.launch()
+  const browser = await chromium.launch()
 
   for (const url of urls) {
 
@@ -42,7 +42,6 @@ async function run() {
       await page.evaluate((timestamp) => {
 
         const banner = document.createElement("div")
-
         banner.innerText = "Captured: " + timestamp
 
         banner.style.position = "fixed"
@@ -69,15 +68,14 @@ async function run() {
 
       const fileBuffer = fs.readFileSync(filePath)
 
-      const { data: storageData, error: uploadError } =
-        await supabase.storage
-          .from("captures")
-          .upload(fileName, fileBuffer, {
-            contentType: "application/pdf"
-          })
+      const { error: uploadError } = await supabase.storage
+        .from("captures")
+        .upload(fileName, fileBuffer, {
+          contentType: "application/pdf"
+        })
 
       if (uploadError) {
-        console.error("Upload error:", uploadError)
+        console.error(uploadError)
         continue
       }
 
