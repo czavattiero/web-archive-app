@@ -11,21 +11,47 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
+function calculateNextCapture(schedule) {
+
+  const now = new Date()
+
+  if (schedule === "weekly") {
+    now.setDate(now.getDate() + 7)
+  }
+
+  if (schedule === "biweekly") {
+    now.setDate(now.getDate() + 14)
+  }
+
+  if (schedule === "29_days") {
+    now.setDate(now.getDate() + 29)
+  }
+
+  if (schedule === "30_days") {
+    now.setDate(now.getDate() + 30)
+  }
+
+  return now
+}
+
 async function run() {
 
-  console.log("Fetching URLs...")
+  console.log("Worker started")
+
+  const now = new Date().toISOString()
 
   const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
+    .lte("next_capture", now)
 
   if (error) {
-    console.error("Error fetching URLs:", error)
+    console.error(error)
     return
   }
 
   if (!urls || urls.length === 0) {
-    console.log("No URLs found.")
+    console.log("No URLs scheduled for capture")
     return
   }
 
@@ -79,18 +105,13 @@ async function run() {
 
       const fileBuffer = fs.readFileSync(filePath)
 
-      const { error: uploadError } = await supabase.storage
+      await supabase.storage
         .from("captures")
         .upload(fileName, fileBuffer, {
           contentType: "application/pdf"
         })
 
-      if (uploadError) {
-        console.error("Upload error:", uploadError)
-        continue
-      }
-
-      const { error: insertError } = await supabase
+      await supabase
         .from("captures")
         .insert({
           url_id: url.id,
@@ -99,11 +120,14 @@ async function run() {
           status: "success"
         })
 
-      if (insertError) {
-        console.error("Insert error:", insertError)
-      } else {
-        console.log("Capture stored")
-      }
+      const nextCapture = calculateNextCapture(url.schedule_type)
+
+      await supabase
+        .from("urls")
+        .update({ next_capture: nextCapture })
+        .eq("id", url.id)
+
+      console.log("Capture stored")
 
     } catch (err) {
 
@@ -122,7 +146,6 @@ async function run() {
   }
 
   await browser.close()
-
 }
 
 run()
