@@ -34,28 +34,42 @@ export default function Dashboard() {
 
   async function fetchUrls(userId: string) {
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("urls")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
 
-    if (data) setUrls(data)
+    if (error) {
+      console.error(error)
+      return
+    }
+
+    setUrls(data || [])
   }
 
   async function fetchCaptures(userId: string) {
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("captures")
       .select(`
         *,
         urls (
-          url
+          url,
+          user_id
         )
       `)
       .order("captured_at", { ascending: false })
 
-    if (data) setCaptures(data)
+    if (error) {
+      console.error(error)
+      return
+    }
+
+    const userCaptures =
+      data?.filter((c: any) => c.urls?.user_id === userId) || []
+
+    setCaptures(userCaptures)
   }
 
   async function addUrl() {
@@ -81,7 +95,9 @@ export default function Dashboard() {
   }
 
   async function signOut() {
+
     await supabase.auth.signOut()
+
     window.location.href = "/"
   }
 
@@ -96,7 +112,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ padding: 40 }}>
+    <div style={{ padding: "40px" }}>
 
       <h1>Dashboard</h1>
 
@@ -104,7 +120,12 @@ export default function Dashboard() {
 
       <button
         onClick={signOut}
-        style={{ float: "right", background: "red", color: "white", padding: "6px 12px" }}
+        style={{
+          float: "right",
+          background: "red",
+          color: "white",
+          padding: "6px 12px"
+        }}
       >
         Sign Out
       </button>
@@ -135,12 +156,16 @@ export default function Dashboard() {
 
       <button
         onClick={addUrl}
-        style={{ background: "green", color: "white", padding: "8px 16px" }}
+        style={{
+          background: "green",
+          color: "white",
+          padding: "8px 16px"
+        }}
       >
         Add URL
       </button>
 
-      <h2 style={{ marginTop: 40 }}>Tracked URLs</h2>
+      <h2 style={{ marginTop: "40px" }}>Tracked URLs</h2>
 
       <table border={1} cellPadding={10} width="100%">
         <thead>
@@ -166,7 +191,7 @@ export default function Dashboard() {
         </tbody>
       </table>
 
-      <h2 style={{ marginTop: 40 }}>Capture History</h2>
+      <h2 style={{ marginTop: "40px" }}>Capture History</h2>
 
       <table border={1} cellPadding={10} width="100%">
         <thead>
