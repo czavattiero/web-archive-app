@@ -28,38 +28,48 @@ export default function Dashboard() {
 
     setUser(data.user)
 
-    fetchUrls(data.user.id)
-    fetchCaptures(data.user.id)
+    await fetchUrls(data.user.id)
+    await fetchCaptures(data.user.id)
   }
 
   async function fetchUrls(userId: string) {
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("urls")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error(error)
+      return
+    }
 
     setUrls(data || [])
   }
 
   async function fetchCaptures(userId: string) {
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("captures")
       .select(`
-        *,
-        urls (
+        id,
+        captured_at,
+        file_path,
+        urls!inner (
           url,
           user_id
         )
       `)
+      .eq("urls.user_id", userId)
       .order("captured_at", { ascending: false })
 
-    const userCaptures =
-      data?.filter((c: any) => c.urls?.user_id === userId) || []
+    if (error) {
+      console.error(error)
+      return
+    }
 
-    setCaptures(userCaptures)
+    setCaptures(data || [])
   }
 
   async function addUrl() {
@@ -68,6 +78,9 @@ export default function Dashboard() {
 
     await fetch("/api/capture", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({
         url: newUrl,
         user_id: user.id,
@@ -77,8 +90,8 @@ export default function Dashboard() {
 
     setNewUrl("")
 
-    fetchUrls(user.id)
-    fetchCaptures(user.id)
+    await fetchUrls(user.id)
+    await fetchCaptures(user.id)
   }
 
   async function signOut() {
@@ -99,7 +112,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ padding: 40 }}>
+    <div style={{ padding: "40px" }}>
 
       <h1>Dashboard</h1>
 
@@ -152,7 +165,7 @@ export default function Dashboard() {
         Add URL
       </button>
 
-      <h2 style={{ marginTop: 40 }}>Tracked URLs</h2>
+      <h2 style={{ marginTop: "40px" }}>Tracked URLs</h2>
 
       <table border={1} cellPadding={10} width="100%">
         <thead>
@@ -178,7 +191,7 @@ export default function Dashboard() {
         </tbody>
       </table>
 
-      <h2 style={{ marginTop: 40 }}>Capture History</h2>
+      <h2 style={{ marginTop: "40px" }}>Capture History</h2>
 
       <table border={1} cellPadding={10} width="100%">
         <thead>
