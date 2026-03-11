@@ -37,7 +37,8 @@ async function run() {
 
       console.log("Capturing:", url.url)
 
-      const page = await browser.newPage()
+      const context = await browser.newContext({ ignoreHTTPSErrors: true })
+      const page = await context.newPage()
 
       await page.goto(url.url, {
         waitUntil: "networkidle",
@@ -53,7 +54,6 @@ async function run() {
         const banner = document.createElement("div")
 
         banner.innerText = "Captured: " + timestamp
-
         banner.style.position = "fixed"
         banner.style.top = "0"
         banner.style.left = "0"
@@ -90,24 +90,32 @@ async function run() {
         continue
       }
 
-      await supabase.from("captures").insert({
-        url_id: url.id,
-        file_path: fileName,
-        captured_at: new Date(),
-        status: "success"
-      })
+      const { error: insertError } = await supabase
+        .from("captures")
+        .insert({
+          url_id: url.id,
+          file_path: fileName,
+          captured_at: new Date(),
+          status: "success"
+        })
 
-      console.log("Capture stored")
+      if (insertError) {
+        console.error("Insert error:", insertError)
+      } else {
+        console.log("Capture stored")
+      }
 
     } catch (err) {
 
       console.error("Capture failed:", err)
 
-      await supabase.from("captures").insert({
-        url_id: url.id,
-        captured_at: new Date(),
-        status: "failed"
-      })
+      await supabase
+        .from("captures")
+        .insert({
+          url_id: url.id,
+          captured_at: new Date(),
+          status: "failed"
+        })
 
     }
 
