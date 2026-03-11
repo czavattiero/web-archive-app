@@ -15,21 +15,10 @@ function calculateNextCapture(schedule) {
 
   const now = new Date()
 
-  if (schedule === "weekly") {
-    now.setDate(now.getDate() + 7)
-  }
-
-  if (schedule === "biweekly") {
-    now.setDate(now.getDate() + 14)
-  }
-
-  if (schedule === "29_days") {
-    now.setDate(now.getDate() + 29)
-  }
-
-  if (schedule === "30_days") {
-    now.setDate(now.getDate() + 30)
-  }
+  if (schedule === "weekly") now.setDate(now.getDate() + 7)
+  if (schedule === "biweekly") now.setDate(now.getDate() + 14)
+  if (schedule === "29_days") now.setDate(now.getDate() + 29)
+  if (schedule === "30_days") now.setDate(now.getDate() + 30)
 
   return now
 }
