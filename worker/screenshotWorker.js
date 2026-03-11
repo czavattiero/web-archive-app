@@ -94,11 +94,16 @@ async function run() {
 
       const fileBuffer = fs.readFileSync(filePath)
 
-      await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("captures")
         .upload(fileName, fileBuffer, {
           contentType: "application/pdf"
         })
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError)
+        continue
+      }
 
       await supabase
         .from("captures")
@@ -115,6 +120,13 @@ async function run() {
         .from("urls")
         .update({ next_capture: nextCapture })
         .eq("id", url.id)
+
+      /*
+      IMPORTANT LINE
+      Deletes the temporary PDF after upload
+      */
+
+      fs.unlinkSync(filePath)
 
       console.log("Capture stored")
 
