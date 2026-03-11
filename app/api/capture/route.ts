@@ -1,47 +1,92 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { chromium } from "playwright"
+import fs from "fs"
+import path from "path"
 
 const supabase = createClient(
-process.env.NEXT_PUBLIC_SUPABASE_URL!,
-process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
 export async function POST(req: Request) {
 
-const { url, userId } = await req.json()
+  const { url, user_id, schedule_type } = await req.json()
 
-/* find URL row */
+  const { data: insertedUrl, error } = await supabase
+    .from("urls")
+    .insert({
+      url,
+      user_id,
+      schedule_type,
+      next_capture: new Date()
+    })
+    .select()
+    .single()
 
-const { data:urlRow, error:urlError } = await supabase
-.from("urls")
-.select("id")
-.eq("url", url)
-.single()
+  if (error) {
+    return NextResponse.json({ error }, { status: 500 })
+  }
 
-if(urlError){
-return NextResponse.json({ error: urlError.message })
-}
+  const browser = await chromium.launch({ headless: true })
 
-/* create screenshot job */
+  const context = await browser.newContext({ ignoreHTTPSErrors: true })
 
-const { data, error } = await supabase
-.from("screenshot_jobs")
-.insert([
-{
-url_id: urlRow.id,
-user_id: userId,
-url: url,
-status: "pending"
-}
-])
-.select()
+  const page = await context.newPage()
 
-if(error){
-return NextResponse.json({ error: error.message })
-}
+  await page.goto(url, {
+    waitUntil: "networkidle",
+    timeout: 60000
+  })
 
-return NextResponse.json({
-job: data
-})
+  const timestamp = new Date().toLocaleString("en-CA", {
+    timeZone: "America/Edmonton"
+  })
 
+  await page.evaluate((timestamp) => {
+
+    const banner = document.createElement("div")
+
+    banner.innerText = "Captured: " + timestamp
+    banner.style.position = "fixed"
+    banner.style.top = "0"
+    banner.style.left = "0"
+    banner.style.width = "100%"
+    banner.style.background = "white"
+    banner.style.color = "black"
+    banner.style.padding = "6px"
+    banner.style.fontSize = "12px"
+    banner.style.zIndex = "999999"
+
+    document.body.prepend(banner)
+
+  }, timestamp)
+
+  const fileName = `capture-${insertedUrl.id}-${Date.now()}.pdf`
+  const filePath = path.join("screenshots", fileName)
+
+  await page.pdf({
+    path: filePath,
+    format: "A4",
+    printBackground: true
+  })
+
+  const fileBuffer = fs.readFileSync(filePath)
+
+  await supabase.storage
+    .from("captures")
+    .upload(fileName, fileBuffer, {
+      contentType: "application/pdf"
+    })
+
+  await supabase.from("captures").insert({
+    url_id: insertedUrl.id,
+    file_path: fileName,
+    captured_at: new Date(),
+    status: "success"
+  })
+
+  await browser.close()
+
+  return NextResponse.json({ success: true })
 }
