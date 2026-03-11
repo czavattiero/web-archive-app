@@ -34,23 +34,18 @@ export default function Dashboard() {
 
   async function fetchUrls(userId: string) {
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("urls")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
-
-    if (error) {
-      console.error(error)
-      return
-    }
 
     setUrls(data || [])
   }
 
   async function fetchCaptures(userId: string) {
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("captures")
       .select(`
         *,
@@ -60,11 +55,6 @@ export default function Dashboard() {
         )
       `)
       .order("captured_at", { ascending: false })
-
-    if (error) {
-      console.error(error)
-      return
-    }
 
     const userCaptures =
       data?.filter((c: any) => c.urls?.user_id === userId) || []
@@ -76,22 +66,19 @@ export default function Dashboard() {
 
     if (!newUrl || !user) return
 
-    const { error } = await supabase
-      .from("urls")
-      .insert({
+    await fetch("/api/capture", {
+      method: "POST",
+      body: JSON.stringify({
         url: newUrl,
         user_id: user.id,
-        schedule_type: schedule,
-        next_capture: new Date()
+        schedule_type: schedule
       })
-
-    if (error) {
-      console.error("Error adding URL:", error)
-      return
-    }
+    })
 
     setNewUrl("")
+
     fetchUrls(user.id)
+    fetchCaptures(user.id)
   }
 
   async function signOut() {
@@ -112,7 +99,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ padding: "40px" }}>
+    <div style={{ padding: 40 }}>
 
       <h1>Dashboard</h1>
 
@@ -165,7 +152,7 @@ export default function Dashboard() {
         Add URL
       </button>
 
-      <h2 style={{ marginTop: "40px" }}>Tracked URLs</h2>
+      <h2 style={{ marginTop: 40 }}>Tracked URLs</h2>
 
       <table border={1} cellPadding={10} width="100%">
         <thead>
@@ -191,7 +178,7 @@ export default function Dashboard() {
         </tbody>
       </table>
 
-      <h2 style={{ marginTop: "40px" }}>Capture History</h2>
+      <h2 style={{ marginTop: 40 }}>Capture History</h2>
 
       <table border={1} cellPadding={10} width="100%">
         <thead>
