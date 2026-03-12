@@ -34,23 +34,18 @@ export default function Dashboard() {
 
   async function fetchUrls(userId: string) {
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("urls")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
-
-    if (error) {
-      console.error(error)
-      return
-    }
 
     setUrls(data || [])
   }
 
   async function fetchCaptures(userId: string) {
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("captures")
       .select(`
         id,
@@ -64,82 +59,48 @@ export default function Dashboard() {
       .eq("urls.user_id", userId)
       .order("captured_at", { ascending: false })
 
-    if (error) {
-      console.error(error)
-      return
-    }
-
     setCaptures(data || [])
   }
 
   async function addUrl() {
 
-  if (!newUrl || !user) return
+    if (!newUrl || !user) return
 
-  const res = await fetch("/api/capture", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      url: newUrl,
-      user_id: user.id,
-      schedule_type: schedule
+    await fetch("/api/capture", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        url: newUrl,
+        user_id: user.id,
+        schedule_type: schedule
+      })
     })
-  })
 
-  const data = await res.json()
+    setNewUrl("")
 
-  if (!data.success) {
-    console.error("Capture failed")
-    return
-  }
-
-  setNewUrl("")
-
-  // reload dashboard data
-  await fetchUrls(user.id)
-  await fetchCaptures(user.id)
-
-}
-
-  async function signOut() {
-
-    await supabase.auth.signOut()
-
-    window.location.href = "/"
+    await fetchUrls(user.id)
+    await fetchCaptures(user.id)
   }
 
   function getPdfUrl(filePath: string) {
 
-  if (!filePath) return ""
+    const { data } = supabase
+      .storage
+      .from("captures")
+      .getPublicUrl(filePath)
 
-  const { data } = supabase
-    .storage
-    .from("captures")
-    .getPublicUrl(filePath)
-
-  return data?.publicUrl || ""
-}
+    return data.publicUrl
+  }
 
   return (
+
     <div style={{ padding: "40px" }}>
 
       <h1>Dashboard</h1>
 
       {user && <p>Welcome {user.email}</p>}
-
-      <button
-        onClick={signOut}
-        style={{
-          float: "right",
-          background: "red",
-          color: "white",
-          padding: "6px 12px"
-        }}
-      >
-        Sign Out
-      </button>
 
       <h2>Add URL</h2>
 
@@ -223,29 +184,22 @@ export default function Dashboard() {
 
               <td>
                 {c.captured_at
-                  ? new Date(c.captured_at).toLocaleString()
+                  ? new Date(c.captured_at).toLocaleString("en-CA", {
+                      timeZone: "America/Edmonton"
+                    })
                   : ""}
               </td>
 
               <td>
-
-  {c.file_path ? (
-
-    <a
-      href={getPdfUrl(c.file_path)}
-      target="_blank"
-      style={{ color: "blue", textDecoration: "underline" }}
-    >
-      View PDF
-    </a>
-
-  ) : (
-
-    "Processing..."
-
-  )}
-
-</td>
+                {c.file_path && (
+                  <a
+                    href={getPdfUrl(c.file_path)}
+                    target="_blank"
+                  >
+                    View PDF
+                  </a>
+                )}
+              </td>
 
             </tr>
 
