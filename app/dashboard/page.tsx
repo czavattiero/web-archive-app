@@ -64,30 +64,31 @@ export default function DashboardPage() {
 
   async function addUrl() {
 
-    if (!newUrl || !user) return
+  if (!newUrl || !user) return
 
-    const { error } = await supabase
-      .from("urls")
-      .insert({
-        url: newUrl,
-        user_id: user.id,
-        schedule_type: schedule,
-        next_capture: new Date()
-      })
+  const { error } = await supabase
+    .from("urls")
+    .insert({
+      url: newUrl,
+      user_id: user.id,
+      schedule_type: schedule,
+      next_capture: new Date().toISOString()
+    })
 
-    if (error) {
-      console.error(error)
-      return
-    }
-
-    setNewUrl("")
-
-    await fetchUrls(user.id)
-
-    setTimeout(async () => {
-      await fetchCaptures(user.id)
-    }, 5000)
+  if (error) {
+    console.error(error)
+    return
   }
+
+  setNewUrl("")
+
+  await fetchUrls(user.id)
+
+  setTimeout(async () => {
+    await fetchCaptures(user.id)
+  }, 8000)
+
+}
 
   async function signOut() {
 
