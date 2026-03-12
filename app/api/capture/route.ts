@@ -98,14 +98,7 @@ export async function POST(req: Request) {
 
     await browser.close()
 
-    return NextResponse.json({ success: true })
-
-  } catch (err) {
-
-    console.error(err)
-
-    return NextResponse.json({ error: "Capture failed" })
-
-  }
-
-}
+    return NextResponse.json({
+  success: true,
+  file_path: fileName
+})
