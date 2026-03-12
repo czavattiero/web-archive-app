@@ -76,28 +76,23 @@ export default function Dashboard() {
 
   if (!newUrl || !user) return
 
-  const { error } = await supabase
-    .from("urls")
-    .insert({
+  await fetch("/api/capture", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
       url: newUrl,
       user_id: user.id,
-      schedule_type: schedule,
-      next_capture: new Date()
+      schedule_type: schedule
     })
-
-  if (error) {
-    console.error(error)
-    return
-  }
+  })
 
   setNewUrl("")
 
   await fetchUrls(user.id)
-
-  // run worker endpoint
-  await fetch("/api/run-worker", { method: "POST" })
-
   await fetchCaptures(user.id)
+
 }
 
   async function signOut() {
