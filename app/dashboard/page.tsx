@@ -103,13 +103,15 @@ export default function Dashboard() {
 
   function getPdfUrl(filePath: string) {
 
-    const { data } = supabase
-      .storage
-      .from("captures")
-      .getPublicUrl(filePath)
+  if (!filePath) return ""
 
-    return data.publicUrl
-  }
+  const { data } = supabase
+    .storage
+    .from("captures")
+    .getPublicUrl(filePath)
+
+  return data?.publicUrl || ""
+}
 
   return (
     <div style={{ padding: "40px" }}>
@@ -217,15 +219,24 @@ export default function Dashboard() {
               </td>
 
               <td>
-                {c.file_path && (
-                  <a
-                    href={getPdfUrl(c.file_path)}
-                    target="_blank"
-                  >
-                    View PDF
-                  </a>
-                )}
-              </td>
+
+  {c.file_path ? (
+
+    <a
+      href={getPdfUrl(c.file_path)}
+      target="_blank"
+      style={{ color: "blue", textDecoration: "underline" }}
+    >
+      View PDF
+    </a>
+
+  ) : (
+
+    "Processing..."
+
+  )}
+
+</td>
 
             </tr>
 
