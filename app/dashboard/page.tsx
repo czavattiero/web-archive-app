@@ -76,7 +76,7 @@ export default function Dashboard() {
 
   if (!newUrl || !user) return
 
-  await fetch("/api/capture", {
+  const res = await fetch("/api/capture", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -88,8 +88,16 @@ export default function Dashboard() {
     })
   })
 
+  const data = await res.json()
+
+  if (!data.success) {
+    console.error("Capture failed")
+    return
+  }
+
   setNewUrl("")
 
+  // reload dashboard data
   await fetchUrls(user.id)
   await fetchCaptures(user.id)
 
