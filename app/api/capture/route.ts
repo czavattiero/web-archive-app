@@ -15,8 +15,7 @@ export async function POST(req: Request) {
 
     const { url, user_id, schedule_type } = await req.json()
 
-    // Insert URL
-    const { data: insertedUrl, error } = await supabase
+    const { data: insertedUrl, error: urlError } = await supabase
       .from("urls")
       .insert({
         url,
@@ -27,9 +26,9 @@ export async function POST(req: Request) {
       .select()
       .single()
 
-    if (error) {
-      console.error(error)
-      return NextResponse.json({ error })
+    if (urlError) {
+      console.error(urlError)
+      return NextResponse.json({ error: urlError })
     }
 
     const browser = await chromium.launch({ headless: true })
@@ -99,6 +98,16 @@ export async function POST(req: Request) {
     await browser.close()
 
     return NextResponse.json({
-  success: true,
-  file_path: fileName
-})
+      success: true,
+      file_path: fileName
+    })
+
+  } catch (err) {
+
+    console.error(err)
+
+    return NextResponse.json({ error: "Capture failed" })
+
+  }
+
+}
