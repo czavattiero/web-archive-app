@@ -25,8 +25,9 @@ async function run() {
   console.log("Worker started...")
 
   const { data: urls, error } = await supabase
-    .from("urls")
-    .select("*")
+  .from("urls")
+  .select("*")
+  .order("created_at", { ascending: false })
 
   if (error) {
     console.error("Error fetching URLs:", error)
