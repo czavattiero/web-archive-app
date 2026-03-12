@@ -1,6 +1,3 @@
-import dotenv from "dotenv"
-dotenv.config({ path: ".env.local" })
-
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
 import fs from "fs"
