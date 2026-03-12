@@ -25,22 +25,21 @@ function calculateNextCapture(schedule) {
 
 async function run() {
 
-  console.log("Worker started")
-
-  const now = new Date().toISOString()
+  console.log("Worker started...")
 
   const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
-    .lte("next_capture", now)
 
   if (error) {
-    console.error(error)
+    console.error("Error fetching URLs:", error)
     return
   }
 
+  console.log("URLs found:", urls?.length)
+
   if (!urls || urls.length === 0) {
-    console.log("No URLs scheduled for capture")
+    console.log("No URLs found.")
     return
   }
 
