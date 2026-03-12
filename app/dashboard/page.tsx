@@ -45,22 +45,33 @@ export default function Dashboard() {
 
   async function fetchCaptures(userId: string) {
 
-    const { data } = await supabase
-      .from("captures")
-      .select(`
+  const { data, error } = await supabase
+    .from("captures")
+    .select(`
+      id,
+      file_path,
+      captured_at,
+      urls (
         id,
-        captured_at,
-        file_path,
-        urls!inner (
-          url,
-          user_id
-        )
-      `)
-      .eq("urls.user_id", userId)
-      .order("captured_at", { ascending: false })
+        url,
+        user_id
+      )
+    `)
+    .order("captured_at", { ascending: false })
 
-    setCaptures(data || [])
+  if (error) {
+    console.error("Error loading captures:", error)
+    return
   }
+
+  if (!data) return
+
+  const filtered = data.filter(
+    (capture: any) => capture.urls?.user_id === userId
+  )
+
+  setCaptures(filtered)
+}
 
   async function addUrl() {
 
