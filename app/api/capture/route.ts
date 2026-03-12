@@ -11,82 +11,101 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
 
-  const { url, user_id, schedule_type } = await req.json()
+  try {
 
-  const { data: insertedUrl, error } = await supabase
-    .from("urls")
-    .insert({
-      url,
-      user_id,
-      schedule_type,
-      next_capture: new Date()
+    const { url, user_id, schedule_type } = await req.json()
+
+    // Insert URL
+    const { data: insertedUrl, error } = await supabase
+      .from("urls")
+      .insert({
+        url,
+        user_id,
+        schedule_type,
+        next_capture: new Date()
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error(error)
+      return NextResponse.json({ error })
+    }
+
+    const browser = await chromium.launch({ headless: true })
+    const page = await browser.newPage()
+
+    await page.goto(url, {
+      waitUntil: "networkidle",
+      timeout: 60000
     })
-    .select()
-    .single()
 
-  if (error) {
-    return NextResponse.json({ error }, { status: 500 })
+    const timestamp = new Date().toLocaleString("en-CA", {
+      timeZone: "America/Edmonton"
+    })
+
+    await page.evaluate((timestamp) => {
+
+      const banner = document.createElement("div")
+
+      banner.innerText = "Captured: " + timestamp
+
+      banner.style.position = "fixed"
+      banner.style.top = "0"
+      banner.style.left = "0"
+      banner.style.width = "100%"
+      banner.style.background = "white"
+      banner.style.color = "black"
+      banner.style.padding = "6px"
+      banner.style.fontSize = "12px"
+      banner.style.zIndex = "999999"
+
+      document.body.prepend(banner)
+
+    }, timestamp)
+
+    const fileName = `capture-${insertedUrl.id}-${Date.now()}.pdf`
+    const filePath = path.join("/tmp", fileName)
+
+    await page.pdf({
+      path: filePath,
+      format: "A4",
+      printBackground: true
+    })
+
+    const fileBuffer = fs.readFileSync(filePath)
+
+    const { error: uploadError } = await supabase.storage
+      .from("captures")
+      .upload(fileName, fileBuffer, {
+        contentType: "application/pdf"
+      })
+
+    if (uploadError) {
+      console.error(uploadError)
+    }
+
+    await supabase
+      .from("captures")
+      .insert({
+        url_id: insertedUrl.id,
+        file_path: fileName,
+        captured_at: new Date(),
+        status: "success"
+      })
+
+    fs.unlinkSync(filePath)
+
+    await browser.close()
+
+    return NextResponse.json({ success: true })
+
+  } catch (err) {
+
+    console.error(err)
+
+    return NextResponse.json({ error: "Capture failed" })
+
   }
 
-  const browser = await chromium.launch({ headless: true })
-
-  const context = await browser.newContext({ ignoreHTTPSErrors: true })
-
-  const page = await context.newPage()
-
-  await page.goto(url, {
-    waitUntil: "networkidle",
-    timeout: 60000
-  })
-
-  const timestamp = new Date().toLocaleString("en-CA", {
-    timeZone: "America/Edmonton"
-  })
-
-  await page.evaluate((timestamp) => {
-
-    const banner = document.createElement("div")
-
-    banner.innerText = "Captured: " + timestamp
-    banner.style.position = "fixed"
-    banner.style.top = "0"
-    banner.style.left = "0"
-    banner.style.width = "100%"
-    banner.style.background = "white"
-    banner.style.color = "black"
-    banner.style.padding = "6px"
-    banner.style.fontSize = "12px"
-    banner.style.zIndex = "999999"
-
-    document.body.prepend(banner)
-
-  }, timestamp)
-
-  const fileName = `capture-${insertedUrl.id}-${Date.now()}.pdf`
-  const filePath = path.join("screenshots", fileName)
-
-  await page.pdf({
-    path: filePath,
-    format: "A4",
-    printBackground: true
-  })
-
-  const fileBuffer = fs.readFileSync(filePath)
-
-  await supabase.storage
-    .from("captures")
-    .upload(fileName, fileBuffer, {
-      contentType: "application/pdf"
-    })
-
-  await supabase.from("captures").insert({
-    url_id: insertedUrl.id,
-    file_path: fileName,
-    captured_at: new Date(),
-    status: "success"
-  })
-
-  await browser.close()
-
-  return NextResponse.json({ success: true })
 }
