@@ -1,3 +1,6 @@
+import dotenv from "dotenv"
+dotenv.config()
+
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
 import fs from "fs"
@@ -8,51 +11,42 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-function calculateNextCapture(schedule) {
-
-  const now = new Date()
-
-  if (schedule === "weekly") now.setDate(now.getDate() + 7)
-  if (schedule === "biweekly") now.setDate(now.getDate() + 14)
-  if (schedule === "29_days") now.setDate(now.getDate() + 29)
-  if (schedule === "30_days") now.setDate(now.getDate() + 30)
-
-  return now
-}
-
 async function run() {
 
-  console.log("Worker started...")
+  console.log("Starting capture worker...")
+
+  const now = new Date().toISOString()
 
   const { data: urls, error } = await supabase
-  .from("urls")
-  .select("*")
-  .order("created_at", { ascending: false })
+    .from("urls")
+    .select("*")
+    .lte("next_capture", now)
 
   if (error) {
-    console.error("Error fetching URLs:", error)
+    console.error("Error loading URLs:", error)
     return
   }
-
-  console.log("URLs found:", urls?.length)
 
   if (!urls || urls.length === 0) {
-    console.log("No URLs found.")
+    console.log("No URLs ready for capture.")
     return
   }
+
+  console.log(`Found ${urls.length} URLs to capture`)
 
   const browser = await chromium.launch({ headless: true })
 
-  for (const url of urls) {
+  for (const urlRecord of urls) {
+
+    const url = urlRecord.url
 
     try {
 
-      console.log("Capturing:", url.url)
+      console.log("Capturing:", url)
 
-      const context = await browser.newContext({ ignoreHTTPSErrors: true })
-      const page = await context.newPage()
+      const page = await browser.newPage()
 
-      await page.goto(url.url, {
+      await page.goto(url, {
         waitUntil: "networkidle",
         timeout: 60000
       })
@@ -66,6 +60,7 @@ async function run() {
         const banner = document.createElement("div")
 
         banner.innerText = "Captured: " + timestamp
+
         banner.style.position = "fixed"
         banner.style.top = "0"
         banner.style.left = "0"
@@ -80,7 +75,7 @@ async function run() {
 
       }, timestamp)
 
-      const fileName = `capture-${url.id}-${Date.now()}.pdf`
+      const fileName = `capture-${urlRecord.id}-${Date.now()}.pdf`
       const filePath = path.join("screenshots", fileName)
 
       await page.pdf({
@@ -88,6 +83,8 @@ async function run() {
         format: "A4",
         printBackground: true
       })
+
+      await page.close()
 
       const fileBuffer = fs.readFileSync(filePath)
 
@@ -98,34 +95,49 @@ async function run() {
         })
 
       if (uploadError) {
-        console.error("Upload error:", uploadError)
+        console.error("Upload failed:", uploadError)
         continue
       }
 
-      await supabase
+      const { error: insertError } = await supabase
         .from("captures")
         .insert({
-          url_id: url.id,
+          url_id: urlRecord.id,
           file_path: fileName,
           captured_at: new Date(),
           status: "success"
         })
 
-      const nextCapture = calculateNextCapture(url.schedule_type)
+      if (insertError) {
+        console.error("Database insert failed:", insertError)
+      }
+
+      const nextCapture = new Date()
+
+      if (urlRecord.schedule_type === "weekly") {
+        nextCapture.setDate(nextCapture.getDate() + 7)
+      }
+
+      if (urlRecord.schedule_type === "biweekly") {
+        nextCapture.setDate(nextCapture.getDate() + 14)
+      }
+
+      if (urlRecord.schedule_type === "29 days") {
+        nextCapture.setDate(nextCapture.getDate() + 29)
+      }
+
+      if (urlRecord.schedule_type === "30 days") {
+        nextCapture.setDate(nextCapture.getDate() + 30)
+      }
 
       await supabase
         .from("urls")
         .update({ next_capture: nextCapture })
-        .eq("id", url.id)
-
-      /*
-      IMPORTANT LINE
-      Deletes the temporary PDF after upload
-      */
+        .eq("id", urlRecord.id)
 
       fs.unlinkSync(filePath)
 
-      console.log("Capture stored")
+      console.log("Capture stored successfully")
 
     } catch (err) {
 
@@ -134,7 +146,7 @@ async function run() {
       await supabase
         .from("captures")
         .insert({
-          url_id: url.id,
+          url_id: urlRecord.id,
           captured_at: new Date(),
           status: "failed"
         })
@@ -144,6 +156,9 @@ async function run() {
   }
 
   await browser.close()
+
+  console.log("Worker finished")
+
 }
 
 run()
