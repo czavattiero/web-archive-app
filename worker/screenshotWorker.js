@@ -6,118 +6,110 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-async function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
 async function runWorker() {
 
-  console.log("Capture worker started")
+  console.log("Worker started")
 
-  while (true) {
+  const { data: urls, error } = await supabase
+    .from("urls")
+    .select("*")
+    .eq("status", "active")
+    .lte("next_capture_at", new Date().toISOString())
+    .limit(3)
+
+  if (error) {
+
+    console.error("Error loading URLs:", error)
+    return
+
+  }
+
+  if (!urls || urls.length === 0) {
+
+    console.log("No URLs to capture")
+    return
+
+  }
+
+  for (const url of urls) {
+
+    console.log("Preparing capture:", url.url)
 
     try {
 
-      const { data: urls } = await supabase
+      // STEP 1 — Immediately update next_capture_at
+      await supabase
         .from("urls")
-        .select("*")
-        .lte("next_capture_at", new Date().toISOString())
-        .limit(3)
+        .update({
+          next_capture_at: new Date(Date.now() + 86400000)
+        })
+        .eq("id", url.id)
 
-      if (error) {
-        console.error("Error loading URLs:", error)
-        await sleep(3000)
+      console.log("Locked URL for capture")
+
+      // STEP 2 — Launch browser
+      const browser = await chromium.launch()
+
+      const page = await browser.newPage()
+
+      await page.goto(url.url, {
+        waitUntil: "networkidle",
+        timeout: 60000
+      })
+
+      // STEP 3 — Generate PDF
+      const pdfBuffer = await page.pdf({
+        format: "A4",
+        printBackground: true
+      })
+
+      await browser.close()
+
+      const fileName = `${url.id}-${Date.now()}.pdf`
+
+      console.log("Uploading:", fileName)
+
+      const { error: uploadError } = await supabase.storage
+        .from("captures")
+        .upload(fileName, pdfBuffer, {
+          contentType: "application/pdf"
+        })
+
+      if (uploadError) {
+
+        console.error("Upload failed:", uploadError)
         continue
+
       }
 
-      if (!urls || urls.length === 0) {
+      console.log("Upload successful")
 
-        await sleep(3000)
-        continue
+      const { error: insertError } = await supabase
+        .from("captures")
+        .insert({
+          url_id: url.id,
+          file_path: fileName
+        })
 
-      }
+      if (insertError) {
 
-      for (const url of urls) {
+        console.error("Database insert failed:", insertError)
 
-        console.log("Capturing:", url.url)
+      } else {
 
-        try {
-
-          const browser = await chromium.launch()
-
-          const page = await browser.newPage()
-
-          await page.goto(url.url, {
-            waitUntil: "networkidle",
-            timeout: 60000
-          })
-
-          const pdfBuffer = await page.pdf({
-            format: "A4",
-            printBackground: true
-          })
-
-          await browser.close()
-
-          const fileName = `${url.id}-${Date.now()}-${Math.random()}.pdf`
-
-          console.log("Uploading PDF:", fileName)
-
-          const { error: uploadError } = await supabase.storage
-            .from("captures")
-            .upload(fileName, pdfBuffer, {
-              contentType: "application/pdf"
-            })
-
-          if (uploadError) {
-
-            console.error("Upload failed:", uploadError)
-
-            continue
-
-          }
-
-          console.log("Upload successful")
-
-          const { error: insertError } = await supabase
-            .from("captures")
-            .insert({
-              url_id: url.id,
-              file_path: fileName
-            })
-
-          if (insertError) {
-
-            console.error("Database insert failed:", insertError)
-
-          } else {
-
-            console.log("Capture record inserted")
-
-          }
-
-          await supabase
-            .from("urls")
-            .update({
-              next_capture_at: new Date(Date.now() + 86400000)
-            })
-            .eq("id", url.id)
-
-        } catch (captureError) {
-
-          console.error("Capture failed:", captureError)
-
-        }
+        console.log("Capture record inserted")
 
       }
 
     } catch (err) {
 
-      console.error("Worker loop error:", err)
+      console.error("Capture failed:", err)
 
     }
 
   }
+
+  console.log("Worker finished")
 
 }
 
