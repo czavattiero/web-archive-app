@@ -13,28 +13,22 @@ export async function POST(req: Request) {
 
   try {
 
-    const { url, user_id, schedule_type } = await req.json()
+    const { urlId } = await req.json()
 
-    const { data: insertedUrl, error: urlError } = await supabase
+    const { data: urlData, error } = await supabase
       .from("urls")
-      .insert({
-        url,
-        user_id,
-        schedule_type,
-        next_capture: new Date()
-      })
-      .select()
+      .select("*")
+      .eq("id", urlId)
       .single()
 
-    if (urlError) {
-      console.error(urlError)
-      return NextResponse.json({ error: urlError })
+    if (error || !urlData) {
+      return NextResponse.json({ error: "URL not found" }, { status: 400 })
     }
 
     const browser = await chromium.launch({ headless: true })
     const page = await browser.newPage()
 
-    await page.goto(url, {
+    await page.goto(urlData.url, {
       waitUntil: "networkidle",
       timeout: 60000
     })
@@ -63,7 +57,7 @@ export async function POST(req: Request) {
 
     }, timestamp)
 
-    const fileName = `capture-${insertedUrl.id}-${Date.now()}.pdf`
+    const fileName = `capture-${urlData.id}-${Date.now()}.pdf`
     const filePath = path.join("/tmp", fileName)
 
     await page.pdf({
@@ -82,31 +76,27 @@ export async function POST(req: Request) {
 
     if (uploadError) {
       console.error(uploadError)
+      return NextResponse.json({ error: "Upload failed" })
     }
 
-    await supabase
-      .from("captures")
-      .insert({
-        url_id: insertedUrl.id,
-        file_path: fileName,
-        captured_at: new Date(),
-        status: "success"
-      })
+    await supabase.from("captures").insert({
+      url_id: urlData.id,
+      file_path: fileName,
+      captured_at: new Date(),
+      status: "success"
+    })
 
     fs.unlinkSync(filePath)
 
     await browser.close()
 
-    return NextResponse.json({
-      success: true,
-      file_path: fileName
-    })
+    return NextResponse.json({ success: true })
 
   } catch (err) {
 
     console.error(err)
 
-    return NextResponse.json({ error: "Capture failed" })
+    return NextResponse.json({ error: "Capture failed" }, { status: 500 })
 
   }
 
