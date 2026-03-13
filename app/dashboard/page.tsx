@@ -69,6 +69,7 @@ export default function DashboardPage() {
     if (!newUrl || !user) return
 
     setLoadingCapture(true)
+    setCaptureStatus("Saving URL...")
 
     const { data, error } = await supabase
       .from("urls")
@@ -84,27 +85,23 @@ export default function DashboardPage() {
 
     if (error) {
       console.error(error)
+      setCaptureStatus("Error saving URL")
       setLoadingCapture(false)
       return
     }
 
+    setCaptureStatus("Triggering capture worker...")
+
+    await fetch("/api/run-worker", {
+      method: "POST"
+    })
+
     setNewUrl("")
+    setLoadingCapture(false)
+    setCaptureStatus("Waiting for capture...")
 
     await fetchUrls(user.id)
 
-    console.log("Starting instant capture...")
-
-    const response = await fetch("/api/run-worker", {
-  method: "POST"
-})
-
-    const result = await response.json()
-
-    console.log("Capture result:", result)
-
-    await fetchCaptures(user.id)
-
-    setLoadingCapture(false)
   }
 
   async function signOut() {
@@ -116,6 +113,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
 
+    let channel: any
+
     const loadData = async () => {
 
       const { data: { user } } = await supabase.auth.getUser()
@@ -125,12 +124,38 @@ export default function DashboardPage() {
       setUser(user)
 
       await fetchUrls(user.id)
-
       await fetchCaptures(user.id)
+
+      channel = supabase
+        .channel("captures-live")
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "captures"
+          },
+          async (payload) => {
+
+            console.log("New capture detected:", payload)
+
+            await fetchCaptures(user.id)
+
+          }
+        )
+        .subscribe()
 
     }
 
     loadData()
+
+    return () => {
+
+      if (channel) {
+        supabase.removeChannel(channel)
+      }
+
+    }
 
   }, [])
 
@@ -192,10 +217,15 @@ export default function DashboardPage() {
         {loadingCapture ? "Capturing..." : "Add URL"}
       </button>
 
+      {captureStatus && (
+        <p style={{ marginTop: "10px", color: "#555" }}>
+          {captureStatus}
+        </p>
+      )}
+
       <h2 style={{ marginTop: "40px" }}>Tracked URLs</h2>
 
       <table border={1} cellPadding={6} style={{ width: "100%" }}>
-
         <thead>
           <tr>
             <th>URL</th>
@@ -205,19 +235,14 @@ export default function DashboardPage() {
         </thead>
 
         <tbody>
-
           {urls.map((url) => (
-
             <tr key={url.id}>
               <td>{url.url}</td>
               <td>{url.schedule_type}</td>
               <td>{new Date(url.created_at).toLocaleDateString()}</td>
             </tr>
-
           ))}
-
         </tbody>
-
       </table>
 
       <h2 style={{ marginTop: "40px" }}>Capture History</h2>
@@ -247,14 +272,12 @@ export default function DashboardPage() {
               </td>
 
               <td>
-
                 <a
                   href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${capture.file_path}`}
                   target="_blank"
                 >
                   View PDF
                 </a>
-
               </td>
 
             </tr>
@@ -266,5 +289,6 @@ export default function DashboardPage() {
       </table>
 
     </div>
+
   )
 }
