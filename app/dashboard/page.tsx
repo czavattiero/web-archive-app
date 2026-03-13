@@ -94,15 +94,9 @@ export default function DashboardPage() {
 
     console.log("Starting instant capture...")
 
-    const response = await fetch("/api/capture", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        urlId: data.id
-      })
-    })
+    const response = await fetch("/api/run-worker", {
+  method: "POST"
+})
 
     const result = await response.json()
 
