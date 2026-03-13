@@ -4,8 +4,10 @@ export async function POST() {
 
   try {
 
+    const workflowFile = "hourly-playwright-pdf.yml"
+
     const response = await fetch(
-      "https://api.github.com/repos/czavattiero/web-archive-app/actions/workflows/hourly-playwright-pdf-capture.yml/dispatches",
+      `https://api.github.com/repos/czavattiero/web-archive-app/actions/workflows/${workflowFile}/dispatches`,
       {
         method: "POST",
         headers: {
@@ -18,13 +20,12 @@ export async function POST() {
       }
     )
 
+    const text = await response.text()
+
+    console.log("GitHub response:", text)
+
     if (!response.ok) {
-
-      const text = await response.text()
-      console.error("GitHub trigger error:", text)
-
-      throw new Error("Failed to trigger workflow")
-
+      throw new Error(text)
     }
 
     return NextResponse.json({ success: true })
@@ -39,4 +40,5 @@ export async function POST() {
     )
 
   }
+
 }
