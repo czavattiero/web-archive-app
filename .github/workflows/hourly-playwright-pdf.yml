@@ -21,12 +21,13 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        run: |
-          npm install
-          npm install dotenv
+        run: npm install
 
       - name: Install Playwright browsers
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create screenshots folder
+        run: mkdir -p screenshots
 
       - name: Run screenshot worker
         run: node worker/screenshotWorker.js
