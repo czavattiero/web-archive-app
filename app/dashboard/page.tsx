@@ -15,6 +15,7 @@ export default function DashboardPage() {
   const [captures, setCaptures] = useState<any[]>([])
   const [newUrl, setNewUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
+  const [loadingCapture, setLoadingCapture] = useState(false)
 
   async function fetchUrls(userId: string) {
 
@@ -64,44 +65,52 @@ export default function DashboardPage() {
 
   async function addUrl() {
 
-  if (!newUrl || !user) return
+    if (!newUrl || !user) return
 
-  const { data, error } = await supabase
-    .from("urls")
-    .insert({
-      url: newUrl,
-      user_id: user.id,
-      schedule_type: schedule,
-      next_capture_at: new Date().toISOString(),
-      status: "active"
+    setLoadingCapture(true)
+
+    const { data, error } = await supabase
+      .from("urls")
+      .insert({
+        url: newUrl,
+        user_id: user.id,
+        schedule_type: schedule,
+        next_capture_at: new Date().toISOString(),
+        status: "active"
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error(error)
+      setLoadingCapture(false)
+      return
+    }
+
+    setNewUrl("")
+
+    await fetchUrls(user.id)
+
+    console.log("Starting instant capture...")
+
+    const response = await fetch("/api/capture", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        urlId: data.id
+      })
     })
-    .select()
-    .single()
 
-  if (error) {
-    console.error(error)
-    return
-  }
+    const result = await response.json()
 
-  setNewUrl("")
+    console.log("Capture result:", result)
 
-  await fetchUrls(user.id)
-
-  await fetch("/api/capture", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      urlId: data.id
-    })
-  })
-
-  setTimeout(async () => {
     await fetchCaptures(user.id)
-  }, 5000)
 
-}
+    setLoadingCapture(false)
+  }
 
   async function signOut() {
 
@@ -176,15 +185,16 @@ export default function DashboardPage() {
 
       <button
         onClick={addUrl}
+        disabled={loadingCapture}
         style={{
-          background: "green",
+          background: loadingCapture ? "gray" : "green",
           color: "white",
           padding: "6px 12px",
           border: "none",
           cursor: "pointer"
         }}
       >
-        Add URL
+        {loadingCapture ? "Capturing..." : "Add URL"}
       </button>
 
       <h2 style={{ marginTop: "40px" }}>Tracked URLs</h2>
@@ -192,13 +202,11 @@ export default function DashboardPage() {
       <table border={1} cellPadding={6} style={{ width: "100%" }}>
 
         <thead>
-
           <tr>
             <th>URL</th>
             <th>Schedule</th>
             <th>Created</th>
           </tr>
-
         </thead>
 
         <tbody>
@@ -206,13 +214,9 @@ export default function DashboardPage() {
           {urls.map((url) => (
 
             <tr key={url.id}>
-
               <td>{url.url}</td>
-
               <td>{url.schedule_type}</td>
-
               <td>{new Date(url.created_at).toLocaleDateString()}</td>
-
             </tr>
 
           ))}
@@ -226,13 +230,11 @@ export default function DashboardPage() {
       <table border={1} cellPadding={6} style={{ width: "100%" }}>
 
         <thead>
-
           <tr>
             <th>URL</th>
             <th>Captured At</th>
             <th>PDF</th>
           </tr>
-
         </thead>
 
         <tbody>
