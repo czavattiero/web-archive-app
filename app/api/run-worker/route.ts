@@ -4,15 +4,18 @@ export async function POST() {
 
   try {
 
+    const repoOwner = "czavattiero"
+    const repoName = "web-archive-app"
     const workflowFile = "hourly-playwright-pdf.yml"
 
     const response = await fetch(
-      `https://api.github.com/repos/czavattiero/web-archive-app/actions/workflows/${workflowFile}/dispatches`,
+      `https://api.github.com/repos/${repoOwner}/${repoName}/actions/workflows/${workflowFile}/dispatches`,
       {
         method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-          Accept: "application/vnd.github+json"
+          Accept: "application/vnd.github+json",
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           ref: "main"
@@ -22,7 +25,7 @@ export async function POST() {
 
     const text = await response.text()
 
-    console.log("GitHub response:", text)
+    console.log("GitHub API response:", text)
 
     if (!response.ok) {
       throw new Error(text)
@@ -35,7 +38,7 @@ export async function POST() {
     console.error("Worker trigger failed:", error)
 
     return NextResponse.json(
-      { error: "Worker trigger failed" },
+      { error: "Failed to trigger GitHub worker" },
       { status: 500 }
     )
 
