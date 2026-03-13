@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
+import { createClient } from "@supabase/supabase-js"
 import fs from "fs"
 import path from "path"
+
+export const runtime = "nodejs"
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,52 +15,19 @@ export async function POST(req: Request) {
 
   try {
 
-    const { urlId } = await req.json()
+    const { url, url_id } = await req.json()
 
-    const { data: urlData, error } = await supabase
-      .from("urls")
-      .select("*")
-      .eq("id", urlId)
-      .single()
+    console.log("Starting instant capture:", url)
 
-    if (error || !urlData) {
-      return NextResponse.json({ error: "URL not found" }, { status: 400 })
-    }
+    const browser = await chromium.launch()
 
-    const browser = await chromium.launch({ headless: true })
     const page = await browser.newPage()
 
-    await page.goto(urlData.url, {
-      waitUntil: "networkidle",
-      timeout: 60000
-    })
+    await page.goto(url, { waitUntil: "networkidle" })
 
-    const timestamp = new Date().toLocaleString("en-CA", {
-      timeZone: "America/Edmonton"
-    })
+    const fileName = `${url_id}-${Date.now()}.pdf`
 
-    await page.evaluate((timestamp) => {
-
-      const banner = document.createElement("div")
-
-      banner.innerText = "Captured: " + timestamp
-
-      banner.style.position = "fixed"
-      banner.style.top = "0"
-      banner.style.left = "0"
-      banner.style.width = "100%"
-      banner.style.background = "white"
-      banner.style.color = "black"
-      banner.style.padding = "6px"
-      banner.style.fontSize = "12px"
-      banner.style.zIndex = "999999"
-
-      document.body.prepend(banner)
-
-    }, timestamp)
-
-    const fileName = `capture-${urlData.id}-${Date.now()}.pdf`
-    const filePath = path.join("/tmp", fileName)
+    const filePath = `/tmp/${fileName}`
 
     await page.pdf({
       path: filePath,
@@ -66,9 +35,12 @@ export async function POST(req: Request) {
       printBackground: true
     })
 
+    await browser.close()
+
     const fileBuffer = fs.readFileSync(filePath)
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase
+      .storage
       .from("captures")
       .upload(fileName, fileBuffer, {
         contentType: "application/pdf"
@@ -76,28 +48,35 @@ export async function POST(req: Request) {
 
     if (uploadError) {
       console.error(uploadError)
-      return NextResponse.json({ error: "Upload failed" })
+      throw uploadError
     }
 
-    await supabase.from("captures").insert({
-      url_id: urlData.id,
-      file_path: fileName,
-      captured_at: new Date(),
-      status: "success"
+    const { error: insertError } = await supabase
+      .from("captures")
+      .insert({
+        url_id: url_id,
+        file_path: fileName
+      })
+
+    if (insertError) {
+      console.error(insertError)
+      throw insertError
+    }
+
+    console.log("Capture stored successfully")
+
+    return NextResponse.json({
+      success: true,
+      file: fileName
     })
 
-    fs.unlinkSync(filePath)
+  } catch (error) {
 
-    await browser.close()
+    console.error("Capture error:", error)
 
-    return NextResponse.json({ success: true })
-
-  } catch (err) {
-
-    console.error(err)
-
-    return NextResponse.json({ error: "Capture failed" }, { status: 500 })
-
+    return NextResponse.json(
+      { error: "Capture failed" },
+      { status: 500 }
+    )
   }
-
 }
