@@ -5,7 +5,7 @@ export async function POST() {
   try {
 
     const response = await fetch(
-      "https://api.github.com/repos/YOUR_GITHUB_USERNAME/YOUR_REPO/actions/workflows/hourly-playwright-pdf-capture.yml/dispatches",
+      "https://api.github.com/repos/czavattiero/web-archive-app/actions/workflows/hourly-playwright-pdf-capture.yml/dispatches",
       {
         method: "POST",
         headers: {
@@ -19,14 +19,19 @@ export async function POST() {
     )
 
     if (!response.ok) {
-      throw new Error("Failed to trigger worker")
+
+      const text = await response.text()
+      console.error("GitHub trigger error:", text)
+
+      throw new Error("Failed to trigger workflow")
+
     }
 
     return NextResponse.json({ success: true })
 
   } catch (error) {
 
-    console.error(error)
+    console.error("Worker trigger failed:", error)
 
     return NextResponse.json(
       { error: "Worker trigger failed" },
