@@ -1,15 +1,33 @@
 import dotenv from "dotenv"
-dotenv.config()
-
+import path from "path"
+import { fileURLToPath } from "url"
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
 import fs from "fs"
-import path from "path"
+
+// -----------------------------
+// Load .env.local from project root
+// -----------------------------
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+dotenv.config({
+  path: path.resolve(__dirname, "../.env.local")
+})
+
+// -----------------------------
+// Supabase connection
+// -----------------------------
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
+
+// -----------------------------
+// Worker
+// -----------------------------
 
 async function run() {
 
@@ -20,15 +38,16 @@ async function run() {
   const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
-    .lte("next_capture", now)
+    .eq("status", "active")
+    .lte("next_capture_at", now)
 
   if (error) {
-    console.error("Error loading URLs:", error)
+    console.error("Error fetching URLs:", error)
     return
   }
 
   if (!urls || urls.length === 0) {
-    console.log("No URLs ready for capture.")
+    console.log("No URLs to capture.")
     return
   }
 
@@ -36,17 +55,15 @@ async function run() {
 
   const browser = await chromium.launch({ headless: true })
 
-  for (const urlRecord of urls) {
-
-    const url = urlRecord.url
+  for (const url of urls) {
 
     try {
 
-      console.log("Capturing:", url)
+      console.log("Capturing:", url.url)
 
       const page = await browser.newPage()
 
-      await page.goto(url, {
+      await page.goto(url.url, {
         waitUntil: "networkidle",
         timeout: 60000
       })
@@ -75,7 +92,7 @@ async function run() {
 
       }, timestamp)
 
-      const fileName = `capture-${urlRecord.id}-${Date.now()}.pdf`
+      const fileName = `capture-${url.id}-${Date.now()}.pdf`
       const filePath = path.join("screenshots", fileName)
 
       await page.pdf({
@@ -83,8 +100,6 @@ async function run() {
         format: "A4",
         printBackground: true
       })
-
-      await page.close()
 
       const fileBuffer = fs.readFileSync(filePath)
 
@@ -95,61 +110,57 @@ async function run() {
         })
 
       if (uploadError) {
-        console.error("Upload failed:", uploadError)
+        console.error("Upload error:", uploadError)
         continue
       }
 
-      const { error: insertError } = await supabase
-        .from("captures")
-        .insert({
-          url_id: urlRecord.id,
-          file_path: fileName,
-          captured_at: new Date(),
-          status: "success"
-        })
+      await supabase.from("captures").insert({
+        url_id: url.id,
+        file_path: fileName,
+        captured_at: new Date(),
+        status: "success"
+      })
 
-      if (insertError) {
-        console.error("Database insert failed:", insertError)
-      }
+      console.log("Capture stored successfully")
 
-      const nextCapture = new Date()
+      fs.unlinkSync(filePath)
 
-      if (urlRecord.schedule_type === "weekly") {
+      // -----------------------------
+      // Schedule next capture
+      // -----------------------------
+
+      let nextCapture = new Date()
+
+      if (url.schedule_type === "weekly") {
         nextCapture.setDate(nextCapture.getDate() + 7)
       }
 
-      if (urlRecord.schedule_type === "biweekly") {
+      if (url.schedule_type === "biweekly") {
         nextCapture.setDate(nextCapture.getDate() + 14)
       }
 
-      if (urlRecord.schedule_type === "29 days") {
+      if (url.schedule_type === "29 days") {
         nextCapture.setDate(nextCapture.getDate() + 29)
       }
 
-      if (urlRecord.schedule_type === "30 days") {
+      if (url.schedule_type === "30 days") {
         nextCapture.setDate(nextCapture.getDate() + 30)
       }
 
       await supabase
         .from("urls")
-        .update({ next_capture: nextCapture })
-        .eq("id", urlRecord.id)
-
-      fs.unlinkSync(filePath)
-
-      console.log("Capture stored successfully")
+        .update({ next_capture_at: nextCapture.toISOString() })
+        .eq("id", url.id)
 
     } catch (err) {
 
       console.error("Capture failed:", err)
 
-      await supabase
-        .from("captures")
-        .insert({
-          url_id: urlRecord.id,
-          captured_at: new Date(),
-          status: "failed"
-        })
+      await supabase.from("captures").insert({
+        url_id: url.id,
+        captured_at: new Date(),
+        status: "failed"
+      })
 
     }
 
