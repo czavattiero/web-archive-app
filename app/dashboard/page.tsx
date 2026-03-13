@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const [newUrl, setNewUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
   const [loadingCapture, setLoadingCapture] = useState(false)
+  const [captureStatus, setCaptureStatus] = useState("")
 
   async function fetchUrls(userId: string) {
 
