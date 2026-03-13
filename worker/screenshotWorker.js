@@ -18,11 +18,11 @@ async function runWorker() {
 
     try {
 
-      const { data: urls, error } = await supabase
+      const { data: urls } = await supabase
         .from("urls")
         .select("*")
         .lte("next_capture_at", new Date().toISOString())
-        .limit(5)
+        .limit(3)
 
       if (error) {
         console.error("Error loading URLs:", error)
