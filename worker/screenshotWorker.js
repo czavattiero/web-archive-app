@@ -12,13 +12,13 @@ async function runWorker() {
   console.log("Worker started")
 
   const browser = await chromium.launch({
-  headless: true,
-  proxy: {
-    server: `http://${process.env.SMARTPROXY_HOST}:${process.env.SMARTPROXY_PORT}`,
-    username: process.env.SMARTPROXY_USER,
-    password: process.env.SMARTPROXY_PASS
-  }
-})
+    headless: true,
+    proxy: {
+      server: `http://${process.env.SMARTPROXY_HOST}:${process.env.SMARTPROXY_PORT}`,
+      username: process.env.SMARTPROXY_USER,
+      password: process.env.SMARTPROXY_PASS
+    }
+  })
 
   const context = await browser.newContext({
     userAgent:
@@ -27,7 +27,10 @@ async function runWorker() {
     locale: "en-US"
   })
 
-  while (true) {
+  // Limit how many capture cycles run per worker
+  for (let cycle = 0; cycle < 20; cycle++) {
+
+    console.log("Cycle:", cycle + 1)
 
     const { data: urls, error } = await supabase
       .from("urls")
@@ -81,7 +84,6 @@ async function runWorker() {
 
         const captureId = Date.now()
 
-        // Inject timestamp banner inside the page
         await page.evaluate(({ timestamp, url, captureId }) => {
 
           const banner = document.createElement("div")
@@ -161,6 +163,9 @@ async function runWorker() {
 
   }
 
+  console.log("Worker finished")
+
+  await browser.close()
 }
 
 runWorker()
