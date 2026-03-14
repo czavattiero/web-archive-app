@@ -5,10 +5,24 @@ on:
     - cron: "* * * * *"
   workflow_dispatch:
 
+# Prevent multiple workers running simultaneously
+concurrency:
+  group: capture-worker
+  cancel-in-progress: true
+
 jobs:
   capture:
 
     runs-on: ubuntu-latest
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      SMARTPROXY_HOST: ${{ secrets.SMARTPROXY_HOST }}
+      SMARTPROXY_PORT: ${{ secrets.SMARTPROXY_PORT }}
+      SMARTPROXY_USER: ${{ secrets.SMARTPROXY_USER }}
+      SMARTPROXY_PASS: ${{ secrets.SMARTPROXY_PASS }}
 
     steps:
 
@@ -31,6 +45,3 @@ jobs:
 
       - name: Run screenshot worker
         run: node worker/screenshotWorker.js
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
