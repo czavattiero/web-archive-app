@@ -88,18 +88,32 @@ async function runWorker() {
         <div><b>Capture ID:</b> ${captureId}</div>
       </div>
       `
-
+      
       const pdfBuffer = await page.pdf({
         format: "A4",
         printBackground: true,
         displayHeaderFooter: true,
 
         margin: {
-          top: "120px",
+          top: "180px",
           bottom: "40px",
           left: "20px",
           right: "20px"
         },
+
+  headerTemplate: headerHtml,
+
+  footerTemplate: `
+    <div style="
+      font-size:10px;
+      width:100%;
+      text-align:center;
+      color:#666;
+    ">
+      Page <span class="pageNumber"></span> of <span class="totalPages"></span>
+    </div>
+  `
+})
 
         headerTemplate: headerHtml,
 
