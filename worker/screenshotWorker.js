@@ -13,12 +13,12 @@ async function runWorker() {
   const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
-    .eq("status", "active")
+    .eq("status","active")
     .lte("next_capture_at", new Date().toISOString())
     .limit(3)
 
   if (error) {
-    console.error("Error loading URLs:", error)
+    console.error(error)
     return
   }
 
@@ -29,9 +29,9 @@ async function runWorker() {
 
   for (const url of urls) {
 
-    console.log("Capturing:", url.url)
-
     try {
+
+      console.log("Capturing:", url.url)
 
       await supabase
         .from("urls")
@@ -40,9 +40,13 @@ async function runWorker() {
         })
         .eq("id", url.id)
 
-      const browser = await chromium.launch()
+      const browser = await chromium.launch({
+        headless: true
+      })
 
       const page = await browser.newPage()
+
+      await page.setViewportSize({ width: 1280, height: 1600 })
 
       await page.goto(url.url, {
         waitUntil: "networkidle",
@@ -59,49 +63,29 @@ async function runWorker() {
       await page.evaluate((timestamp, pageUrl, captureId) => {
 
         const banner = document.createElement("div")
-        banner.id = "capture-banner"
 
         banner.innerHTML = `
-          <div><strong>Captured:</strong> ${timestamp}</div>
-          <div><strong>URL:</strong> ${pageUrl}</div>
-          <div><strong>System:</strong> WebArchive</div>
-          <div><strong>Capture ID:</strong> ${captureId}</div>
+        <div><b>Captured:</b> ${timestamp}</div>
+        <div><b>URL:</b> ${pageUrl}</div>
+        <div><b>System:</b> WebArchive</div>
+        <div><b>Capture ID:</b> ${captureId}</div>
         `
 
-        banner.style.width = "100%"
+        banner.style.position = "relative"
         banner.style.background = "white"
         banner.style.color = "black"
-        banner.style.fontFamily = "Arial, sans-serif"
+        banner.style.fontFamily = "Arial"
         banner.style.fontSize = "14px"
         banner.style.padding = "10px"
         banner.style.borderBottom = "2px solid black"
-        banner.style.boxSizing = "border-box"
+        banner.style.zIndex = "999999"
+        banner.style.width = "100%"
 
-        document.body.insertBefore(banner, document.body.firstChild)
-
-        const style = document.createElement("style")
-        style.innerHTML = `
-          body {
-            margin-top: 120px !important;
-          }
-
-          #capture-banner {
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 999999;
-          }
-
-          @media print {
-            body {
-              margin-top: 120px !important;
-            }
-          }
-        `
-
-        document.head.appendChild(style)
+        document.body.prepend(banner)
 
       }, timestamp, url.url, captureId)
+
+      await page.waitForTimeout(1500)
 
       const pdfBuffer = await page.pdf({
         format: "A4",
@@ -112,8 +96,6 @@ async function runWorker() {
 
       const fileName = `${url.id}-${Date.now()}.pdf`
 
-      console.log("Uploading:", fileName)
-
       const { error: uploadError } = await supabase.storage
         .from("captures")
         .upload(fileName, pdfBuffer, {
@@ -121,34 +103,28 @@ async function runWorker() {
         })
 
       if (uploadError) {
-        console.error("Upload failed:", uploadError)
+        console.error(uploadError)
         continue
       }
 
-      console.log("Upload successful")
-
-      const { error: insertError } = await supabase
+      await supabase
         .from("captures")
         .insert({
           url_id: url.id,
           file_path: fileName
         })
 
-      if (insertError) {
-        console.error("Database insert failed:", insertError)
-      } else {
-        console.log("Capture record inserted")
-      }
+      console.log("Capture stored")
 
-    } catch (err) {
+    }
+
+    catch(err) {
 
       console.error("Capture failed:", err)
 
     }
 
   }
-
-  console.log("Worker finished")
 
 }
 
