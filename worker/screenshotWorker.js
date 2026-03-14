@@ -10,140 +10,146 @@ async function runWorker() {
 
   console.log("Worker started")
 
-  const { data: urls, error } = await supabase
-    .from("urls")
-    .select("*")
-    .eq("status", "active")
-    .or(`next_capture_at.lte.${new Date().toISOString()},next_capture_at.is.null`)
-    .limit(3)
+  const browser = await chromium.launch({
+    headless: true
+  })
 
-  if (error) {
-    console.error("Error loading URLs:", error)
-    return
-  }
+  const context = await browser.newContext({
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
+    viewport: { width: 1280, height: 1600 },
+    locale: "en-US"
+  })
 
-  if (!urls || urls.length === 0) {
-    console.log("No URLs to capture")
-    return
-  }
+  while (true) {
 
-  for (const url of urls) {
+    const { data: urls, error } = await supabase
+      .from("urls")
+      .select("*")
+      .eq("status", "active")
+      .or(`next_capture_at.lte.${new Date().toISOString()},next_capture_at.is.null`)
+      .limit(3)
 
-    try {
+    if (error) {
+      console.error("Error loading URLs:", error)
+      await new Promise(r => setTimeout(r, 5000))
+      continue
+    }
 
-      console.log("Capturing:", url.url)
+    if (!urls || urls.length === 0) {
+      console.log("No URLs to capture")
+      await new Promise(r => setTimeout(r, 10000))
+      continue
+    }
 
-      // update next capture time
-      await supabase
-        .from("urls")
-        .update({
-          next_capture_at: new Date(Date.now() + 86400000)
-        })
-        .eq("id", url.id)
+    for (const url of urls) {
 
-      const browser = await chromium.launch({
-        headless: true
-      })
+      try {
 
-      const context = await browser.newContext({
-        userAgent:
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
-        viewport: { width: 1280, height: 1600 },
-        locale: "en-US"
-      })
+        console.log("Capturing:", url.url)
 
-      const page = await context.newPage()
+        await supabase
+          .from("urls")
+          .update({
+            next_capture_at: new Date(Date.now() + 86400000)
+          })
+          .eq("id", url.id)
 
-      await page.setExtraHTTPHeaders({
-        "accept-language": "en-US,en;q=0.9"
-      })
+        const page = await context.newPage()
 
-      await page.goto(url.url, {
-        waitUntil: "networkidle",
-        timeout: 60000
-      })
-
-      await page.waitForTimeout(4000)
-
-      const timestamp = new Date()
-        .toISOString()
-        .replace("T"," ")
-        .replace("Z"," UTC")
-
-      const captureId = Date.now()
-
-      const headerHtml = `
-        <div style="
-          width:100%;
-          font-family:Arial, sans-serif;
-          font-size:12px;
-          padding:8px 20px;
-          background:white;
-          color:black;
-          border-bottom:1px solid black;
-        ">
-          <div><b>Captured:</b> ${timestamp}</div>
-          <div><b>URL:</b> ${url.url}</div>
-          <div><b>System:</b> WebArchive</div>
-          <div><b>Capture ID:</b> ${captureId}</div>
-        </div>
-      `
-
-      const pdfBuffer = await page.pdf({
-        format: "A4",
-        printBackground: true,
-        displayHeaderFooter: true,
-
-        margin: {
-          top: "180px",
-          bottom: "40px",
-          left: "20px",
-          right: "20px"
-        },
-
-        headerTemplate: headerHtml,
-
-        footerTemplate: `
-          <div style="
-            font-size:10px;
-            width:100%;
-            text-align:center;
-            color:#666;
-          ">
-            Page <span class="pageNumber"></span> of <span class="totalPages"></span>
-          </div>
-        `
-      })
-
-      await browser.close()
-
-      const fileName = `${url.id}-${Date.now()}.pdf`
-
-      console.log("Uploading:", fileName)
-
-      const { error: uploadError } = await supabase.storage
-        .from("captures")
-        .upload(fileName, pdfBuffer, {
-          contentType: "application/pdf"
+        await page.setExtraHTTPHeaders({
+          "accept-language": "en-US,en;q=0.9"
         })
 
-      if (uploadError) {
-        console.error("Upload failed:", uploadError)
-        continue
+        await page.goto(url.url, {
+          waitUntil: "networkidle",
+          timeout: 60000
+        })
+
+        await page.waitForTimeout(4000)
+
+        const timestamp = new Date()
+          .toISOString()
+          .replace("T"," ")
+          .replace("Z"," UTC")
+
+        const captureId = Date.now()
+
+        // Inject timestamp banner inside the page
+        await page.evaluate(({ timestamp, url, captureId }) => {
+
+          const banner = document.createElement("div")
+
+          banner.style.width = "100%"
+          banner.style.background = "white"
+          banner.style.color = "black"
+          banner.style.fontFamily = "Arial, sans-serif"
+          banner.style.fontSize = "14px"
+          banner.style.padding = "12px"
+          banner.style.borderBottom = "2px solid black"
+          banner.style.lineHeight = "1.6"
+          banner.style.position = "relative"
+          banner.style.zIndex = "999999"
+
+          banner.innerHTML = `
+            <div><strong>Captured:</strong> ${timestamp}</div>
+            <div><strong>URL:</strong> ${url}</div>
+            <div><strong>System:</strong> WebArchive</div>
+            <div><strong>Capture ID:</strong> ${captureId}</div>
+          `
+
+          const spacer = document.createElement("div")
+          spacer.style.height = "120px"
+
+          document.body.prepend(spacer)
+          document.body.prepend(banner)
+
+        }, { timestamp, url: url.url, captureId })
+
+        const pdfBuffer = await page.pdf({
+          format: "A4",
+          printBackground: true,
+          margin: {
+            top: "40px",
+            bottom: "40px",
+            left: "20px",
+            right: "20px"
+          }
+        })
+
+        await page.close()
+
+        const fileName = `${url.id}-${Date.now()}.pdf`
+
+        console.log("Uploading:", fileName)
+
+        const { error: uploadError } = await supabase.storage
+          .from("captures")
+          .upload(fileName, pdfBuffer, {
+            contentType: "application/pdf"
+          })
+
+        if (uploadError) {
+          console.error("Upload failed:", uploadError)
+          continue
+        }
+
+        await supabase
+          .from("captures")
+          .insert({
+            url_id: url.id,
+            file_path: fileName
+          })
+
+        console.log("Capture stored")
+
       }
 
-      await supabase
-        .from("captures")
-        .insert({
-          url_id: url.id,
-          file_path: fileName
-        })
+      catch(err) {
 
-      console.log("Capture stored")
+        console.error("Capture failed:", err)
 
-    } catch (err) {
-
-      console.error("Capture failed:", err)
+      }
 
     }
 
