@@ -30,11 +30,11 @@ async function runWorker() {
   for (let cycle = 0; cycle < 20; cycle++) {
 
     const { data: urls, error } = await supabase
-  .from("urls")
-  .select("*")
-  .eq("status", "active")
-  .or(`next_capture_at.lte.${new Date().toISOString()},next_capture_at.is.null`)
-  .limit(3)
+      .from("urls")
+      .select("*")
+      .eq("status", "active")
+      .or(`next_capture_at.lte.${new Date().toISOString()},next_capture_at.is.null`)
+      .limit(3)
 
     if (error) {
       console.error(error)
@@ -53,12 +53,6 @@ async function runWorker() {
 
         console.log("Capturing:", url.url)
 
-        // Lock URL so other workers don't capture it
-        await supabase
-          .from("urls")
-          .update({ status: "processing" })
-          .eq("id", url.id)
-
         const page = await context.newPage()
 
         await page.goto(url.url, {
@@ -66,8 +60,6 @@ async function runWorker() {
           timeout: 60000
         })
 
-        // Ensure lazy-loaded content loads
-        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
         await page.waitForTimeout(4000)
 
         const timestamp = new Date()
@@ -145,6 +137,10 @@ async function runWorker() {
             )
             break
 
+          case "specific":
+            nextCapture = new Date(url.schedule_value)
+            break
+
           default:
             nextCapture = new Date(baseTime.getTime() + 7 * 86400000)
 
@@ -153,8 +149,7 @@ async function runWorker() {
         await supabase
           .from("urls")
           .update({
-            next_capture_at: nextCapture,
-            status: "active"
+            next_capture_at: nextCapture
           })
           .eq("id", url.id)
 
@@ -165,11 +160,6 @@ async function runWorker() {
       catch (err) {
 
         console.error("Capture failed:", err)
-
-        await supabase
-          .from("urls")
-          .update({ status: "active" })
-          .eq("id", url.id)
 
       }
 
