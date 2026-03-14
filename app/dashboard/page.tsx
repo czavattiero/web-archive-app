@@ -8,28 +8,28 @@ process.env.NEXT_PUBLIC_SUPABASE_URL!,
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export default function Dashboard() {
+export default function Dashboard(){
 
-const [user, setUser] = useState<any>(null)
-const [urlInput, setUrlInput] = useState("")
-const [schedule, setSchedule] = useState("weekly")
-const [urls, setUrls] = useState<any[]>([])
-const [captures, setCaptures] = useState<any[]>([])
+const [user,setUser] = useState<any>(null)
+const [urlInput,setUrlInput] = useState("")
+const [schedule,setSchedule] = useState("weekly")
+const [urls,setUrls] = useState<any[]>([])
+const [captures,setCaptures] = useState<any[]>([])
 
-useEffect(() => {
+useEffect(()=>{
 loadUser()
-}, [])
+},[])
 
-useEffect(() => {
+useEffect(()=>{
 if(user){
 loadUrls()
 loadCaptures()
 }
-}, [user])
+},[user])
 
 async function loadUser(){
 
-const { data } = await supabase.auth.getUser()
+const {data} = await supabase.auth.getUser()
 
 if(data?.user){
 setUser(data.user)
@@ -39,10 +39,10 @@ setUser(data.user)
 
 async function loadUrls(){
 
-const { data, error } = await supabase
+const {data,error} = await supabase
 .from("urls")
 .select("*")
-.eq("user_id", user.id)
+.eq("user_id",user.id)
 .order("created_at",{ascending:false})
 
 if(error){
@@ -58,11 +58,11 @@ setUrls(data)
 
 async function loadCaptures(){
 
-const { data, error } = await supabase
+const {data,error} = await supabase
 .from("captures")
 .select("*")
-.order("created_at",{ascending:false})
-.limit(30)
+.order("captured_at",{ascending:false})
+.limit(50)
 
 if(error){
 console.error(error)
@@ -79,7 +79,7 @@ async function addUrl(){
 
 if(!urlInput || !user) return
 
-const { error } = await supabase
+const {error} = await supabase
 .from("urls")
 .insert({
 url:urlInput,
@@ -108,8 +108,7 @@ window.location.reload()
 
 function getUrl(urlId:any){
 
-const u = urls.find(x => x.id === urlId)
-
+const u = urls.find(x=>x.id===urlId)
 return u ? u.url : ""
 
 }
@@ -187,20 +186,12 @@ Add URL
 
 <tbody>
 
-{urls.map(u => (
-
+{urls.map(u=>(
 <tr key={u.id}>
-
 <td>{u.url}</td>
-
 <td>{u.schedule_type}</td>
-
-<td>
-{new Date(u.created_at).toLocaleDateString()}
-</td>
-
+<td>{new Date(u.created_at).toLocaleDateString()}</td>
 </tr>
-
 ))}
 
 </tbody>
@@ -221,14 +212,13 @@ Add URL
 
 <tbody>
 
-{captures.map(c => (
-
+{captures.map(c=>(
 <tr key={c.id}>
 
 <td>{getUrl(c.url_id)}</td>
 
 <td>
-{new Date(c.created_at).toLocaleString()}
+{new Date(c.captured_at).toLocaleString()}
 </td>
 
 <td>
@@ -243,7 +233,6 @@ View PDF
 </td>
 
 </tr>
-
 ))}
 
 </tbody>
