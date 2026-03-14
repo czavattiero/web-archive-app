@@ -59,16 +59,20 @@ export default function Dashboard() {
 
     if (!urlInput) return
 
-    // Always capture immediately
-    const immediateCapture = new Date()
-
     const { error } = await supabase.from("urls").insert({
+
       url: urlInput,
       user_id: user.id,
+
+      // scheduling fields
       schedule_type: schedule,
       schedule_value: schedule === "specific" ? specificDate : null,
-      next_capture_at: immediateCapture,
+
+      // IMPORTANT: always capture immediately
+      next_capture_at: new Date(),
+
       status: "active"
+
     })
 
     if (error) {
@@ -94,7 +98,6 @@ export default function Dashboard() {
       {/* HEADER */}
 
       <div style={{ display: "flex", justifyContent: "space-between" }}>
-
         <h1>Dashboard</h1>
 
         <button
@@ -109,7 +112,6 @@ export default function Dashboard() {
         >
           Sign Out
         </button>
-
       </div>
 
       {user && (
