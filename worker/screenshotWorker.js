@@ -1,6 +1,5 @@
 import { chromium } from "playwright"
 import { createClient } from "@supabase/supabase-js"
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
