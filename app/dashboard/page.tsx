@@ -59,17 +59,15 @@ export default function Dashboard() {
 
     if (!urlInput) return
 
-    let nextCapture = new Date()
-
-    if (schedule === "specific" && specificDate) {
-      nextCapture = new Date(specificDate)
-    }
+    // Always capture immediately
+    const immediateCapture = new Date()
 
     const { error } = await supabase.from("urls").insert({
       url: urlInput,
       user_id: user.id,
       schedule_type: schedule,
-      next_capture_at: nextCapture,
+      schedule_value: schedule === "specific" ? specificDate : null,
+      next_capture_at: immediateCapture,
       status: "active"
     })
 
@@ -96,6 +94,7 @@ export default function Dashboard() {
       {/* HEADER */}
 
       <div style={{ display: "flex", justifyContent: "space-between" }}>
+
         <h1>Dashboard</h1>
 
         <button
@@ -110,6 +109,7 @@ export default function Dashboard() {
         >
           Sign Out
         </button>
+
       </div>
 
       {user && (
@@ -167,6 +167,7 @@ export default function Dashboard() {
       <h2 style={{ marginTop: 40 }}>Tracked URLs</h2>
 
       <table border={1} cellPadding={10} width="100%">
+
         <thead>
           <tr>
             <th>URL</th>
@@ -185,7 +186,7 @@ export default function Dashboard() {
 
               <td>
                 {u.schedule_type === "specific"
-                  ? new Date(u.next_capture_at).toLocaleDateString()
+                  ? new Date(u.schedule_value).toLocaleDateString()
                   : u.schedule_type}
               </td>
 
@@ -198,6 +199,7 @@ export default function Dashboard() {
           ))}
 
         </tbody>
+
       </table>
 
       {/* CAPTURE HISTORY */}
@@ -205,6 +207,7 @@ export default function Dashboard() {
       <h2 style={{ marginTop: 40 }}>Capture History</h2>
 
       <table border={1} cellPadding={10} width="100%">
+
         <thead>
           <tr>
             <th>URL</th>
@@ -239,6 +242,7 @@ export default function Dashboard() {
           ))}
 
         </tbody>
+
       </table>
 
     </div>
