@@ -13,7 +13,6 @@ export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
   const [urlInput, setUrlInput] = useState("")
   const [schedule, setSchedule] = useState("weekly")
-  const [specificDate, setSpecificDate] = useState("")
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
 
@@ -48,7 +47,7 @@ export default function Dashboard() {
 
     const { data } = await supabase
       .from("captures")
-      .select("*, urls(url)")
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(20)
 
@@ -60,19 +59,11 @@ export default function Dashboard() {
     if (!urlInput) return
 
     const { error } = await supabase.from("urls").insert({
-
       url: urlInput,
       user_id: user.id,
-
-      // scheduling fields
       schedule_type: schedule,
-      schedule_value: schedule === "specific" ? specificDate : null,
-
-      // IMPORTANT: always capture immediately
       next_capture_at: new Date(),
-
       status: "active"
-
     })
 
     if (error) {
@@ -81,8 +72,6 @@ export default function Dashboard() {
     }
 
     setUrlInput("")
-    setSpecificDate("")
-
     await loadUrls()
   }
 
@@ -91,13 +80,17 @@ export default function Dashboard() {
     window.location.reload()
   }
 
+  function getUrl(urlId:any){
+    const u = urls.find(x => x.id === urlId)
+    return u ? u.url : ""
+  }
+
   return (
 
     <div style={{ padding: 30 }}>
 
-      {/* HEADER */}
-
       <div style={{ display: "flex", justifyContent: "space-between" }}>
+
         <h1>Dashboard</h1>
 
         <button
@@ -112,13 +105,12 @@ export default function Dashboard() {
         >
           Sign Out
         </button>
+
       </div>
 
-      {user && (
-        <p>Welcome {user.email}</p>
-      )}
+      {user && <p>Welcome {user.email}</p>}
 
-      {/* ADD URL */}
+      {/* Add URL */}
 
       <h2>Add URL</h2>
 
@@ -126,50 +118,39 @@ export default function Dashboard() {
         style={{ width: 400 }}
         placeholder="https://example.com/full-url"
         value={urlInput}
-        onChange={(e) => setUrlInput(e.target.value)}
+        onChange={(e)=>setUrlInput(e.target.value)}
       />
 
       <select
         value={schedule}
-        onChange={(e) => setSchedule(e.target.value)}
-        style={{ marginLeft: 10 }}
+        onChange={(e)=>setSchedule(e.target.value)}
+        style={{ marginLeft:10 }}
       >
         <option value="weekly">Weekly</option>
         <option value="biweekly">Biweekly</option>
         <option value="29days">29 days</option>
         <option value="30days">30 days</option>
-        <option value="specific">Specific date</option>
       </select>
-
-      {schedule === "specific" && (
-        <input
-          type="date"
-          value={specificDate}
-          onChange={(e) => setSpecificDate(e.target.value)}
-          style={{ marginLeft: 10 }}
-        />
-      )}
 
       <button
         onClick={addUrl}
         style={{
-          marginLeft: 10,
-          background: "green",
-          color: "white",
-          border: "none",
-          padding: "6px 12px",
-          cursor: "pointer"
+          marginLeft:10,
+          background:"green",
+          color:"white",
+          border:"none",
+          padding:"6px 12px",
+          cursor:"pointer"
         }}
       >
         Add URL
       </button>
 
-      {/* TRACKED URLS */}
+      {/* Tracked URLs */}
 
-      <h2 style={{ marginTop: 40 }}>Tracked URLs</h2>
+      <h2 style={{ marginTop:40 }}>Tracked URLs</h2>
 
       <table border={1} cellPadding={10} width="100%">
-
         <thead>
           <tr>
             <th>URL</th>
@@ -180,17 +161,13 @@ export default function Dashboard() {
 
         <tbody>
 
-          {urls.map((u) => (
+          {urls.map(u => (
 
             <tr key={u.id}>
 
               <td>{u.url}</td>
 
-              <td>
-                {u.schedule_type === "specific"
-                  ? new Date(u.schedule_value).toLocaleDateString()
-                  : u.schedule_type}
-              </td>
+              <td>{u.schedule_type}</td>
 
               <td>
                 {new Date(u.created_at).toLocaleDateString()}
@@ -204,12 +181,11 @@ export default function Dashboard() {
 
       </table>
 
-      {/* CAPTURE HISTORY */}
+      {/* Capture History */}
 
-      <h2 style={{ marginTop: 40 }}>Capture History</h2>
+      <h2 style={{ marginTop:40 }}>Capture History</h2>
 
       <table border={1} cellPadding={10} width="100%">
-
         <thead>
           <tr>
             <th>URL</th>
@@ -220,23 +196,25 @@ export default function Dashboard() {
 
         <tbody>
 
-          {captures.map((c) => (
+          {captures.map(c => (
 
             <tr key={c.id}>
 
-              <td>{c.urls?.url}</td>
+              <td>{getUrl(c.url_id)}</td>
 
               <td>
                 {new Date(c.created_at).toLocaleString()}
               </td>
 
               <td>
+
                 <a
                   href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`}
                   target="_blank"
                 >
                   View PDF
                 </a>
+
               </td>
 
             </tr>
