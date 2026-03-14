@@ -19,9 +19,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadUser()
-    loadUrls()
-    loadCaptures()
   }, [])
+
+  useEffect(() => {
+    if (user) {
+      loadUrls()
+      loadCaptures()
+    }
+  }, [user])
 
   async function loadUser() {
     const { data } = await supabase.auth.getUser()
@@ -29,15 +34,18 @@ export default function Dashboard() {
   }
 
   async function loadUrls() {
+
     const { data } = await supabase
       .from("urls")
       .select("*")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
 
     if (data) setUrls(data)
   }
 
   async function loadCaptures() {
+
     const { data } = await supabase
       .from("captures")
       .select("*, urls(url)")
@@ -57,12 +65,18 @@ export default function Dashboard() {
       nextCapture = new Date(specificDate)
     }
 
-    await supabase.from("urls").insert({
+    const { error } = await supabase.from("urls").insert({
       url: urlInput,
+      user_id: user.id,
       schedule_type: schedule,
       next_capture_at: nextCapture,
       status: "active"
     })
+
+    if (error) {
+      console.error("Insert error:", error)
+      return
+    }
 
     setUrlInput("")
     setSpecificDate("")
@@ -79,13 +93,30 @@ export default function Dashboard() {
 
     <div style={{ padding: 30 }}>
 
-      <h1>Dashboard</h1>
+      {/* HEADER */}
+
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <h1>Dashboard</h1>
+
+        <button
+          onClick={signOut}
+          style={{
+            background: "red",
+            color: "white",
+            border: "none",
+            padding: "8px 14px",
+            cursor: "pointer"
+          }}
+        >
+          Sign Out
+        </button>
+      </div>
 
       {user && (
         <p>Welcome {user.email}</p>
       )}
 
-      <button onClick={signOut}>Sign Out</button>
+      {/* ADD URL */}
 
       <h2>Add URL</h2>
 
@@ -118,11 +149,20 @@ export default function Dashboard() {
       )}
 
       <button
-        style={{ marginLeft: 10 }}
         onClick={addUrl}
+        style={{
+          marginLeft: 10,
+          background: "green",
+          color: "white",
+          border: "none",
+          padding: "6px 12px",
+          cursor: "pointer"
+        }}
       >
         Add URL
       </button>
+
+      {/* TRACKED URLS */}
 
       <h2 style={{ marginTop: 40 }}>Tracked URLs</h2>
 
@@ -140,6 +180,7 @@ export default function Dashboard() {
           {urls.map((u) => (
 
             <tr key={u.id}>
+
               <td>{u.url}</td>
 
               <td>
@@ -159,6 +200,8 @@ export default function Dashboard() {
         </tbody>
       </table>
 
+      {/* CAPTURE HISTORY */}
+
       <h2 style={{ marginTop: 40 }}>Capture History</h2>
 
       <table border={1} cellPadding={10} width="100%">
@@ -175,6 +218,7 @@ export default function Dashboard() {
           {captures.map((c) => (
 
             <tr key={c.id}>
+
               <td>{c.urls?.url}</td>
 
               <td>
