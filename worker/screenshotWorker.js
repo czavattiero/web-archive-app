@@ -1,3 +1,4 @@
+import "dotenv/config"
 import { chromium } from "playwright"
 import { createClient } from "@supabase/supabase-js"
 
@@ -11,8 +12,13 @@ async function runWorker() {
   console.log("Worker started")
 
   const browser = await chromium.launch({
-    headless: true
-  })
+  headless: true,
+  proxy: {
+    server: `http://${process.env.SMARTPROXY_HOST}:${process.env.SMARTPROXY_PORT}`,
+    username: process.env.SMARTPROXY_USER,
+    password: process.env.SMARTPROXY_PASS
+  }
+})
 
   const context = await browser.newContext({
     userAgent:
