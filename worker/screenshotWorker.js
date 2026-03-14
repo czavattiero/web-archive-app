@@ -115,15 +115,39 @@ async function runWorker() {
         }, { timestamp, url: url.url, captureId })
 
         const pdfBuffer = await page.pdf({
-          format: "A4",
-          printBackground: true,
-          margin: {
-            top: "40px",
-            bottom: "40px",
-            left: "20px",
-            right: "20px"
-          }
-        })
+  format: "A4",
+  printBackground: true,
+
+  displayHeaderFooter: true,
+
+  headerTemplate: `
+    <div style="font-size:8px;width:100%;text-align:center;">
+    </div>
+  `,
+
+  footerTemplate: `
+    <div style="
+      font-size:9px;
+      width:100%;
+      padding:5px 10px;
+      color:#444;
+      font-family:Arial, sans-serif;
+      display:flex;
+      justify-content:space-between;
+    ">
+      <span>Captured: ${timestamp}</span>
+      <span>${url.url}</span>
+      <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+    </div>
+  `,
+
+  margin: {
+    top: "60px",
+    bottom: "60px",
+    left: "20px",
+    right: "20px"
+  }
+})
 
         await page.close()
 
