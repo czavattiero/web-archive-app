@@ -7,15 +7,15 @@ await page.goto(url.url, {
   timeout: 60000
 })
 
-const timestamp = new Date().toISOString()
+const timestamp = new Date().toISOString().replace("T", " ").replace("Z", " UTC")
 
 await page.addStyleTag({
   content: `
     body {
-      margin-top: 60px !important;
+      margin-top: 90px !important;
     }
 
-    #capture-timestamp {
+    #capture-header {
       position: fixed;
       top: 0;
       left: 0;
@@ -25,23 +25,27 @@ await page.addStyleTag({
       font-size: 14px;
       font-family: Arial, sans-serif;
       padding: 10px;
-      border-bottom: 1px solid #ccc;
+      border-bottom: 2px solid #000;
       z-index: 999999;
-      text-align: center;
+      line-height: 1.4;
     }
   `
 })
 
-await page.evaluate((timestamp) => {
+await page.evaluate((timestamp, url) => {
 
-  const banner = document.createElement("div")
-  banner.id = "capture-timestamp"
+  const header = document.createElement("div")
+  header.id = "capture-header"
 
-  banner.innerText = "Captured: " + timestamp
+  header.innerHTML = `
+    <strong>Captured:</strong> ${timestamp}<br>
+    <strong>URL:</strong> ${url}<br>
+    <strong>System:</strong> WebArchive
+  `
 
-  document.body.prepend(banner)
+  document.body.prepend(header)
 
-}, timestamp)
+}, timestamp, url.url)
 
 const pdfBuffer = await page.pdf({
   format: "A4",
