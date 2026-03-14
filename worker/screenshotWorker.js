@@ -56,35 +56,56 @@ async function runWorker() {
 
       const captureId = Date.now()
 
-      const pdfBuffer = await page.pdf({
+      await page.evaluate((timestamp, pageUrl, captureId) => {
 
-        format: "A4",
+        const banner = document.createElement("div")
+        banner.id = "capture-banner"
 
-        printBackground: true,
-
-        displayHeaderFooter: true,
-
-        margin: {
-          top: "140px",
-          bottom: "60px",
-          left: "20px",
-          right: "20px"
-        },
-
-        headerTemplate: `
-          <div style="width:90%; margin:0 auto; font-family:Arial; font-size:10px; color:black; background:white; border-bottom:1px solid #000; padding:8px;">
-            <div><b>Captured:</b> ${timestamp}</div>
-            <div><b>URL:</b> ${url.url}</div>
-            <div><b>System:</b> WebArchive</div>
-            <div><b>Capture ID:</b> ${captureId}</div>
-          </div>
-        `,
-
-        footerTemplate: `
-          <div style="width:100%; font-size:9px; text-align:center; color:#555;">
-            Page <span class="pageNumber"></span> of <span class="totalPages"></span>
-          </div>
+        banner.innerHTML = `
+          <div><strong>Captured:</strong> ${timestamp}</div>
+          <div><strong>URL:</strong> ${pageUrl}</div>
+          <div><strong>System:</strong> WebArchive</div>
+          <div><strong>Capture ID:</strong> ${captureId}</div>
         `
+
+        banner.style.width = "100%"
+        banner.style.background = "white"
+        banner.style.color = "black"
+        banner.style.fontFamily = "Arial, sans-serif"
+        banner.style.fontSize = "14px"
+        banner.style.padding = "10px"
+        banner.style.borderBottom = "2px solid black"
+        banner.style.boxSizing = "border-box"
+
+        document.body.insertBefore(banner, document.body.firstChild)
+
+        const style = document.createElement("style")
+        style.innerHTML = `
+          body {
+            margin-top: 120px !important;
+          }
+
+          #capture-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 999999;
+          }
+
+          @media print {
+            body {
+              margin-top: 120px !important;
+            }
+          }
+        `
+
+        document.head.appendChild(style)
+
+      }, timestamp, url.url, captureId)
+
+      const pdfBuffer = await page.pdf({
+        format: "A4",
+        printBackground: true
       })
 
       await browser.close()
