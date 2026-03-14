@@ -6,6 +6,23 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
+async function capturePage(page, url) {
+  try {
+    await page.goto(url, {
+      waitUntil: "networkidle",
+      timeout: 60000
+    })
+
+    // Allow potential bot challenges to complete
+    await page.waitForTimeout(5000)
+
+    return true
+  } catch (err) {
+    console.error("Navigation failed:", err)
+    return false
+  }
+}
+
 async function runWorker() {
 
   console.log("Worker started")
@@ -47,34 +64,32 @@ async function runWorker() {
       const context = await browser.newContext({
 
         userAgent:
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/121.0.0.0 Safari/537.36",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
 
-        viewport: {
-          width: 1280,
-          height: 1600
-        },
+        viewport: { width: 1280, height: 1600 },
 
-        locale: "en-US"
+        locale: "en-US",
+
+        extraHTTPHeaders: {
+          "accept-language": "en-US,en;q=0.9"
+        }
       })
 
       const page = await context.newPage()
 
-      await page.setExtraHTTPHeaders({
-        "accept-language": "en-US,en;q=0.9"
-      })
-
+      // Hide automation flag
       await page.addInitScript(() => {
-        Object.defineProperty(navigator, 'webdriver', {
+        Object.defineProperty(navigator, "webdriver", {
           get: () => false
         })
       })
 
-      await page.goto(url.url, {
-        waitUntil: "domcontentloaded",
-        timeout: 60000
-      })
+      const loaded = await capturePage(page, url.url)
 
-      await page.waitForTimeout(4000)
+      if (!loaded) {
+        await browser.close()
+        continue
+      }
 
       const timestamp = new Date()
         .toISOString()
@@ -83,31 +98,30 @@ async function runWorker() {
 
       const captureId = Date.now()
 
+      // Insert timestamp banner
       await page.evaluate((timestamp, pageUrl, captureId) => {
 
         const banner = document.createElement("div")
 
         banner.innerHTML = `
-        <div><b>Captured:</b> ${timestamp}</div>
-        <div><b>URL:</b> ${pageUrl}</div>
-        <div><b>System:</b> WebArchive</div>
-        <div><b>Capture ID:</b> ${captureId}</div>
+          <div><b>Captured:</b> ${timestamp}</div>
+          <div><b>URL:</b> ${pageUrl}</div>
+          <div><b>System:</b> WebArchive</div>
+          <div><b>Capture ID:</b> ${captureId}</div>
         `
 
-        banner.style.position = "relative"
         banner.style.background = "white"
         banner.style.color = "black"
         banner.style.fontFamily = "Arial"
         banner.style.fontSize = "14px"
         banner.style.padding = "10px"
         banner.style.borderBottom = "2px solid black"
-        banner.style.width = "100%"
 
         document.body.prepend(banner)
 
       }, timestamp, url.url, captureId)
 
-      await page.waitForTimeout(1500)
+      await page.waitForTimeout(2000)
 
       const pdfBuffer = await page.pdf({
         format: "A4",
@@ -140,9 +154,7 @@ async function runWorker() {
 
       console.log("Capture stored")
 
-    }
-
-    catch(err) {
+    } catch (err) {
 
       console.error("Capture failed:", err)
 
