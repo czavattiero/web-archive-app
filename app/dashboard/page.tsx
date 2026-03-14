@@ -28,11 +28,18 @@ export default function Dashboard() {
   }, [user])
 
   async function loadUser() {
+
     const { data } = await supabase.auth.getUser()
-    setUser(data.user)
+
+    if (data?.user) {
+      setUser(data.user)
+    }
+
   }
 
   async function loadUrls() {
+
+    if (!user) return
 
     const { data } = await supabase
       .from("urls")
@@ -41,6 +48,7 @@ export default function Dashboard() {
       .order("created_at", { ascending: false })
 
     if (data) setUrls(data)
+
   }
 
   async function loadCaptures() {
@@ -52,19 +60,22 @@ export default function Dashboard() {
       .limit(20)
 
     if (data) setCaptures(data)
+
   }
 
   async function addUrl() {
 
-    if (!urlInput) return
+    if (!urlInput || !user) return
 
-    const { error } = await supabase.from("urls").insert({
-      url: urlInput,
-      user_id: user.id,
-      schedule_type: schedule,
-      next_capture_at: new Date(),
-      status: "active"
-    })
+    const { error } = await supabase
+      .from("urls")
+      .insert({
+        url: urlInput,
+        user_id: user.id,
+        schedule_type: schedule,
+        next_capture_at: new Date(),
+        status: "active"
+      })
 
     if (error) {
       console.error("Insert error:", error)
@@ -73,21 +84,28 @@ export default function Dashboard() {
 
     setUrlInput("")
     await loadUrls()
+
   }
 
   async function signOut() {
+
     await supabase.auth.signOut()
     window.location.reload()
+
   }
 
   function getUrl(urlId:any){
+
     const u = urls.find(x => x.id === urlId)
     return u ? u.url : ""
+
   }
 
   return (
 
     <div style={{ padding: 30 }}>
+
+      {/* HEADER */}
 
       <div style={{ display: "flex", justifyContent: "space-between" }}>
 
@@ -110,7 +128,7 @@ export default function Dashboard() {
 
       {user && <p>Welcome {user.email}</p>}
 
-      {/* Add URL */}
+      {/* ADD URL */}
 
       <h2>Add URL</h2>
 
@@ -146,11 +164,12 @@ export default function Dashboard() {
         Add URL
       </button>
 
-      {/* Tracked URLs */}
+      {/* TRACKED URLS */}
 
       <h2 style={{ marginTop:40 }}>Tracked URLs</h2>
 
       <table border={1} cellPadding={10} width="100%">
+
         <thead>
           <tr>
             <th>URL</th>
@@ -181,11 +200,12 @@ export default function Dashboard() {
 
       </table>
 
-      {/* Capture History */}
+      {/* CAPTURE HISTORY */}
 
       <h2 style={{ marginTop:40 }}>Capture History</h2>
 
       <table border={1} cellPadding={10} width="100%">
+
         <thead>
           <tr>
             <th>URL</th>
