@@ -121,7 +121,18 @@ async function runWorker() {
   displayHeaderFooter: true,
 
   headerTemplate: `
-    <div style="font-size:8px;width:100%;text-align:center;">
+    <div style="
+      font-size:10px;
+      width:100%;
+      padding:5px 20px;
+      font-family:Arial, sans-serif;
+      display:flex;
+      justify-content:space-between;
+      color:#444;
+    ">
+      <span>Captured: ${timestamp}</span>
+      <span>${url.url}</span>
+      <span>WebArchive</span>
     </div>
   `,
 
@@ -129,20 +140,17 @@ async function runWorker() {
     <div style="
       font-size:9px;
       width:100%;
-      padding:5px 10px;
-      color:#444;
+      padding:5px 20px;
       font-family:Arial, sans-serif;
-      display:flex;
-      justify-content:space-between;
+      text-align:center;
+      color:#444;
     ">
-      <span>Captured: ${timestamp}</span>
-      <span>${url.url}</span>
-      <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+      Page <span class="pageNumber"></span> of <span class="totalPages"></span>
     </div>
   `,
 
   margin: {
-    top: "60px",
+    top: "80px",
     bottom: "60px",
     left: "20px",
     right: "20px"
