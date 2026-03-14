@@ -9,43 +9,32 @@ await page.goto(url.url, {
 
 const timestamp = new Date().toISOString().replace("T", " ").replace("Z", " UTC")
 
-await page.addStyleTag({
-  content: `
-    body {
-      margin-top: 90px !important;
-    }
+const captureId = Date.now()
 
-    #capture-header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      background: white;
-      color: black;
-      font-size: 14px;
-      font-family: Arial, sans-serif;
-      padding: 10px;
-      border-bottom: 2px solid #000;
-      z-index: 999999;
-      line-height: 1.4;
-    }
-  `
-})
+await page.evaluate((timestamp, url, captureId) => {
 
-await page.evaluate((timestamp, url) => {
+  const banner = document.createElement("div")
 
-  const header = document.createElement("div")
-  header.id = "capture-header"
+  banner.style.width = "100%"
+  banner.style.background = "white"
+  banner.style.color = "black"
+  banner.style.fontFamily = "Arial, sans-serif"
+  banner.style.fontSize = "14px"
+  banner.style.padding = "10px"
+  banner.style.borderBottom = "2px solid black"
+  banner.style.lineHeight = "1.5"
+  banner.style.boxSizing = "border-box"
 
-  header.innerHTML = `
-    <strong>Captured:</strong> ${timestamp}<br>
-    <strong>URL:</strong> ${url}<br>
-    <strong>System:</strong> WebArchive
+  banner.innerHTML = `
+    <div><strong>Captured:</strong> ${timestamp}</div>
+    <div><strong>URL:</strong> ${url}</div>
+    <div><strong>System:</strong> WebArchive</div>
+    <div><strong>Capture ID:</strong> ${captureId}</div>
   `
 
-  document.body.prepend(header)
+  document.body.insertBefore(banner, document.body.firstChild)
 
-}, timestamp, url.url)
+}, timestamp, url.url, captureId)
 
 const pdfBuffer = await page.pdf({
   format: "A4",
