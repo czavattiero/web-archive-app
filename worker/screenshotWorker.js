@@ -51,48 +51,37 @@ async function runWorker() {
 
       const timestamp = new Date()
         .toISOString()
-        .replace("T", " ")
-        .replace("Z", " UTC")
+        .replace("T"," ")
+        .replace("Z"," UTC")
 
       const captureId = Date.now()
 
       const pdfBuffer = await page.pdf({
+
         format: "A4",
+
         printBackground: true,
 
         displayHeaderFooter: true,
 
         margin: {
-          top: "120px",
-          bottom: "40px",
+          top: "140px",
+          bottom: "60px",
           left: "20px",
           right: "20px"
         },
 
         headerTemplate: `
-          <div style="
-            width:100%;
-            font-size:12px;
-            padding:10px 20px;
-            background:white;
-            color:black;
-            border-bottom:2px solid black;
-            font-family:Arial, sans-serif;
-          ">
-            <div><strong>Captured:</strong> ${timestamp}</div>
-            <div><strong>URL:</strong> ${url.url}</div>
-            <div><strong>System:</strong> WebArchive</div>
-            <div><strong>Capture ID:</strong> ${captureId}</div>
+          <div style="width:90%; margin:0 auto; font-family:Arial; font-size:10px; color:black; background:white; border-bottom:1px solid #000; padding:8px;">
+            <div><b>Captured:</b> ${timestamp}</div>
+            <div><b>URL:</b> ${url.url}</div>
+            <div><b>System:</b> WebArchive</div>
+            <div><b>Capture ID:</b> ${captureId}</div>
           </div>
         `,
 
         footerTemplate: `
-          <div style="
-            font-size:10px;
-            width:100%;
-            text-align:center;
-            color:#666;
-          ">
+          <div style="width:100%; font-size:9px; text-align:center; color:#555;">
             Page <span class="pageNumber"></span> of <span class="totalPages"></span>
           </div>
         `
