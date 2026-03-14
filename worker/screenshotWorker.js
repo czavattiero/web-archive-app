@@ -11,11 +11,11 @@ async function runWorker() {
   console.log("Worker started")
 
   const { data: urls, error } = await supabase
-  .from("urls")
-  .select("*")
-  .eq("status", "active")
-  .or(`next_capture_at.lte.${new Date().toISOString()},next_capture_at.is.null`)
-  .limit(3)
+    .from("urls")
+    .select("*")
+    .eq("status", "active")
+    .or(`next_capture_at.lte.${new Date().toISOString()},next_capture_at.is.null`)
+    .limit(3)
 
   if (error) {
     console.error("Error loading URLs:", error)
@@ -73,22 +73,22 @@ async function runWorker() {
       const captureId = Date.now()
 
       const headerHtml = `
-      <div style="
-        width:100%;
-        font-family:Arial, sans-serif;
-        font-size:12px;
-        padding:8px 20px;
-        background:white;
-        color:black;
-        border-bottom:1px solid black;
-      ">
-        <div><b>Captured:</b> ${timestamp}</div>
-        <div><b>URL:</b> ${url.url}</div>
-        <div><b>System:</b> WebArchive</div>
-        <div><b>Capture ID:</b> ${captureId}</div>
-      </div>
+        <div style="
+          width:100%;
+          font-family:Arial, sans-serif;
+          font-size:12px;
+          padding:8px 20px;
+          background:white;
+          color:black;
+          border-bottom:1px solid black;
+        ">
+          <div><b>Captured:</b> ${timestamp}</div>
+          <div><b>URL:</b> ${url.url}</div>
+          <div><b>System:</b> WebArchive</div>
+          <div><b>Capture ID:</b> ${captureId}</div>
+        </div>
       `
-      
+
       const pdfBuffer = await page.pdf({
         format: "A4",
         printBackground: true,
@@ -101,31 +101,17 @@ async function runWorker() {
           right: "20px"
         },
 
-  headerTemplate: headerHtml,
-
-  footerTemplate: `
-    <div style="
-      font-size:10px;
-      width:100%;
-      text-align:center;
-      color:#666;
-    ">
-      Page <span class="pageNumber"></span> of <span class="totalPages"></span>
-    </div>
-  `
-})
-
         headerTemplate: headerHtml,
 
         footerTemplate: `
-        <div style="
-          font-size:10px;
-          width:100%;
-          text-align:center;
-          color:#666;
-        ">
-          Page <span class="pageNumber"></span> of <span class="totalPages"></span>
-        </div>
+          <div style="
+            font-size:10px;
+            width:100%;
+            text-align:center;
+            color:#666;
+          ">
+            Page <span class="pageNumber"></span> of <span class="totalPages"></span>
+          </div>
         `
       })
 
