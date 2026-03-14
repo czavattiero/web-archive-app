@@ -11,11 +11,11 @@ async function runWorker() {
   console.log("Worker started")
 
   const { data: urls, error } = await supabase
-    .from("urls")
-    .select("*")
-    .eq("status", "active")
-    .lte("next_capture_at", new Date().toISOString())
-    .limit(3)
+  .from("urls")
+  .select("*")
+  .eq("status", "active")
+  .or(`next_capture_at.lte.${new Date().toISOString()},next_capture_at.is.null`)
+  .limit(3)
 
   if (error) {
     console.error("Error loading URLs:", error)
