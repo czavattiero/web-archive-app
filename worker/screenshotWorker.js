@@ -84,36 +84,6 @@ async function runWorker() {
 
         const captureId = Date.now()
 
-        await page.evaluate(({ timestamp, url, captureId }) => {
-
-          const banner = document.createElement("div")
-
-          banner.style.width = "100%"
-          banner.style.background = "white"
-          banner.style.color = "black"
-          banner.style.fontFamily = "Arial, sans-serif"
-          banner.style.fontSize = "14px"
-          banner.style.padding = "12px"
-          banner.style.borderBottom = "2px solid black"
-          banner.style.lineHeight = "1.6"
-          banner.style.position = "relative"
-          banner.style.zIndex = "999999"
-
-          banner.innerHTML = `
-            <div><strong>Captured:</strong> ${timestamp}</div>
-            <div><strong>URL:</strong> ${url}</div>
-            <div><strong>System:</strong> WebArchive</div>
-            <div><strong>Capture ID:</strong> ${captureId}</div>
-          `
-
-          const spacer = document.createElement("div")
-          spacer.style.height = "120px"
-
-          document.body.prepend(spacer)
-          document.body.prepend(banner)
-
-        }, { timestamp, url: url.url, captureId })
-
         const pdfBuffer = await page.pdf({
   format: "A4",
   printBackground: true,
