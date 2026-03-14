@@ -13,12 +13,12 @@ async function runWorker() {
   const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
-    .eq("status","active")
+    .eq("status", "active")
     .lte("next_capture_at", new Date().toISOString())
     .limit(3)
 
   if (error) {
-    console.error(error)
+    console.error("Error loading URLs:", error)
     return
   }
 
@@ -44,19 +44,42 @@ async function runWorker() {
         headless: true
       })
 
-      const page = await browser.newPage()
+      const context = await browser.newContext({
 
-      await page.setViewportSize({ width: 1280, height: 1600 })
+        userAgent:
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/121.0.0.0 Safari/537.36",
+
+        viewport: {
+          width: 1280,
+          height: 1600
+        },
+
+        locale: "en-US"
+      })
+
+      const page = await context.newPage()
+
+      await page.setExtraHTTPHeaders({
+        "accept-language": "en-US,en;q=0.9"
+      })
+
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, 'webdriver', {
+          get: () => false
+        })
+      })
 
       await page.goto(url.url, {
-        waitUntil: "networkidle",
+        waitUntil: "domcontentloaded",
         timeout: 60000
       })
 
+      await page.waitForTimeout(4000)
+
       const timestamp = new Date()
         .toISOString()
-        .replace("T"," ")
-        .replace("Z"," UTC")
+        .replace("T", " ")
+        .replace("Z", " UTC")
 
       const captureId = Date.now()
 
@@ -78,7 +101,6 @@ async function runWorker() {
         banner.style.fontSize = "14px"
         banner.style.padding = "10px"
         banner.style.borderBottom = "2px solid black"
-        banner.style.zIndex = "999999"
         banner.style.width = "100%"
 
         document.body.prepend(banner)
@@ -96,6 +118,8 @@ async function runWorker() {
 
       const fileName = `${url.id}-${Date.now()}.pdf`
 
+      console.log("Uploading:", fileName)
+
       const { error: uploadError } = await supabase.storage
         .from("captures")
         .upload(fileName, pdfBuffer, {
@@ -103,7 +127,7 @@ async function runWorker() {
         })
 
       if (uploadError) {
-        console.error(uploadError)
+        console.error("Upload failed:", uploadError)
         continue
       }
 
