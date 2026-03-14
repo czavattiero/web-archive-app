@@ -27,23 +27,28 @@ async function runWorker() {
     locale: "en-US"
   })
 
-  for (let cycle = 0; cycle < 20; cycle++) {
+  // Worker runs many cycles so new URLs are captured quickly
+  for (let cycle = 0; cycle < 60; cycle++) {
+
+    console.log("Worker cycle:", cycle + 1)
 
     const { data: urls, error } = await supabase
       .from("urls")
       .select("*")
       .eq("status", "active")
       .or(`next_capture_at.lte.${new Date().toISOString()},next_capture_at.is.null`)
-      .limit(3)
+      .order("next_capture_at", { ascending: true })
+      .limit(5)
 
     if (error) {
-      console.error(error)
+      console.error("Error loading URLs:", error)
+      await new Promise(r => setTimeout(r, 3000))
       continue
     }
 
     if (!urls || urls.length === 0) {
       console.log("No scheduled captures")
-      await new Promise(r => setTimeout(r, 10000))
+      await new Promise(r => setTimeout(r, 3000))
       continue
     }
 
@@ -93,6 +98,8 @@ async function runWorker() {
 
         const fileName = `${url.id}-${Date.now()}.pdf`
 
+        console.log("Uploading:", fileName)
+
         await supabase.storage
           .from("captures")
           .upload(fileName, pdfBuffer, {
@@ -108,7 +115,7 @@ async function runWorker() {
 
         console.log("Capture stored")
 
-        // ---------- Scheduling (only change kept) ----------
+        // ---------- Scheduling ----------
 
         const baseTime = new Date(url.next_capture_at || Date.now())
         let nextCapture
@@ -168,6 +175,8 @@ async function runWorker() {
   }
 
   await browser.close()
+
+  console.log("Worker finished")
 }
 
 runWorker()
