@@ -110,37 +110,37 @@ async function runWorker() {
 
         // ---------- SCHEDULING ----------
 
-        const now = new Date()
-        let nextCapture
+        const baseTime = new Date(url.next_capture_at || Date.now())
+            let nextCapture
 
         switch (url.schedule_type) {
 
-          case "weekly":
-            nextCapture = new Date(now.getTime() + 7 * 86400000)
-            break
+  case "weekly":
+    nextCapture = new Date(baseTime.getTime() + 7 * 86400000)
+    break
 
-          case "biweekly":
-            nextCapture = new Date(now.getTime() + 14 * 86400000)
-            break
+  case "biweekly":
+    nextCapture = new Date(baseTime.getTime() + 14 * 86400000)
+    break
 
-          case "29days":
-            nextCapture = new Date(now.getTime() + 29 * 86400000)
-            break
+  case "29days":
+    nextCapture = new Date(baseTime.getTime() + 29 * 86400000)
+    break
 
-          case "30days":
-            nextCapture = new Date(now.getTime() + 30 * 86400000)
-            break
+  case "30days":
+    nextCapture = new Date(baseTime.getTime() + 30 * 86400000)
+    break
 
-          case "custom":
-            nextCapture = new Date(
-              now.getTime() + (url.schedule_value || 7) * 86400000
-            )
-            break
+  case "custom":
+    nextCapture = new Date(
+      baseTime.getTime() + (url.schedule_value || 7) * 86400000
+    )
+    break
 
-          default:
-            nextCapture = new Date(now.getTime() + 7 * 86400000)
+  default:
+    nextCapture = new Date(baseTime.getTime() + 7 * 86400000)
 
-        }
+}
 
         await supabase
           .from("urls")
