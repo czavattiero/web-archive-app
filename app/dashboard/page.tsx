@@ -4,271 +4,254 @@ import { useState, useEffect } from "react"
 import { createClient } from "@supabase/supabase-js"
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+process.env.NEXT_PUBLIC_SUPABASE_URL!,
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
 export default function Dashboard() {
 
-  const [user, setUser] = useState<any>(null)
-  const [urlInput, setUrlInput] = useState("")
-  const [schedule, setSchedule] = useState("weekly")
-  const [urls, setUrls] = useState<any[]>([])
-  const [captures, setCaptures] = useState<any[]>([])
+const [user, setUser] = useState<any>(null)
+const [urlInput, setUrlInput] = useState("")
+const [schedule, setSchedule] = useState("weekly")
+const [urls, setUrls] = useState<any[]>([])
+const [captures, setCaptures] = useState<any[]>([])
 
-  useEffect(() => {
-    loadUser()
-  }, [])
+useEffect(() => {
+loadUser()
+}, [])
 
-  useEffect(() => {
-    if (user) {
-      loadUrls()
-      loadCaptures()
-    }
-  }, [user])
+useEffect(() => {
+if(user){
+loadUrls()
+loadCaptures()
+}
+}, [user])
 
-  async function loadUser() {
+async function loadUser(){
 
-    const { data } = await supabase.auth.getUser()
+const { data } = await supabase.auth.getUser()
 
-    if (data?.user) {
-      setUser(data.user)
-    }
+if(data?.user){
+setUser(data.user)
+}
 
-  }
+}
 
-  async function loadUrls() {
+async function loadUrls(){
 
-    if (!user) return
+const { data, error } = await supabase
+.from("urls")
+.select("*")
+.eq("user_id", user.id)
+.order("created_at",{ascending:false})
 
-    const { data, error } = await supabase
-      .from("urls")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
+if(error){
+console.error(error)
+return
+}
 
-    if (error) {
-      console.error(error)
-      return
-    }
+if(data){
+setUrls(data)
+}
 
-    if (data) setUrls(data)
+}
 
-  }
+async function loadCaptures(){
 
-  // -------- FIXED CAPTURE QUERY --------
+const { data, error } = await supabase
+.from("captures")
+.select("*")
+.order("created_at",{ascending:false})
+.limit(30)
 
-  async function loadCaptures() {
+if(error){
+console.error(error)
+return
+}
 
-    const { data, error } = await supabase
-      .from("captures")
-      .select(`
-        id,
-        file_path,
-        created_at,
-        urls (
-          id,
-          url,
-          user_id
-        )
-      `)
-      .order("created_at", { ascending: false })
-      .limit(20)
+if(data){
+setCaptures(data)
+}
+
+}
 
-    if (error) {
-      console.error(error)
-      return
-    }
+async function addUrl(){
 
-    if (data) {
+if(!urlInput || !user) return
 
-      // only show captures belonging to the logged-in user
-      const filtered = data.filter(c => c.urls?.user_id === user.id)
+const { error } = await supabase
+.from("urls")
+.insert({
+url:urlInput,
+user_id:user.id,
+schedule_type:schedule,
+next_capture_at:new Date(),
+status:"active"
+})
 
-      setCaptures(filtered)
+if(error){
+console.error(error)
+return
+}
 
-    }
+setUrlInput("")
+loadUrls()
 
-  }
+}
 
-  async function addUrl() {
+async function signOut(){
 
-    if (!urlInput || !user) return
+await supabase.auth.signOut()
+window.location.reload()
 
-    const { error } = await supabase
-      .from("urls")
-      .insert({
-        url: urlInput,
-        user_id: user.id,
-        schedule_type: schedule,
-        next_capture_at: new Date(),
-        status: "active"
-      })
+}
 
-    if (error) {
-      console.error("Insert error:", error)
-      return
-    }
+function getUrl(urlId:any){
 
-    setUrlInput("")
+const u = urls.find(x => x.id === urlId)
 
-    await loadUrls()
+return u ? u.url : ""
 
-  }
+}
 
-  async function signOut() {
+return(
 
-    await supabase.auth.signOut()
-    window.location.reload()
+<div style={{padding:30}}>
 
-  }
+<div style={{display:"flex",justifyContent:"space-between"}}>
 
-  return (
+<h1>Dashboard</h1>
 
-    <div style={{ padding: 30 }}>
+<button
+onClick={signOut}
+style={{
+background:"red",
+color:"white",
+border:"none",
+padding:"8px 14px",
+cursor:"pointer"
+}}
+>
+Sign Out
+</button>
 
-      {/* HEADER */}
+</div>
 
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
+{user && <p>Welcome {user.email}</p>}
 
-        <h1>Dashboard</h1>
+<h2>Add URL</h2>
 
-        <button
-          onClick={signOut}
-          style={{
-            background: "red",
-            color: "white",
-            border: "none",
-            padding: "8px 14px",
-            cursor: "pointer"
-          }}
-        >
-          Sign Out
-        </button>
+<input
+style={{width:400}}
+placeholder="https://example.com/full-url"
+value={urlInput}
+onChange={(e)=>setUrlInput(e.target.value)}
+/>
 
-      </div>
+<select
+value={schedule}
+onChange={(e)=>setSchedule(e.target.value)}
+style={{marginLeft:10}}
+>
+<option value="weekly">Weekly</option>
+<option value="biweekly">Biweekly</option>
+<option value="29days">29 days</option>
+<option value="30days">30 days</option>
+</select>
 
-      {user && <p>Welcome {user.email}</p>}
+<button
+onClick={addUrl}
+style={{
+marginLeft:10,
+background:"green",
+color:"white",
+border:"none",
+padding:"6px 12px",
+cursor:"pointer"
+}}
+>
+Add URL
+</button>
 
-      {/* ADD URL */}
+<h2 style={{marginTop:40}}>Tracked URLs</h2>
 
-      <h2>Add URL</h2>
+<table border={1} cellPadding={10} width="100%">
 
-      <input
-        style={{ width: 400 }}
-        placeholder="https://example.com/full-url"
-        value={urlInput}
-        onChange={(e)=>setUrlInput(e.target.value)}
-      />
+<thead>
+<tr>
+<th>URL</th>
+<th>Schedule</th>
+<th>Created</th>
+</tr>
+</thead>
 
-      <select
-        value={schedule}
-        onChange={(e)=>setSchedule(e.target.value)}
-        style={{ marginLeft:10 }}
-      >
-        <option value="weekly">Weekly</option>
-        <option value="biweekly">Biweekly</option>
-        <option value="29days">29 days</option>
-        <option value="30days">30 days</option>
-      </select>
+<tbody>
 
-      <button
-        onClick={addUrl}
-        style={{
-          marginLeft:10,
-          background:"green",
-          color:"white",
-          border:"none",
-          padding:"6px 12px",
-          cursor:"pointer"
-        }}
-      >
-        Add URL
-      </button>
+{urls.map(u => (
 
-      {/* TRACKED URLS */}
+<tr key={u.id}>
 
-      <h2 style={{ marginTop:40 }}>Tracked URLs</h2>
+<td>{u.url}</td>
 
-      <table border={1} cellPadding={10} width="100%">
+<td>{u.schedule_type}</td>
 
-        <thead>
-          <tr>
-            <th>URL</th>
-            <th>Schedule</th>
-            <th>Created</th>
-          </tr>
-        </thead>
+<td>
+{new Date(u.created_at).toLocaleDateString()}
+</td>
 
-        <tbody>
+</tr>
 
-          {urls.map(u => (
+))}
 
-            <tr key={u.id}>
+</tbody>
 
-              <td>{u.url}</td>
+</table>
 
-              <td>{u.schedule_type}</td>
+<h2 style={{marginTop:40}}>Capture History</h2>
 
-              <td>
-                {new Date(u.created_at).toLocaleDateString()}
-              </td>
+<table border={1} cellPadding={10} width="100%">
 
-            </tr>
+<thead>
+<tr>
+<th>URL</th>
+<th>Captured At</th>
+<th>PDF</th>
+</tr>
+</thead>
 
-          ))}
+<tbody>
 
-        </tbody>
+{captures.map(c => (
 
-      </table>
+<tr key={c.id}>
 
-      {/* CAPTURE HISTORY */}
+<td>{getUrl(c.url_id)}</td>
 
-      <h2 style={{ marginTop:40 }}>Capture History</h2>
+<td>
+{new Date(c.created_at).toLocaleString()}
+</td>
 
-      <table border={1} cellPadding={10} width="100%">
+<td>
 
-        <thead>
-          <tr>
-            <th>URL</th>
-            <th>Captured At</th>
-            <th>PDF</th>
-          </tr>
-        </thead>
+<a
+href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`}
+target="_blank"
+>
+View PDF
+</a>
 
-        <tbody>
+</td>
 
-          {captures.map(c => (
+</tr>
 
-            <tr key={c.id}>
+))}
 
-              <td>{c.urls?.url}</td>
+</tbody>
 
-              <td>
-                {new Date(c.created_at).toLocaleString()}
-              </td>
+</table>
 
-              <td>
+</div>
 
-                <a
-                  href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`}
-                  target="_blank"
-                >
-                  View PDF
-                </a>
-
-              </td>
-
-            </tr>
-
-          ))}
-
-        </tbody>
-
-      </table>
-
-    </div>
-
-  )
+)
 
 }
