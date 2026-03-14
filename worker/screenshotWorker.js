@@ -29,12 +29,15 @@ async function runWorker() {
 
   for (let cycle = 0; cycle < 20; cycle++) {
 
-    const { data: urls, error } = await supabase
-      .from("urls")
-      .select("*")
-      .eq("status", "active")
-      .or(`next_capture_at.lte.${new Date().toISOString()},next_capture_at.is.null`)
-      .limit(3)
+    const now = new Date().toISOString()
+
+const { data: urls, error } = await supabase
+  .from("urls")
+  .select("*")
+  .eq("status", "active")
+  .or(`next_capture_at.lte.${now},next_capture_at.is.null,created_at.lte.${now}`)
+  .order("created_at", { ascending: true })
+  .limit(3)
 
     if (error) {
       console.error(error)
