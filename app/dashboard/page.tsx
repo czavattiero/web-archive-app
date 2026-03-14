@@ -41,25 +41,53 @@ export default function Dashboard() {
 
     if (!user) return
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("urls")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
 
+    if (error) {
+      console.error(error)
+      return
+    }
+
     if (data) setUrls(data)
 
   }
 
+  // -------- FIXED CAPTURE QUERY --------
+
   async function loadCaptures() {
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("captures")
-      .select("*")
+      .select(`
+        id,
+        file_path,
+        created_at,
+        urls (
+          id,
+          url,
+          user_id
+        )
+      `)
       .order("created_at", { ascending: false })
       .limit(20)
 
-    if (data) setCaptures(data)
+    if (error) {
+      console.error(error)
+      return
+    }
+
+    if (data) {
+
+      // only show captures belonging to the logged-in user
+      const filtered = data.filter(c => c.urls?.user_id === user.id)
+
+      setCaptures(filtered)
+
+    }
 
   }
 
@@ -83,6 +111,7 @@ export default function Dashboard() {
     }
 
     setUrlInput("")
+
     await loadUrls()
 
   }
@@ -91,13 +120,6 @@ export default function Dashboard() {
 
     await supabase.auth.signOut()
     window.location.reload()
-
-  }
-
-  function getUrl(urlId:any){
-
-    const u = urls.find(x => x.id === urlId)
-    return u ? u.url : ""
 
   }
 
@@ -220,7 +242,7 @@ export default function Dashboard() {
 
             <tr key={c.id}>
 
-              <td>{getUrl(c.url_id)}</td>
+              <td>{c.urls?.url}</td>
 
               <td>
                 {new Date(c.created_at).toLocaleString()}
@@ -246,5 +268,7 @@ export default function Dashboard() {
       </table>
 
     </div>
+
   )
+
 }
