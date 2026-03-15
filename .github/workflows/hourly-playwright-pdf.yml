@@ -4,6 +4,8 @@ on:
   schedule:
     - cron: "*/2 * * * *"   # every 2 minutes
   workflow_dispatch:
+  repository_dispatch:
+    types: [capture_now]
 
 jobs:
   capture:
@@ -26,7 +28,7 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps chromium
 
-      - name: Run worker
+      - name: Run capture worker
         run: node worker/screenshotWorker.js
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
