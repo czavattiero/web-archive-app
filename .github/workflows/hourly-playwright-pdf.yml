@@ -1,8 +1,8 @@
-name: Hourly Playwright PDF Capture
+name: Playwright PDF Capture
 
 on:
   schedule:
-    - cron: "* * * * *"   # runs every minute
+    - cron: "*/2 * * * *"   # every 2 minutes
   workflow_dispatch:
 
 jobs:
@@ -23,13 +23,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install Playwright browsers
+      - name: Install Playwright
         run: npx playwright install --with-deps chromium
 
-      - name: Create screenshots folder
-        run: mkdir -p screenshots
-
-      - name: Run screenshot worker
+      - name: Run worker
         run: node worker/screenshotWorker.js
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
