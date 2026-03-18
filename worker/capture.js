@@ -6,7 +6,42 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// Proxy (Webshare-compatible)
+// 🌎 Alberta Time
+function getAlbertaTime() {
+  return new Date().toLocaleString("en-CA", {
+    timeZone: "America/Edmonton",
+  })
+}
+
+// ⏱ Scheduling logic
+function getNextCaptureTime(urlRecord) {
+  const now = Date.now()
+
+  switch (urlRecord.schedule_type) {
+    case "weekly":
+      return new Date(now + 7 * 24 * 60 * 60 * 1000)
+
+    case "biweekly":
+      return new Date(now + 14 * 24 * 60 * 60 * 1000)
+
+    case "monthly_29":
+      return new Date(now + 29 * 24 * 60 * 60 * 1000)
+
+    case "monthly_30":
+      return new Date(now + 30 * 24 * 60 * 60 * 1000)
+
+    case "custom_days":
+      return new Date(now + (urlRecord.schedule_value || 1) * 24 * 60 * 60 * 1000)
+
+    case "specific_date":
+      return new Date(urlRecord.specific_date)
+
+    default:
+      return new Date(now + 15 * 60 * 1000)
+  }
+}
+
+// 🌐 Proxy (Webshare)
 const proxy = process.env.PROXY_HOST
   ? {
       server: `http://${process.env.PROXY_HOST}:${process.env.PROXY_PORT}`,
@@ -18,14 +53,13 @@ const proxy = process.env.PROXY_HOST
 async function run() {
   console.log("🚀 Worker started")
 
-  // Get URLs that are due
   const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
     .lte("next_capture_at", new Date().toISOString())
 
   if (error) {
-    console.error("❌ Error fetching URLs:", error)
+    console.error("❌ DB error:", error)
     return
   }
 
@@ -34,25 +68,22 @@ async function run() {
     return
   }
 
-  console.log(`📦 Found ${urls.length} URLs to process`)
+  console.log(`📦 Processing ${urls.length} URLs`)
 
-  // Launch browser (no proxy first → cheaper)
   let browser
+
   try {
     browser = await chromium.launch({ headless: true })
-    console.log("⚡ Running without proxy")
-  } catch (err) {
-    console.log("🌐 Falling back to proxy")
-    browser = await chromium.launch({
-      headless: true,
-      proxy,
-    })
+    console.log("⚡ No proxy")
+  } catch {
+    browser = await chromium.launch({ headless: true, proxy })
+    console.log("🌐 Using proxy")
   }
 
   for (const urlRecord of urls) {
     const { id, url } = urlRecord
 
-    console.log(`🌐 Capturing: ${url}`)
+    console.log(`🌐 ${url}`)
 
     try {
       const context = await browser.newContext()
@@ -63,13 +94,32 @@ async function run() {
         timeout: 60000,
       })
 
+      // 🕒 Inject timestamp banner (SAFE, no overlap)
+      const timestamp = getAlbertaTime()
+
+      await page.evaluate((timestamp) => {
+        const banner = document.createElement("div")
+        banner.innerText = `Captured: ${timestamp}`
+
+        banner.style.width = "100%"
+        banner.style.padding = "10px"
+        banner.style.background = "white"
+        banner.style.color = "black"
+        banner.style.fontSize = "12px"
+        banner.style.textAlign = "center"
+        banner.style.position = "relative"
+        banner.style.zIndex = "9999"
+
+        document.body.insertBefore(banner, document.body.firstChild)
+        document.body.style.marginTop = "20px"
+      }, timestamp)
+
       const pdfBuffer = await page.pdf({
         format: "A4",
       })
 
       const fileName = `captures/${id}-${Date.now()}.pdf`
 
-      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from("captures")
         .upload(fileName, pdfBuffer, {
@@ -79,7 +129,6 @@ async function run() {
       if (uploadError) {
         console.error("❌ Upload failed:", uploadError)
 
-        // Save failure record
         await supabase.from("captures").insert({
           url_id: id,
           status: "failed",
@@ -89,33 +138,30 @@ async function run() {
         continue
       }
 
-      // Save success record
+      // ✅ Save success
       await supabase.from("captures").insert({
         url_id: id,
         file_path: fileName,
         status: "success",
       })
 
-      // ✅ IMPORTANT: update scheduling
+      // ✅ Update schedule
+      const nextCapture = getNextCaptureTime(urlRecord)
+
       await supabase
         .from("urls")
         .update({
           last_captured_at: new Date().toISOString(),
-
-          // ⏱ schedule next run (15 minutes later)
-          next_capture_at: new Date(
-            Date.now() + 15 * 60 * 1000
-          ).toISOString(),
+          next_capture_at: nextCapture.toISOString(),
         })
         .eq("id", id)
 
-      console.log("✅ Capture saved")
+      console.log(`✅ Done. Next: ${nextCapture}`)
 
       await context.close()
     } catch (err) {
       console.error("❌ Capture failed:", err)
 
-      // Save failure record
       await supabase.from("captures").insert({
         url_id: id,
         status: "failed",
@@ -125,7 +171,6 @@ async function run() {
   }
 
   await browser.close()
-
   console.log("🏁 Worker finished")
 }
 
