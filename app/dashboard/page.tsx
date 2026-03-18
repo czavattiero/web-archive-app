@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const [newUrl, setNewUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
 
+  // ✅ FETCH URLS
   async function fetchUrls(userId: string) {
 
     const { data, error } = await supabase
@@ -25,13 +26,14 @@ export default function DashboardPage() {
       .order("created_at", { ascending: false })
 
     if (error) {
-      console.error(error)
+      console.error("❌ Error fetching URLs:", error)
       return
     }
 
     setUrls(data || [])
   }
 
+  // ✅ FETCH CAPTURES
   async function fetchCaptures(userId: string) {
 
     const { data, error } = await supabase
@@ -49,7 +51,7 @@ export default function DashboardPage() {
       .order("captured_at", { ascending: false })
 
     if (error) {
-      console.error("Error loading captures:", error)
+      console.error("❌ Error loading captures:", error)
       return
     }
 
@@ -62,41 +64,49 @@ export default function DashboardPage() {
     setCaptures(filtered)
   }
 
+  // ✅ ADD URL (FIXED)
   async function addUrl() {
 
-  if (!newUrl || !user) return
+    if (!newUrl || !user) return
 
-  const { error } = await supabase
-    .from("urls")
-    .insert({
-      url: newUrl,
-      user_id: user.id,
-      schedule_type: schedule,
-      next_capture: new Date().toISOString()
-    })
+    console.log("🚀 Adding URL:", newUrl)
 
-  if (error) {
-    console.error(error)
-    return
+    const { error } = await supabase
+      .from("urls")
+      .insert({
+        url: newUrl,
+        user_id: user.id,
+        schedule_type: schedule,
+
+        // ✅ CRITICAL FIX
+        next_capture_at: new Date().toISOString()
+      })
+
+    if (error) {
+      console.error("❌ Insert failed:", error)
+      return
+    }
+
+    console.log("✅ URL added successfully")
+
+    setNewUrl("")
+
+    // refresh immediately
+    await fetchUrls(user.id)
+
+    // allow worker to run + refresh captures
+    setTimeout(async () => {
+      await fetchCaptures(user.id)
+    }, 5000)
   }
 
-  setNewUrl("")
-
-  await fetchUrls(user.id)
-
-  setTimeout(async () => {
-    await fetchCaptures(user.id)
-  }, 8000)
-
-}
-
+  // ✅ SIGN OUT
   async function signOut() {
-
     await supabase.auth.signOut()
-
     window.location.href = "/"
   }
 
+  // ✅ INITIAL LOAD
   useEffect(() => {
 
     const loadData = async () => {
@@ -108,9 +118,7 @@ export default function DashboardPage() {
       setUser(user)
 
       await fetchUrls(user.id)
-
       await fetchCaptures(user.id)
-
     }
 
     loadData()
@@ -157,8 +165,8 @@ export default function DashboardPage() {
       >
         <option value="weekly">Weekly</option>
         <option value="biweekly">Biweekly</option>
-        <option value="29 days">29 days</option>
-        <option value="30 days">30 days</option>
+        <option value="monthly_29">Every 29 days</option>
+        <option value="monthly_30">Every 30 days</option>
       </select>
 
       <button
@@ -177,57 +185,39 @@ export default function DashboardPage() {
       <h2 style={{ marginTop: "40px" }}>Tracked URLs</h2>
 
       <table border={1} cellPadding={6} style={{ width: "100%" }}>
-
         <thead>
-
           <tr>
             <th>URL</th>
             <th>Schedule</th>
             <th>Created</th>
           </tr>
-
         </thead>
 
         <tbody>
-
           {urls.map((url) => (
-
             <tr key={url.id}>
-
               <td>{url.url}</td>
-
               <td>{url.schedule_type}</td>
-
               <td>{new Date(url.created_at).toLocaleDateString()}</td>
-
             </tr>
-
           ))}
-
         </tbody>
-
       </table>
 
       <h2 style={{ marginTop: "40px" }}>Capture History</h2>
 
       <table border={1} cellPadding={6} style={{ width: "100%" }}>
-
         <thead>
-
           <tr>
             <th>URL</th>
             <th>Captured At</th>
             <th>PDF</th>
           </tr>
-
         </thead>
 
         <tbody>
-
           {captures.map((capture: any) => (
-
             <tr key={capture.id}>
-
               <td>{capture.urls?.url}</td>
 
               <td>
@@ -237,20 +227,16 @@ export default function DashboardPage() {
               </td>
 
               <td>
-
                 <a
                   href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${capture.file_path}`}
                   target="_blank"
                 >
                   View PDF
                 </a>
-
               </td>
 
             </tr>
-
           ))}
-
         </tbody>
 
       </table>
