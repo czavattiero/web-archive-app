@@ -90,9 +90,12 @@ async function run() {
       const page = await context.newPage()
 
       await page.goto(url, {
-        waitUntil: "networkidle",
-        timeout: 60000,
-      })
+       waitUntil: "domcontentloaded",
+       timeout: 60000,
+})
+
+// give page time to fully render
+await page.waitForTimeout(5000)
 
       // 🕒 Inject timestamp banner (SAFE, no overlap)
       const timestamp = getAlbertaTime()
