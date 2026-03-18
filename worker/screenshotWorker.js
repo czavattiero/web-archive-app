@@ -3,13 +3,12 @@ import path from "path"
 import { fileURLToPath } from "url"
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
-import fs from "fs"
 
 // Resolve project root
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Load environment variables
+// Load env
 dotenv.config({ path: path.resolve(__dirname, "../.env.local") })
 
 console.log("SUPABASE_URL:", process.env.SUPABASE_URL)
@@ -21,7 +20,7 @@ const supabase = createClient(
 
 async function run() {
 
-  console.log("Starting capture worker...")
+  console.log("🚀 Starting capture worker...")
 
   const now = new Date().toISOString()
 
@@ -30,9 +29,10 @@ async function run() {
     .select("*")
     .eq("status", "active")
     .lte("next_capture_at", now)
+    .limit(10)
 
   if (error) {
-    console.error("Error fetching URLs:", error)
+    console.error("❌ Error fetching URLs:", error)
     return
   }
 
@@ -49,7 +49,7 @@ async function run() {
 
     try {
 
-      console.log("Capturing:", url.url)
+      console.log("🌐 Capturing:", url.url)
 
       const page = await browser.newPage()
 
@@ -58,66 +58,126 @@ async function run() {
         timeout: 60000
       })
 
+      await page.waitForTimeout(3000)
+
+      // Scroll to load dynamic content
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight)
+      })
+
       const timestamp = new Date().toLocaleString("en-CA", {
         timeZone: "America/Edmonton"
       })
 
-      await page.evaluate((timestamp) => {
+      const captureId = Date.now()
+
+      // ✅ SAFE banner (no overlap)
+      await page.evaluate(({ timestamp, url, captureId }) => {
 
         const banner = document.createElement("div")
 
-        banner.innerText = "Captured: " + timestamp
-
-        banner.style.position = "fixed"
-        banner.style.top = "0"
-        banner.style.left = "0"
         banner.style.width = "100%"
         banner.style.background = "white"
         banner.style.color = "black"
-        banner.style.padding = "6px"
-        banner.style.fontSize = "12px"
-        banner.style.zIndex = "999999"
+        banner.style.fontFamily = "Arial, sans-serif"
+        banner.style.fontSize = "14px"
+        banner.style.padding = "12px"
+        banner.style.borderBottom = "2px solid black"
+
+        banner.innerHTML = `
+          <div><strong>Captured:</strong> ${timestamp}</div>
+          <div><strong>URL:</strong> ${url}</div>
+          <div><strong>System:</strong> WebArchive</div>
+          <div><strong>Capture ID:</strong> ${captureId}</div>
+        `
 
         document.body.prepend(banner)
 
-      }, timestamp)
+      }, { timestamp, url: url.url, captureId })
 
-      const fileName = `capture-${url.id}-${Date.now()}.pdf`
-      const filePath = path.join(__dirname, "../screenshots", fileName)
-
-      await page.pdf({
-        path: filePath,
+      // ✅ Generate PDF directly (NO local file)
+      const pdfBuffer = await page.pdf({
         format: "A4",
-        printBackground: true
+        printBackground: true,
+        margin: {
+          top: "40px",
+          bottom: "40px",
+          left: "25px",
+          right: "25px"
+        }
       })
 
-      const fileBuffer = fs.readFileSync(filePath)
+      await page.close()
 
+      const fileName = `capture-${url.id}-${Date.now()}.pdf`
+
+      // ✅ Upload with error handling
       const { error: uploadError } = await supabase.storage
         .from("captures")
-        .upload(fileName, fileBuffer, {
-          contentType: "application/pdf"
+        .upload(fileName, pdfBuffer, {
+          contentType: "application/pdf",
+          upsert: false
         })
 
       if (uploadError) {
-        console.error("Upload error:", uploadError)
+        console.error("❌ Upload error:", uploadError)
         continue
       }
 
-      await supabase.from("captures").insert({
-        url_id: url.id,
-        file_path: fileName,
-        captured_at: new Date(),
-        status: "success"
-      })
+      console.log("✅ File uploaded:", fileName)
 
-      console.log("Capture stored successfully")
+      // ✅ Insert DB ONLY after successful upload
+      const { error: dbError } = await supabase
+        .from("captures")
+        .insert({
+          url_id: url.id,
+          file_path: fileName,
+          captured_at: new Date(),
+          status: "success"
+        })
 
-      fs.unlinkSync(filePath)
+      if (dbError) {
+        console.error("❌ DB insert error:", dbError)
+      }
+
+      // ---------- SCHEDULING ----------
+
+      const baseTime = new Date(url.next_capture_at || Date.now())
+      let nextCapture
+
+      switch (url.schedule_type) {
+
+        case "weekly":
+          nextCapture = new Date(baseTime.getTime() + 7 * 86400000)
+          break
+
+        case "biweekly":
+          nextCapture = new Date(baseTime.getTime() + 14 * 86400000)
+          break
+
+        case "29days":
+          nextCapture = new Date(baseTime.getTime() + 29 * 86400000)
+          break
+
+        case "30days":
+          nextCapture = new Date(baseTime.getTime() + 30 * 86400000)
+          break
+
+        default:
+          nextCapture = new Date(baseTime.getTime() + 7 * 86400000)
+
+      }
+
+      await supabase
+        .from("urls")
+        .update({ next_capture_at: nextCapture })
+        .eq("id", url.id)
+
+      console.log("📅 Next capture scheduled:", nextCapture)
 
     } catch (err) {
 
-      console.error("Capture failed:", err)
+      console.error("❌ Capture failed:", err)
 
       await supabase.from("captures").insert({
         url_id: url.id,
@@ -131,7 +191,7 @@ async function run() {
 
   await browser.close()
 
-  console.log("Worker finished")
+  console.log("✅ Worker finished")
 
 }
 
