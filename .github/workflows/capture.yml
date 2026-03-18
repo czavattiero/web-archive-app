@@ -1,0 +1,37 @@
+name: Playwright PDF Capture
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # runs every 10 minutes
+  workflow_dispatch:
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+
+      - name: Run capture worker
+        run: node worker/screenshotWorker.js
+
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+          SMARTPROXY_HOST: ${{ secrets.SMARTPROXY_HOST }}
+          SMARTPROXY_PORT: ${{ secrets.SMARTPROXY_PORT }}
+          SMARTPROXY_USER: ${{ secrets.SMARTPROXY_USER }}
+          SMARTPROXY_PASS: ${{ secrets.SMARTPROXY_PASS }}
