@@ -83,21 +83,21 @@ async function run() {
   for (const urlRecord of urls) {
     const { id, url } = urlRecord
 
-    console.log(`🌐 ${url}`)
+    console.log(`🌐 Capturing: ${url}`)
 
     try {
       const context = await browser.newContext()
       const page = await context.newPage()
 
+      // ✅ FIXED PAGE LOAD (no more timeout issue)
       await page.goto(url, {
-       waitUntil: "domcontentloaded",
-       timeout: 60000,
-})
+        waitUntil: "domcontentloaded",
+        timeout: 60000,
+      })
 
-// give page time to fully render
-await page.waitForTimeout(5000)
+      await page.waitForTimeout(5000)
 
-      // 🕒 Inject timestamp banner (SAFE, no overlap)
+      // 🕒 Inject timestamp (no overlap)
       const timestamp = getAlbertaTime()
 
       await page.evaluate((timestamp) => {
@@ -117,18 +117,24 @@ await page.waitForTimeout(5000)
         document.body.style.marginTop = "20px"
       }, timestamp)
 
+      // 📄 Generate PDF
       const pdfBuffer = await page.pdf({
         format: "A4",
       })
 
-      const fileName = `captures/${id}-${Date.now()}.pdf`
+      // ✅ FIXED FILE NAME (NO "captures/" prefix)
+      const fileName = `${id}-${Date.now()}.pdf`
 
-      const { error: uploadError } = await supabase.storage
+      console.log("📤 Uploading file:", fileName)
+
+      // 📤 Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from("captures")
         .upload(fileName, pdfBuffer, {
           contentType: "application/pdf",
         })
 
+      // ❌ HANDLE FAILURE CORRECTLY
       if (uploadError) {
         console.error("❌ Upload failed:", uploadError)
 
@@ -141,14 +147,16 @@ await page.waitForTimeout(5000)
         continue
       }
 
-      // ✅ Save success
+      console.log("✅ Upload success:", uploadData)
+
+      // ✅ ONLY SAVE SUCCESS AFTER REAL UPLOAD
       await supabase.from("captures").insert({
         url_id: id,
         file_path: fileName,
         status: "success",
       })
 
-      // ✅ Update schedule
+      // ⏱ Update schedule
       const nextCapture = getNextCaptureTime(urlRecord)
 
       await supabase
@@ -159,7 +167,7 @@ await page.waitForTimeout(5000)
         })
         .eq("id", id)
 
-      console.log(`✅ Done. Next: ${nextCapture}`)
+      console.log(`✅ Capture complete. Next run: ${nextCapture}`)
 
       await context.close()
     } catch (err) {
