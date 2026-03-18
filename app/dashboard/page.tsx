@@ -67,32 +67,48 @@ export default function DashboardPage() {
   // ✅ ADD URL (FIXED)
   async function addUrl() {
 
-    if (!newUrl || !user) return
+  console.log("🔥 addUrl clicked")
 
-    console.log("🚀 Adding URL:", newUrl)
+  if (!newUrl) {
+    alert("No URL entered")
+    return
+  }
 
-    const { error } = await supabase
-      .from("urls")
-      .insert({
+  if (!user) {
+    alert("No user found")
+    console.log("❌ user is null")
+    return
+  }
+
+  console.log("🚀 Adding URL:", newUrl)
+  console.log("👤 User ID:", user.id)
+
+  const { data, error } = await supabase
+    .from("urls")
+    .insert([
+      {
         url: newUrl,
         user_id: user.id,
         schedule_type: schedule,
-
-        // ✅ CRITICAL FIX
         next_capture_at: new Date().toISOString()
-      })
+      }
+    ])
+    .select()
 
-    if (error) {
-      console.error("❌ Insert failed:", error)
-      return
-    }
+  console.log("📦 Insert response:", data)
+  console.log("❌ Insert error:", error)
 
-    console.log("✅ URL added successfully")
+  if (error) {
+    alert("Insert failed — check console")
+    return
+  }
 
-    setNewUrl("")
+  alert("✅ URL added!")
 
-    // refresh immediately
-    await fetchUrls(user.id)
+  setNewUrl("")
+
+  await fetchUrls(user.id)
+}
 
     // allow worker to run + refresh captures
     setTimeout(async () => {
