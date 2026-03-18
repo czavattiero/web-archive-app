@@ -1,37 +1,35 @@
-name: Playwright PDF Capture
+name: Web Archive Capture Worker
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # runs every 10 minutes
-  workflow_dispatch:
+    - cron: "*/15 * * * *" # runs every 15 minutes
+  workflow_dispatch: # allows manual trigger
 
 jobs:
   capture:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "20"
 
       - name: Install dependencies
         run: npm install
 
-      - name: Install Playwright
+      - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
       - name: Run capture worker
-        run: node worker/screenshotWorker.js
-
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-
-          SMARTPROXY_HOST: ${{ secrets.SMARTPROXY_HOST }}
-          SMARTPROXY_PORT: ${{ secrets.SMARTPROXY_PORT }}
-          SMARTPROXY_USER: ${{ secrets.SMARTPROXY_USER }}
-          SMARTPROXY_PASS: ${{ secrets.SMARTPROXY_PASS }}
+          PROXY_HOST: ${{ secrets.PROXY_HOST }}
+          PROXY_PORT: ${{ secrets.PROXY_PORT }}
+          PROXY_USERNAME: ${{ secrets.PROXY_USERNAME }}
+          PROXY_PASSWORD: ${{ secrets.PROXY_PASSWORD }}
+        run: node workers/capture.js
