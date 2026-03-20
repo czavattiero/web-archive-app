@@ -133,7 +133,7 @@ await fetchCaptures(user.id)
     interval = setInterval(async () => {
       console.log("🔄 Refreshing captures...")
       await fetchCaptures(user.id)
-    }, 5000)
+    }, 3000)
   }
 
   loadData()
