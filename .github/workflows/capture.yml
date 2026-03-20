@@ -2,8 +2,8 @@ name: Web Archive Capture Worker
 
 on:
   schedule:
-    - cron: "*/5 * * * *" # ✅ runs every 5 minutes
-  workflow_dispatch: # allows manual run
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
 
 jobs:
   capture:
