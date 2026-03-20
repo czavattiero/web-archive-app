@@ -6,8 +6,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// ⚙️ CONTROL SPEED HERE
-const CONCURRENCY = 3 // 🔥 increase to 5 later if stable
+const CONCURRENCY = 3
 
 function getAlbertaTime() {
   return new Date().toLocaleString("en-CA", {
@@ -90,7 +89,7 @@ async function capturePage(browser, url) {
   return pdf
 }
 
-// 🔥 PROCESS ONE URL
+// 🔥 SAFE PROCESS FUNCTION (NEVER CRASHES)
 async function processUrl(urlRecord, browser, proxyBrowser) {
   const { id, url } = urlRecord
 
@@ -102,64 +101,91 @@ async function processUrl(urlRecord, browser, proxyBrowser) {
   let fileName = null
 
   try {
-    pdfBuffer = await capturePage(browser, url)
-    console.log("✅ Direct success")
-  } catch {
-    if (proxyBrowser) {
-      try {
-        pdfBuffer = await capturePage(proxyBrowser, url)
-        console.log("✅ Proxy success")
-      } catch (err) {
+    // attempt 1
+    try {
+      pdfBuffer = await capturePage(browser, url)
+      console.log("✅ Direct success")
+    } catch (err) {
+      console.log("❌ Direct failed:", err.message)
+
+      if (proxyBrowser) {
+        try {
+          pdfBuffer = await capturePage(proxyBrowser, url)
+          console.log("✅ Proxy success")
+        } catch (err2) {
+          status = "failed"
+          errorMsg = err2.message
+        }
+      } else {
         status = "failed"
         errorMsg = err.message
       }
     }
-  }
 
-  if (pdfBuffer) {
-    fileName = `${id}-${Date.now()}.pdf`
+    // upload
+    if (pdfBuffer) {
+      fileName = `${id}-${Date.now()}.pdf`
 
-    await supabase.storage
-      .from("captures")
-      .upload(fileName, pdfBuffer, {
-        contentType: "application/pdf",
-        upsert: true,
-      })
-  }
+      const { error: uploadError } = await supabase.storage
+        .from("captures")
+        .upload(fileName, pdfBuffer, {
+          contentType: "application/pdf",
+          upsert: true,
+        })
 
-  await supabase.from("captures").insert({
-    url_id: id,
-    file_path: fileName,
-    status,
-    error: errorMsg,
-    created_at: new Date().toISOString(),
-  })
+      if (uploadError) {
+        console.log("❌ Upload error:", uploadError.message)
+        status = "failed"
+        errorMsg = uploadError.message
+      } else {
+        console.log("✅ Uploaded:", fileName)
+      }
+    }
 
-  const next = getNextCaptureTime(urlRecord)
-
-  await supabase
-    .from("urls")
-    .update({
-      next_capture_at: next.toISOString(),
+    // ALWAYS insert (THIS FIXES YOUR ISSUE)
+    const { error: insertError } = await supabase.from("captures").insert({
+      url_id: id,
+      file_path: fileName,
+      status,
+      error: errorMsg,
+      created_at: new Date().toISOString(),
     })
-    .eq("id", id)
+
+    if (insertError) {
+      console.log("❌ INSERT ERROR:", insertError)
+    } else {
+      console.log("✅ DB insert OK")
+    }
+
+    // update schedule
+    const next = getNextCaptureTime(urlRecord)
+
+    await supabase
+      .from("urls")
+      .update({ next_capture_at: next.toISOString() })
+      .eq("id", id)
+
+  } catch (fatal) {
+    console.log("🔥 FATAL ERROR:", fatal.message)
+  }
 }
 
-// 🏁 MAIN
 async function run() {
   console.log("🚀 Worker started")
 
-  const { data: urls } = await supabase
+  const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
     .lte("next_capture_at", new Date().toISOString())
 
-  if (!urls || urls.length === 0) {
-    console.log("✅ Nothing to process")
+  if (error) {
+    console.log("❌ DB ERROR:", error)
     return
   }
 
-  console.log("📦 Processing:", urls.length)
+  console.log("📦 URLs:", urls?.length)
+
+  if (!urls || urls.length === 0) return
 
   const browser = await chromium.launch({ headless: true })
 
@@ -167,17 +193,12 @@ async function run() {
     ? await chromium.launch({ headless: true, proxy })
     : null
 
-  // 🔥 PARALLEL EXECUTION
-  const chunks = []
+  // 🔥 SAFE PARALLEL (NO CRASH)
   for (let i = 0; i < urls.length; i += CONCURRENCY) {
-    chunks.push(urls.slice(i, i + CONCURRENCY))
-  }
+    const chunk = urls.slice(i, i + CONCURRENCY)
 
-  for (const chunk of chunks) {
-    await Promise.all(
-      chunk.map((urlRecord) =>
-        processUrl(urlRecord, browser, proxyBrowser)
-      )
+    await Promise.allSettled(
+      chunk.map((u) => processUrl(u, browser, proxyBrowser))
     )
   }
 
