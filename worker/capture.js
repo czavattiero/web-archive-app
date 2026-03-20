@@ -173,7 +173,8 @@ async function run() {
         url_id: id,
         status: "failed",
         error: "Capture failed",
-      })
+        created_at: new Date().toISOString()
+})
 
       continue
     }
@@ -193,11 +194,18 @@ async function run() {
       continue
     }
 
-    await supabase.from("captures").insert({
+    const insertResult = await supabase.from("captures").insert({
       url_id: id,
       file_path: fileName,
       status: blocked ? "blocked" : "success",
-    })
+      created_at: new Date().toISOString()
+})
+
+if (insertResult.error) {
+  console.error("❌ DB insert failed:", insertResult.error)
+} else {
+  console.log("✅ DB row inserted")
+}
 
     // ⏱ Update next schedule
     const nextCapture = getNextCaptureTime(urlRecord)
