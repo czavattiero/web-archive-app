@@ -119,24 +119,50 @@ await fetchCaptures(user.id)
 
   let interval: any
 
-  const loadData = async () => {
+  const init = async () => {
+
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return
 
     setUser(user)
 
+    // initial load
     await fetchUrls(user.id)
     await fetchCaptures(user.id)
 
-    // ✅ AUTO REFRESH EVERY 5 SECONDS
+    // 🔥 aggressive polling (every 3 seconds)
     interval = setInterval(async () => {
-      console.log("🔄 Refreshing captures...")
-      await fetchCaptures(user.id)
+      console.log("🔄 polling for new captures...")
+
+      const { data, error } = await supabase
+        .from("captures")
+        .select(`
+          id,
+          file_path,
+          captured_at,
+          urls (
+            id,
+            url,
+            user_id
+          )
+        `)
+        .order("captured_at", { ascending: false })
+
+      if (!error && data) {
+
+        const filtered = data.filter(
+          (c: any) => c.urls?.user_id === user.id
+        )
+
+        // 🔥 FORCE STATE UPDATE (important)
+        setCaptures([...filtered])
+      }
+
     }, 3000)
   }
 
-  loadData()
+  init()
 
   return () => {
     if (interval) clearInterval(interval)
