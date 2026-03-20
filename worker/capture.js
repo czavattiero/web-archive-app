@@ -6,42 +6,25 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// 🌎 Alberta Time
 function getAlbertaTime() {
   return new Date().toLocaleString("en-CA", {
     timeZone: "America/Edmonton",
   })
 }
 
-// ⏱ Scheduling logic
 function getNextCaptureTime(urlRecord) {
   const now = Date.now()
 
   switch (urlRecord.schedule_type) {
     case "weekly":
       return new Date(now + 7 * 24 * 60 * 60 * 1000)
-
     case "biweekly":
       return new Date(now + 14 * 24 * 60 * 60 * 1000)
-
-    case "monthly_29":
-      return new Date(now + 29 * 24 * 60 * 60 * 1000)
-
-    case "monthly_30":
-      return new Date(now + 30 * 24 * 60 * 60 * 1000)
-
-    case "custom_days":
-      return new Date(now + (urlRecord.schedule_value || 1) * 24 * 60 * 60 * 1000)
-
-    case "specific_date":
-      return new Date(urlRecord.specific_date)
-
     default:
       return new Date(now + 15 * 60 * 1000)
   }
 }
 
-// 🌐 Proxy (Webshare)
 const proxy = process.env.PROXY_HOST
   ? {
       server: `http://${process.env.PROXY_HOST}:${process.env.PROXY_PORT}`,
@@ -50,135 +33,137 @@ const proxy = process.env.PROXY_HOST
     }
   : null
 
+async function capturePage(browser, url, id, useProxy = false) {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+
+  console.log(`🌐 Loading: ${url} (proxy: ${useProxy})`)
+
+  await page.goto(url, {
+    waitUntil: "domcontentloaded",
+    timeout: 60000,
+  })
+
+  await page.waitForTimeout(5000)
+
+  const content = await page.content()
+
+  // 🚨 BLOCK DETECTION
+  if (
+    content.includes("403 Forbidden") ||
+    content.includes("Access Denied") ||
+    content.includes("captcha")
+  ) {
+    throw new Error("Blocked (403 / captcha)")
+  }
+
+  const timestamp = getAlbertaTime()
+
+  await page.evaluate((timestamp) => {
+    const banner = document.createElement("div")
+    banner.innerText = `Captured: ${timestamp}`
+
+    banner.style.width = "100%"
+    banner.style.padding = "10px"
+    banner.style.background = "white"
+    banner.style.color = "black"
+    banner.style.textAlign = "center"
+
+    document.body.insertBefore(banner, document.body.firstChild)
+  }, timestamp)
+
+  const pdfBuffer = await page.pdf({ format: "A4" })
+
+  await context.close()
+
+  return pdfBuffer
+}
+
 async function run() {
   console.log("🚀 Worker started")
 
-  const { data: urls, error } = await supabase
+  const { data: urls } = await supabase
     .from("urls")
     .select("*")
     .lte("next_capture_at", new Date().toISOString())
-
-  if (error) {
-    console.error("❌ DB error:", error)
-    return
-  }
 
   if (!urls || urls.length === 0) {
     console.log("✅ No URLs to process")
     return
   }
 
-  console.log(`📦 Processing ${urls.length} URLs`)
-
-  let browser
-
-  try {
-    browser = await chromium.launch({ headless: true })
-    console.log("⚡ No proxy")
-  } catch {
-    browser = await chromium.launch({ headless: true, proxy })
-    console.log("🌐 Using proxy")
-  }
+  let browser = await chromium.launch({ headless: true })
 
   for (const urlRecord of urls) {
     const { id, url } = urlRecord
 
-    console.log(`🌐 Capturing: ${url}`)
+    let pdfBuffer = null
 
     try {
-      const context = await browser.newContext()
-      const page = await context.newPage()
-
-      // ✅ FIXED PAGE LOAD (no more timeout issue)
-      await page.goto(url, {
-        waitUntil: "domcontentloaded",
-        timeout: 60000,
-      })
-
-      await page.waitForTimeout(5000)
-
-      // 🕒 Inject timestamp (no overlap)
-      const timestamp = getAlbertaTime()
-
-      await page.evaluate((timestamp) => {
-        const banner = document.createElement("div")
-        banner.innerText = `Captured: ${timestamp}`
-
-        banner.style.width = "100%"
-        banner.style.padding = "10px"
-        banner.style.background = "white"
-        banner.style.color = "black"
-        banner.style.fontSize = "12px"
-        banner.style.textAlign = "center"
-        banner.style.position = "relative"
-        banner.style.zIndex = "9999"
-
-        document.body.insertBefore(banner, document.body.firstChild)
-        document.body.style.marginTop = "20px"
-      }, timestamp)
-
-      // 📄 Generate PDF
-      const pdfBuffer = await page.pdf({
-        format: "A4",
-      })
-
-      // ✅ FIXED FILE NAME (NO "captures/" prefix)
-      const fileName = `${id}-${Date.now()}.pdf`
-
-      console.log("📤 Uploading file:", fileName)
-
-      // 📤 Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("captures")
-        .upload(fileName, pdfBuffer, {
-          contentType: "application/pdf",
-        })
-
-      // ❌ HANDLE FAILURE CORRECTLY
-      if (uploadError) {
-        console.error("❌ Upload failed:", uploadError)
-
-        await supabase.from("captures").insert({
-          url_id: id,
-          status: "failed",
-          error: uploadError.message,
-        })
-
-        continue
-      }
-
-      console.log("✅ Upload success:", uploadData)
-
-      // ✅ ONLY SAVE SUCCESS AFTER REAL UPLOAD
-      await supabase.from("captures").insert({
-        url_id: id,
-        file_path: fileName,
-        status: "success",
-      })
-
-      // ⏱ Update schedule
-      const nextCapture = getNextCaptureTime(urlRecord)
-
-      await supabase
-        .from("urls")
-        .update({
-          last_captured_at: new Date().toISOString(),
-          next_capture_at: nextCapture.toISOString(),
-        })
-        .eq("id", id)
-
-      console.log(`✅ Capture complete. Next run: ${nextCapture}`)
-
-      await context.close()
+      // 🥇 Attempt 1 (no proxy)
+      pdfBuffer = await capturePage(browser, url, id, false)
     } catch (err) {
-      console.error("❌ Capture failed:", err)
+      console.log("❌ First attempt failed:", err.message)
+
+      if (proxy) {
+        console.log("🌐 Retrying with proxy...")
+
+        const proxyBrowser = await chromium.launch({
+          headless: true,
+          proxy,
+        })
+
+        try {
+          pdfBuffer = await capturePage(proxyBrowser, url, id, true)
+        } catch (err2) {
+          console.log("❌ Proxy attempt failed:", err2.message)
+        }
+
+        await proxyBrowser.close()
+      }
+    }
+
+    if (!pdfBuffer) {
+      console.log("❌ All attempts failed")
 
       await supabase.from("captures").insert({
         url_id: id,
         status: "failed",
-        error: err.message,
+        error: "Blocked or failed",
       })
+
+      continue
     }
+
+    const fileName = `${id}-${Date.now()}.pdf`
+
+    const { error: uploadError } = await supabase.storage
+      .from("captures")
+      .upload(fileName, pdfBuffer, {
+        contentType: "application/pdf",
+      })
+
+    if (uploadError) {
+      console.log("❌ Upload failed:", uploadError.message)
+      continue
+    }
+
+    await supabase.from("captures").insert({
+      url_id: id,
+      file_path: fileName,
+      status: "success",
+    })
+
+    const nextCapture = getNextCaptureTime(urlRecord)
+
+    await supabase
+      .from("urls")
+      .update({
+        next_capture_at: nextCapture.toISOString(),
+      })
+      .eq("id", id)
+
+    console.log("✅ Capture saved")
   }
 
   await browser.close()
