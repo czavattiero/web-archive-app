@@ -1,3 +1,11 @@
+console.log("🔍 DEBUG START")
+
+console.log("SUPABASE_URL:", process.env.SUPABASE_URL)
+console.log(
+  "SUPABASE_SERVICE_ROLE_KEY EXISTS:",
+  !!process.env.SUPABASE_SERVICE_ROLE_KEY
+)
+
 import { chromium } from "playwright"
 import { createClient } from "@supabase/supabase-js"
 
