@@ -67,54 +67,48 @@ export default function DashboardPage() {
   // ✅ ADD URL (FIXED)
   async function addUrl() {
 
-  console.log("🔥 addUrl clicked")
-
-  if (!newUrl) {
-    alert("No URL entered")
-    return
-  }
-
-  if (!user) {
-    alert("No user found")
-    console.log("❌ user is null")
-    return
-  }
+  if (!newUrl || !user) return
 
   console.log("🚀 Adding URL:", newUrl)
-  console.log("👤 User ID:", user.id)
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("urls")
-    .insert([
-      {
-        url: newUrl,
-        user_id: user.id,
-        schedule_type: schedule,
-        next_capture_at: new Date().toISOString()
-      }
-    ])
-    .select()
-
-  console.log("📦 Insert response:", data)
-  console.log("❌ Insert error:", error)
+    .insert({
+      url: newUrl,
+      user_id: user.id,
+      schedule_type: schedule,
+      next_capture_at: new Date().toISOString()
+    })
 
   if (error) {
-    alert("Insert failed — check console")
+    console.error("❌ Insert failed:", error)
     return
   }
 
-  alert("✅ URL added!")
+  console.log("✅ URL added")
 
   setNewUrl("")
-
   await fetchUrls(user.id)
-}
 
-    // allow worker to run + refresh captures
-    setTimeout(async () => {
-      await fetchCaptures(user.id)
-    }, 5000)
+  // ✅ CALL YOUR EXISTING API ROUTE
+  try {
+    const res = await fetch("/api/capture", {
+      method: "POST"
+    })
+
+    const data = await res.json()
+
+    console.log("⚡ Trigger response:", data)
+
+  } catch (err) {
+    console.error("❌ Trigger failed:", err)
   }
+
+  // refresh captures after worker runs
+  setTimeout(async () => {
+    await fetchCaptures(user.id)
+  }, 5000)
+}
 
   // ✅ SIGN OUT
   async function signOut() {
