@@ -1,113 +1,27 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import { chromium } from "playwright"
-import fs from "fs"
-import path from "path"
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
-export async function POST(req: Request) {
-
+export async function POST() {
   try {
+    const res = await fetch(
+      "https://api.github.com/repos/czavattiero/web-archive-app/actions/workflows/capture.yml/dispatches",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.GITHUB_WORKFLOW_TOKEN}`,
+          Accept: "application/vnd.github+json",
+        },
+        body: JSON.stringify({
+          ref: "main",
+        }),
+      }
+    )
 
-    const { url, user_id, schedule_type } = await req.json()
-
-    const { data: insertedUrl, error: urlError } = await supabase
-      .from("urls")
-      .insert({
-        url,
-        user_id,
-        schedule_type,
-        next_capture: new Date()
-      })
-      .select()
-      .single()
-
-    if (urlError) {
-      console.error(urlError)
-      return NextResponse.json({ error: urlError })
+    if (!res.ok) {
+      throw new Error("Failed to trigger workflow")
     }
 
-    const browser = await chromium.launch({ headless: true })
-    const page = await browser.newPage()
-
-    await page.goto(url, {
-      waitUntil: "networkidle",
-      timeout: 60000
-    })
-
-    const timestamp = new Date().toLocaleString("en-CA", {
-      timeZone: "America/Edmonton"
-    })
-
-    await page.evaluate((timestamp) => {
-
-      const banner = document.createElement("div")
-
-      banner.innerText = "Captured: " + timestamp
-
-      banner.style.position = "fixed"
-      banner.style.top = "0"
-      banner.style.left = "0"
-      banner.style.width = "100%"
-      banner.style.background = "white"
-      banner.style.color = "black"
-      banner.style.padding = "6px"
-      banner.style.fontSize = "12px"
-      banner.style.zIndex = "999999"
-
-      document.body.prepend(banner)
-
-    }, timestamp)
-
-    const fileName = `capture-${insertedUrl.id}-${Date.now()}.pdf`
-    const filePath = path.join("/tmp", fileName)
-
-    await page.pdf({
-      path: filePath,
-      format: "A4",
-      printBackground: true
-    })
-
-    const fileBuffer = fs.readFileSync(filePath)
-
-    const { error: uploadError } = await supabase.storage
-      .from("captures")
-      .upload(fileName, fileBuffer, {
-        contentType: "application/pdf"
-      })
-
-    if (uploadError) {
-      console.error(uploadError)
-    }
-
-    await supabase
-      .from("captures")
-      .insert({
-        url_id: insertedUrl.id,
-        file_path: fileName,
-        captured_at: new Date(),
-        status: "success"
-      })
-
-    fs.unlinkSync(filePath)
-
-    await browser.close()
-
-    return NextResponse.json({
-      success: true,
-      file_path: fileName
-    })
-
+    return NextResponse.json({ success: true })
   } catch (err) {
-
-    console.error(err)
-
-    return NextResponse.json({ error: "Capture failed" })
-
+    return NextResponse.json({ error: err.message }, { status: 500 })
   }
-
 }
