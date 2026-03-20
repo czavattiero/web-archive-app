@@ -51,6 +51,8 @@ async function run() {
     return
   }
 
+  console.log("📦 URLs fetched:", urls?.length)
+  
   if (!urls || urls.length === 0) {
     console.log("✅ No URLs to process")
     return
