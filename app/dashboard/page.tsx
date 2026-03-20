@@ -254,8 +254,12 @@ export default function DashboardPage() {
 
               <td>
                 <a
-                  href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${capture.file_path}`}
-                  target="_blank"
+                  const { data } = supabase
+                    .storage
+                    .from("captures")
+                    .getPublicUrl(capture.file_path)
+
+<a href={data.publicUrl} target="_blank">View PDF</a>
                 >
                   View PDF
                 </a>
