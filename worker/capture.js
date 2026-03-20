@@ -1,17 +1,7 @@
-import playwright from "playwright-extra"
-import stealth from "playwright-extra-plugin-stealth"
+import { chromium } from "playwright"
 import { createClient } from "@supabase/supabase-js"
 
-playwright.use(stealth())
-
-const { chromium } = playwright
-
 console.log("🔍 DEBUG START")
-console.log("SUPABASE URL:", process.env.SUPABASE_URL)
-console.log(
-  "SUPABASE SERVICE KEY EXISTS:",
-  !!process.env.SUPABASE_SERVICE_ROLE_KEY
-)
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -25,7 +15,7 @@ function getAlbertaTime() {
   })
 }
 
-// ⏱ schedule logic
+// ⏱ schedule
 function getNextCaptureTime(urlRecord) {
   const now = Date.now()
 
@@ -34,10 +24,6 @@ function getNextCaptureTime(urlRecord) {
       return new Date(now + 7 * 24 * 60 * 60 * 1000)
     case "biweekly":
       return new Date(now + 14 * 24 * 60 * 60 * 1000)
-    case "monthly_29":
-      return new Date(now + 29 * 24 * 60 * 60 * 1000)
-    case "monthly_30":
-      return new Date(now + 30 * 24 * 60 * 60 * 1000)
     default:
       return new Date(now + 15 * 60 * 1000)
   }
@@ -52,15 +38,31 @@ const proxy = process.env.PROXY_HOST
     }
   : null
 
-// 🚀 CAPTURE FUNCTION
-async function capturePage(browser, url) {
-  const context = await browser.newContext({
+// 🚀 HUMAN-LIKE BROWSER CONTEXT
+async function createContext(browser) {
+  return await browser.newContext({
     userAgent:
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
-    viewport: { width: 1280, height: 800 },
+    viewport: { width: 1366, height: 768 },
+    locale: "en-US",
+    timezoneId: "America/Edmonton",
+    extraHTTPHeaders: {
+      "Accept-Language": "en-US,en;q=0.9",
+    },
   })
+}
 
+// 🚀 CAPTURE FUNCTION
+async function capturePage(browser, url) {
+  const context = await createContext(browser)
   const page = await context.newPage()
+
+  // 🧠 Make browser look real
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "webdriver", {
+      get: () => false,
+    })
+  })
 
   await page.goto(url, {
     waitUntil: "domcontentloaded",
@@ -107,15 +109,10 @@ async function capturePage(browser, url) {
 async function run() {
   console.log("🚀 Worker started")
 
-  const { data: urls, error } = await supabase
+  const { data: urls } = await supabase
     .from("urls")
     .select("*")
     .lte("next_capture_at", new Date().toISOString())
-
-  if (error) {
-    console.error("❌ DB error:", error)
-    return
-  }
 
   console.log("📦 URLs fetched:", urls?.length)
 
@@ -129,7 +126,7 @@ async function run() {
 
     console.log("🌐 Processing:", url)
 
-    // 🛡 Duplicate protection
+    // 🛡 duplicate protection
     const { data: existing } = await supabase
       .from("captures")
       .select("created_at")
@@ -139,9 +136,7 @@ async function run() {
 
     if (existing?.length) {
       const last = new Date(existing[0].created_at).getTime()
-      const diff = (Date.now() - last) / 1000
-
-      if (diff < 60) {
+      if ((Date.now() - last) / 1000 < 60) {
         console.log("⏭ Skipping recent capture")
         continue
       }
@@ -159,7 +154,7 @@ async function run() {
       console.log("❌ Attempt 1 failed:", err.message)
     }
 
-    // 🥈 Attempt 2 — proxy
+    // 🥈 Attempt 2 — Webshare proxy
     if (!pdfBuffer && proxy) {
       try {
         const browser = await chromium.launch({
@@ -171,11 +166,11 @@ async function run() {
         await browser.close()
         console.log("✅ Success (proxy)")
       } catch (err) {
-        console.log("❌ Proxy attempt failed:", err.message)
+        console.log("❌ Proxy failed:", err.message)
       }
     }
 
-    // ❌ TOTAL FAILURE
+    // ❌ FAILURE
     if (!pdfBuffer) {
       await supabase.from("captures").insert({
         url_id: id,
@@ -188,16 +183,11 @@ async function run() {
 
     const fileName = `${id}-${Date.now()}.pdf`
 
-    const { error: uploadError } = await supabase.storage
+    await supabase.storage
       .from("captures")
       .upload(fileName, pdfBuffer, {
         contentType: "application/pdf",
       })
-
-    if (uploadError) {
-      console.log("❌ Upload failed:", uploadError.message)
-      continue
-    }
 
     await supabase.from("captures").insert({
       url_id: id,
