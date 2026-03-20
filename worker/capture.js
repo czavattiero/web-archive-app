@@ -66,6 +66,33 @@ async function run() {
 
     console.log("🌐 Processing:", url)
 
+    for (const urlRecord of urls) {
+  const { id, url } = urlRecord
+
+  console.log("🌐 Processing:", url)
+
+  // 🔥 STEP 4 — SMART PROTECTION (ADD THIS BLOCK)
+  const { data: existing } = await supabase
+    .from("captures")
+    .select("created_at")
+    .eq("url_id", id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+
+  if (existing?.length) {
+    const last = new Date(existing[0].created_at).getTime()
+    const diff = (Date.now() - last) / 1000
+
+    if (diff < 60) {
+      console.log("⏭ Skipping recent capture")
+      continue
+    }
+  }
+
+  // 👇 your existing capture logic continues here
+  try {
+    const context = await browser.newContext()
+    const page = await context.newPage()
     try {
       const context = await browser.newContext()
       const page = await context.newPage()
