@@ -104,10 +104,8 @@ export default function DashboardPage() {
     console.error("❌ Trigger failed:", err)
   }
 
-  // refresh captures after worker runs
-  setTimeout(async () => {
-    await fetchCaptures(user.id)
-  }, 5000)
+  // immediate refresh attempt
+await fetchCaptures(user.id)
 }
 
   // ✅ SIGN OUT
@@ -119,21 +117,32 @@ export default function DashboardPage() {
   // ✅ INITIAL LOAD
   useEffect(() => {
 
-    const loadData = async () => {
+  let interval: any
 
-      const { data: { user } } = await supabase.auth.getUser()
+  const loadData = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
 
-      if (!user) return
+    if (!user) return
 
-      setUser(user)
+    setUser(user)
 
-      await fetchUrls(user.id)
+    await fetchUrls(user.id)
+    await fetchCaptures(user.id)
+
+    // ✅ AUTO REFRESH EVERY 5 SECONDS
+    interval = setInterval(async () => {
+      console.log("🔄 Refreshing captures...")
       await fetchCaptures(user.id)
-    }
+    }, 5000)
+  }
 
-    loadData()
+  loadData()
 
-  }, [])
+  return () => {
+    if (interval) clearInterval(interval)
+  }
+
+}, [])
 
   if (!user) return <div>Loading...</div>
 
