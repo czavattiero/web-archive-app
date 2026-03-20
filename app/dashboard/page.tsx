@@ -18,95 +18,81 @@ export default function DashboardPage() {
 
   // ✅ FETCH URLS
   async function fetchUrls(userId: string) {
-
     const { data, error } = await supabase
       .from("urls")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
 
-    if (error) {
-      console.error("❌ Error fetching URLs:", error)
-      return
+    if (!error && data) {
+      setUrls([...data])
     }
-
-    setUrls(data || [])
   }
 
-  // ✅ FETCH CAPTURES
+  // ✅ FETCH CAPTURES (FIXED)
   async function fetchCaptures(userId: string) {
-
     const { data, error } = await supabase
       .from("captures")
       .select(`
         id,
         file_path,
-        captured_at,
+        created_at,
         urls (
           id,
           url,
           user_id
         )
       `)
-      .order("captured_at", { ascending: false })
+      .order("created_at", { ascending: false })
+
+    if (error || !data) return
+
+    const filtered = data.filter(
+      (c: any) => c.urls?.user_id === userId
+    )
+
+    // 🔥 FORCE UI UPDATE
+    setCaptures([...filtered])
+  }
+
+  // ✅ ADD URL (INSTANT TRIGGER)
+  async function addUrl() {
+
+    if (!newUrl || !user) return
+
+    console.log("🚀 Adding URL:", newUrl)
+
+    const { error } = await supabase
+      .from("urls")
+      .insert({
+        url: newUrl,
+        user_id: user.id,
+        schedule_type: schedule,
+        next_capture_at: new Date().toISOString()
+      })
 
     if (error) {
-      console.error("❌ Error loading captures:", error)
+      console.error("❌ Insert failed:", error)
       return
     }
 
-    if (!data) return
+    setNewUrl("")
+    await fetchUrls(user.id)
 
-    const filtered = data.filter(
-      (capture: any) => capture.urls?.user_id === userId
-    )
+    // ⚡ TRIGGER WORKER IMMEDIATELY
+    try {
+      await fetch("/api/capture", { method: "POST" })
+      console.log("⚡ Worker triggered")
+    } catch (err) {
+      console.error("Trigger failed:", err)
+    }
 
-    setCaptures(filtered)
+    // 🔥 FAST UI UPDATE LOOP (important)
+    for (let i = 0; i < 5; i++) {
+      await new Promise(res => setTimeout(res, 2000))
+      await fetchCaptures(user.id)
+    }
   }
-
-  // ✅ ADD URL (FIXED)
-  async function addUrl() {
-
-  if (!newUrl || !user) return
-
-  console.log("🚀 Adding URL:", newUrl)
-
-  const { error } = await supabase
-    .from("urls")
-    .insert({
-      url: newUrl,
-      user_id: user.id,
-      schedule_type: schedule,
-      next_capture_at: new Date().toISOString()
-    })
-
-  if (error) {
-    console.error("❌ Insert failed:", error)
-    return
-  }
-
-  console.log("✅ URL added")
-
-  setNewUrl("")
-  await fetchUrls(user.id)
-
-  // ✅ CALL YOUR EXISTING API ROUTE
-  try {
-    const res = await fetch("/api/capture", {
-      method: "POST"
-    })
-
-    const data = await res.json()
-
-    console.log("⚡ Trigger response:", data)
-
-  } catch (err) {
-    console.error("❌ Trigger failed:", err)
-  }
-
-  // immediate refresh attempt
-await fetchCaptures(user.id)
-}
 
   // ✅ SIGN OUT
   async function signOut() {
@@ -114,61 +100,35 @@ await fetchCaptures(user.id)
     window.location.href = "/"
   }
 
-  // ✅ INITIAL LOAD
+  // ✅ INITIAL LOAD + LIVE POLLING
   useEffect(() => {
 
-  let interval: any
+    let interval: any
 
-  const init = async () => {
+    const init = async () => {
 
-    const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser()
 
-    if (!user) return
+      if (!user) return
 
-    setUser(user)
+      setUser(user)
 
-    // initial load
-    await fetchUrls(user.id)
-    await fetchCaptures(user.id)
+      await fetchUrls(user.id)
+      await fetchCaptures(user.id)
 
-    // 🔥 aggressive polling (every 3 seconds)
-    interval = setInterval(async () => {
-      console.log("🔄 polling for new captures...")
+      // 🔥 CONTINUOUS AUTO REFRESH
+      interval = setInterval(async () => {
+        await fetchCaptures(user.id)
+      }, 3000)
+    }
 
-      const { data, error } = await supabase
-        .from("captures")
-        .select(`
-          id,
-          file_path,
-          captured_at,
-          urls (
-            id,
-            url,
-            user_id
-          )
-        `)
-        .order("captured_at", { ascending: false })
+    init()
 
-      if (!error && data) {
+    return () => {
+      if (interval) clearInterval(interval)
+    }
 
-        const filtered = data.filter(
-          (c: any) => c.urls?.user_id === user.id
-        )
-
-        // 🔥 FORCE STATE UPDATE (important)
-        setCaptures([...filtered])
-      }
-
-    }, 3000)
-  }
-
-  init()
-
-  return () => {
-    if (interval) clearInterval(interval)
-  }
-
-}, [])
+  }, [])
 
   if (!user) return <div>Loading...</div>
 
@@ -266,7 +226,7 @@ await fetchCaptures(user.id)
               <td>{capture.urls?.url}</td>
 
               <td>
-                {new Date(capture.captured_at).toLocaleString("en-CA", {
+                {new Date(capture.created_at).toLocaleString("en-CA", {
                   timeZone: "America/Edmonton"
                 })}
               </td>
