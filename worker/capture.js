@@ -15,7 +15,7 @@ function getAlbertaTime() {
   })
 }
 
-// ⏱ schedule
+// ⏱ schedule logic
 function getNextCaptureTime(urlRecord) {
   const now = Date.now()
 
@@ -24,6 +24,10 @@ function getNextCaptureTime(urlRecord) {
       return new Date(now + 7 * 24 * 60 * 60 * 1000)
     case "biweekly":
       return new Date(now + 14 * 24 * 60 * 60 * 1000)
+    case "monthly_29":
+      return new Date(now + 29 * 24 * 60 * 60 * 1000)
+    case "monthly_30":
+      return new Date(now + 30 * 24 * 60 * 60 * 1000)
     default:
       return new Date(now + 15 * 60 * 1000)
   }
@@ -38,7 +42,7 @@ const proxy = process.env.PROXY_HOST
     }
   : null
 
-// 🚀 HUMAN-LIKE BROWSER CONTEXT
+// 🧠 Human-like context
 async function createContext(browser) {
   return await browser.newContext({
     userAgent:
@@ -52,12 +56,12 @@ async function createContext(browser) {
   })
 }
 
-// 🚀 CAPTURE FUNCTION
+// 🚀 Capture function
 async function capturePage(browser, url) {
   const context = await createContext(browser)
   const page = await context.newPage()
 
-  // 🧠 Make browser look real
+  // Hide automation
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "webdriver", {
       get: () => false,
@@ -69,11 +73,11 @@ async function capturePage(browser, url) {
     timeout: 60000,
   })
 
-  await page.waitForTimeout(5000)
+  await page.waitForTimeout(2000) // faster
 
   const content = await page.content()
 
-  // 🚨 BLOCK DETECTION
+  // 🚨 Block detection
   if (
     content.includes("403") ||
     content.includes("Access Denied") ||
@@ -109,10 +113,15 @@ async function capturePage(browser, url) {
 async function run() {
   console.log("🚀 Worker started")
 
-  const { data: urls } = await supabase
+  const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
     .lte("next_capture_at", new Date().toISOString())
+
+  if (error) {
+    console.error("❌ DB error:", error)
+    return
+  }
 
   console.log("📦 URLs fetched:", urls?.length)
 
@@ -120,6 +129,13 @@ async function run() {
     console.log("✅ No URLs to process")
     return
   }
+
+  // 🚀 LAUNCH BROWSERS ONCE (BIG SPEED BOOST)
+  const browser = await chromium.launch({ headless: true })
+
+  const proxyBrowser = proxy
+    ? await chromium.launch({ headless: true, proxy })
+    : null
 
   for (const urlRecord of urls) {
     const { id, url } = urlRecord
@@ -144,33 +160,25 @@ async function run() {
 
     let pdfBuffer = null
 
-    // 🥇 Attempt 1 — no proxy
+    // 🥇 Attempt 1 — fast (no proxy)
     try {
-      const browser = await chromium.launch({ headless: true })
       pdfBuffer = await capturePage(browser, url)
-      await browser.close()
       console.log("✅ Success (no proxy)")
     } catch (err) {
       console.log("❌ Attempt 1 failed:", err.message)
     }
 
-    // 🥈 Attempt 2 — Webshare proxy
-    if (!pdfBuffer && proxy) {
+    // 🥈 Attempt 2 — proxy fallback
+    if (!pdfBuffer && proxyBrowser) {
       try {
-        const browser = await chromium.launch({
-          headless: true,
-          proxy,
-        })
-
-        pdfBuffer = await capturePage(browser, url)
-        await browser.close()
+        pdfBuffer = await capturePage(proxyBrowser, url)
         console.log("✅ Success (proxy)")
       } catch (err) {
         console.log("❌ Proxy failed:", err.message)
       }
     }
 
-    // ❌ FAILURE
+    // ❌ TOTAL FAILURE
     if (!pdfBuffer) {
       await supabase.from("captures").insert({
         url_id: id,
@@ -183,11 +191,16 @@ async function run() {
 
     const fileName = `${id}-${Date.now()}.pdf`
 
-    await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from("captures")
       .upload(fileName, pdfBuffer, {
         contentType: "application/pdf",
       })
+
+    if (uploadError) {
+      console.log("❌ Upload failed:", uploadError.message)
+      continue
+    }
 
     await supabase.from("captures").insert({
       url_id: id,
@@ -207,6 +220,10 @@ async function run() {
 
     console.log("✅ Capture saved")
   }
+
+  // 🧹 CLOSE BROWSERS
+  await browser.close()
+  if (proxyBrowser) await proxyBrowser.close()
 
   console.log("🏁 Worker finished")
 }
