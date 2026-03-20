@@ -89,7 +89,7 @@ export default function DashboardPage() {
         url: newUrl,
         user_id: user.id,
         schedule_type: schedule,
-        next_capture_at: new Date().toISOString()
+        next_capture_at: new Date(Date.now() - 60000).toISOString()
       })
 
     if (error) {
