@@ -28,8 +28,4 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          PROXY_HOST: ${{ secrets.SMARTPROXY_HOST }}
-          PROXY_PORT: ${{ secrets.SMARTPROXY_PORT }}
-          PROXY_USERNAME: ${{ secrets.SMARTPROXY_USER }}
-          PROXY_PASSWORD: ${{ secrets.SMARTPROXY_PASS }}
         run: node worker/capture.js
