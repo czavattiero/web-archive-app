@@ -2,8 +2,8 @@ name: Web Archive Capture Worker
 
 on:
   schedule:
-    - cron: "*/15 * * * *" # runs every 15 minutes
-  workflow_dispatch: # allows manual trigger
+    - cron: "*/5 * * * *" # ✅ runs every 5 minutes
+  workflow_dispatch: # allows manual run
 
 jobs:
   capture:
@@ -28,8 +28,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          PROXY_HOST: ${{ secrets.PROXY_HOST }}
-          PROXY_PORT: ${{ secrets.PROXY_PORT }}
-          PROXY_USERNAME: ${{ secrets.PROXY_USERNAME }}
-          PROXY_PASSWORD: ${{ secrets.PROXY_PASSWORD }}
+          PROXY_HOST: ${{ secrets.SMARTPROXY_HOST }}
+          PROXY_PORT: ${{ secrets.SMARTPROXY_PORT }}
+          PROXY_USERNAME: ${{ secrets.SMARTPROXY_USER }}
+          PROXY_PASSWORD: ${{ secrets.SMARTPROXY_PASS }}
         run: node worker/capture.js
