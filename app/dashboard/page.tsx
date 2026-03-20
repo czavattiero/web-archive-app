@@ -31,29 +31,50 @@ export default function DashboardPage() {
 
   // ✅ FETCH CAPTURES (FIXED)
   async function fetchCaptures(userId: string) {
-    const { data, error } = await supabase
-      .from("captures")
-      .select(`
-        id,
-        file_path,
-        created_at,
-        urls (
-          id,
-          url,
-          user_id
-        )
-      `)
-      .order("created_at", { ascending: false })
 
-    if (error || !data) return
+  // ✅ STEP 1 — Get user's URLs
+  const { data: userUrls, error: urlError } = await supabase
+    .from("urls")
+    .select("id, url")
+    .eq("user_id", userId)
 
-    const filtered = data.filter(
-      (c: any) => c.urls?.user_id === userId
-    )
-
-    // 🔥 FORCE UI UPDATE
-    setCaptures([...filtered])
+  if (urlError || !userUrls) {
+    console.error("❌ URL fetch error:", urlError)
+    return
   }
+
+  const urlMap = new Map(
+    userUrls.map((u: any) => [u.id, u.url])
+  )
+
+  const urlIds = userUrls.map((u: any) => u.id)
+
+  if (urlIds.length === 0) {
+    setCaptures([])
+    return
+  }
+
+  // ✅ STEP 2 — Get captures
+  const { data: capturesData, error: capError } = await supabase
+    .from("captures")
+    .select("*")
+    .in("url_id", urlIds)
+    .order("created_at", { ascending: false })
+
+  if (capError || !capturesData) {
+    console.error("❌ Capture fetch error:", capError)
+    return
+  }
+
+  // ✅ STEP 3 — Attach URL manually
+  const formatted = capturesData.map((c: any) => ({
+    ...c,
+    url: urlMap.get(c.url_id)
+  }))
+
+  // 🔥 FORCE UI UPDATE
+  setCaptures([...formatted])
+}
 
   // ✅ ADD URL (INSTANT TRIGGER)
   async function addUrl() {
@@ -223,7 +244,7 @@ export default function DashboardPage() {
         <tbody>
           {captures.map((capture: any) => (
             <tr key={capture.id}>
-              <td>{capture.urls?.url}</td>
+              <td>{capture.url}</td>
 
               <td>
                 {new Date(capture.created_at).toLocaleString("en-CA", {
