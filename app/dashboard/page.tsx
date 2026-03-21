@@ -9,7 +9,6 @@ const supabase = createClient(
 )
 
 export default function DashboardPage() {
-
   const [user, setUser] = useState<any>(null)
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
@@ -18,118 +17,86 @@ export default function DashboardPage() {
 
   // ✅ FETCH URLS
   async function fetchUrls(userId: string) {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("urls")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
 
-    if (!error && data) {
-      setUrls([...data])
-    }
+    setUrls(data || [])
   }
 
-  // ✅ FETCH CAPTURES (FIXED)
+  // ✅ FIXED FETCH CAPTURES (NO JOIN)
   async function fetchCaptures(userId: string) {
 
-  // ✅ STEP 1 — Get user's URLs
-  const { data: userUrls, error: urlError } = await supabase
-    .from("urls")
-    .select("id, url")
-    .eq("user_id", userId)
-
-  if (urlError || !userUrls) {
-    console.error("❌ URL fetch error:", urlError)
-    return
-  }
-
-  const urlMap = new Map(
-    userUrls.map((u: any) => [u.id, u.url])
-  )
-
-  const urlIds = userUrls.map((u: any) => u.id)
-
-  if (urlIds.length === 0) {
-    setCaptures([])
-    return
-  }
-
-  // ✅ STEP 2 — Get captures
-  const { data: capturesData, error: capError } = await supabase
-    .from("captures")
-    .select("*")
-    .in("url_id", urlIds)
-    .order("created_at", { ascending: false })
-
-  if (capError || !capturesData) {
-    console.error("❌ Capture fetch error:", capError)
-    return
-  }
-
-  // ✅ STEP 3 — Attach URL manually
-  const formatted = capturesData.map((c: any) => ({
-    ...c,
-    url: urlMap.get(c.url_id)
-  }))
-
-  // 🔥 FORCE UI UPDATE
-  setCaptures([...formatted])
-}
-
-  // ✅ ADD URL (INSTANT TRIGGER)
-  async function addUrl() {
-
-    if (!newUrl || !user) return
-
-    console.log("🚀 Adding URL:", newUrl)
-
-    const { error } = await supabase
+    // get user's URLs
+    const { data: userUrls } = await supabase
       .from("urls")
-      .insert({
-        url: newUrl,
-        user_id: user.id,
-        schedule_type: schedule,
-        next_capture_at: new Date(Date.now() - 60000).toISOString()
-      })
+      .select("id, url")
+      .eq("user_id", userId)
 
-    if (error) {
-      console.error("❌ Insert failed:", error)
+    if (!userUrls) return
+
+    const urlMap = new Map(userUrls.map(u => [u.id, u.url]))
+    const urlIds = userUrls.map(u => u.id)
+
+    if (urlIds.length === 0) {
+      setCaptures([])
       return
     }
+
+    // get captures
+    const { data: cap } = await supabase
+      .from("captures")
+      .select("*")
+      .in("url_id", urlIds)
+      .order("created_at", { ascending: false })
+
+    if (!cap) return
+
+    // attach URL manually
+    const formatted = cap.map((c: any) => ({
+      ...c,
+      url: urlMap.get(c.url_id)
+    }))
+
+    setCaptures(formatted)
+  }
+
+  // ✅ ADD URL
+  async function addUrl() {
+    if (!newUrl || !user) return
+
+    await supabase.from("urls").insert({
+      url: newUrl,
+      user_id: user.id,
+      schedule_type: schedule,
+      next_capture_at: new Date().toISOString()
+    })
 
     setNewUrl("")
     await fetchUrls(user.id)
 
-    // ⚡ TRIGGER WORKER IMMEDIATELY
-    try {
-      await fetch("/api/capture", { method: "POST" })
-      console.log("⚡ Worker triggered")
-    } catch (err) {
-      console.error("Trigger failed:", err)
-    }
+    // trigger worker
+    await fetch("/api/capture", { method: "POST" })
 
-    // 🔥 FAST UI UPDATE LOOP (important)
+    // quick refresh loop
     for (let i = 0; i < 5; i++) {
-      await new Promise(res => setTimeout(res, 2000))
+      await new Promise(r => setTimeout(r, 2000))
       await fetchCaptures(user.id)
     }
   }
 
-  // ✅ SIGN OUT
   async function signOut() {
     await supabase.auth.signOut()
     window.location.href = "/"
   }
 
-  // ✅ INITIAL LOAD + LIVE POLLING
   useEffect(() => {
-
     let interval: any
 
     const init = async () => {
-
       const { data: { user } } = await supabase.auth.getUser()
-
       if (!user) return
 
       setUser(user)
@@ -137,41 +104,31 @@ export default function DashboardPage() {
       await fetchUrls(user.id)
       await fetchCaptures(user.id)
 
-      // 🔥 CONTINUOUS AUTO REFRESH
-      interval = setInterval(async () => {
-        await fetchCaptures(user.id)
+      // 🔥 live updates
+      interval = setInterval(() => {
+        fetchCaptures(user.id)
       }, 3000)
     }
 
     init()
 
-    return () => {
-      if (interval) clearInterval(interval)
-    }
-
+    return () => clearInterval(interval)
   }, [])
 
   if (!user) return <div>Loading...</div>
 
   return (
-
     <div style={{ padding: "40px", fontFamily: "Arial" }}>
 
       <h1>Dashboard</h1>
-
       <p>Welcome {user.email}</p>
 
-      <button
-        onClick={signOut}
-        style={{
-          float: "right",
-          background: "red",
-          color: "white",
-          border: "none",
-          padding: "6px 10px",
-          cursor: "pointer"
-        }}
-      >
+      <button onClick={signOut} style={{
+        float: "right",
+        background: "red",
+        color: "white",
+        padding: "6px 10px"
+      }}>
         Sign Out
       </button>
 
@@ -179,7 +136,6 @@ export default function DashboardPage() {
 
       <input
         style={{ width: "500px", marginRight: "10px" }}
-        placeholder="https://example.com/full-url"
         value={newUrl}
         onChange={(e) => setNewUrl(e.target.value)}
       />
@@ -187,44 +143,28 @@ export default function DashboardPage() {
       <select
         value={schedule}
         onChange={(e) => setSchedule(e.target.value)}
-        style={{ marginRight: "10px" }}
       >
         <option value="weekly">Weekly</option>
         <option value="biweekly">Biweekly</option>
-        <option value="monthly_29">Every 29 days</option>
-        <option value="monthly_30">Every 30 days</option>
       </select>
 
-      <button
-        onClick={addUrl}
-        style={{
-          background: "green",
-          color: "white",
-          padding: "6px 12px",
-          border: "none",
-          cursor: "pointer"
-        }}
-      >
+      <button onClick={addUrl} style={{
+        background: "green",
+        color: "white",
+        marginLeft: "10px"
+      }}>
         Add URL
       </button>
 
       <h2 style={{ marginTop: "40px" }}>Tracked URLs</h2>
 
       <table border={1} cellPadding={6} style={{ width: "100%" }}>
-        <thead>
-          <tr>
-            <th>URL</th>
-            <th>Schedule</th>
-            <th>Created</th>
-          </tr>
-        </thead>
-
         <tbody>
-          {urls.map((url) => (
-            <tr key={url.id}>
-              <td>{url.url}</td>
-              <td>{url.schedule_type}</td>
-              <td>{new Date(url.created_at).toLocaleDateString()}</td>
+          {urls.map((u) => (
+            <tr key={u.id}>
+              <td>{u.url}</td>
+              <td>{u.schedule_type}</td>
+              <td>{new Date(u.created_at).toLocaleDateString()}</td>
             </tr>
           ))}
         </tbody>
@@ -233,42 +173,28 @@ export default function DashboardPage() {
       <h2 style={{ marginTop: "40px" }}>Capture History</h2>
 
       <table border={1} cellPadding={6} style={{ width: "100%" }}>
-        <thead>
-          <tr>
-            <th>URL</th>
-            <th>Captured At</th>
-            <th>PDF</th>
-          </tr>
-        </thead>
-
         <tbody>
-          {captures.map((capture: any) => (
-            <tr key={capture.id}>
-              <td>{capture.url}</td>
-
+          {captures.map((c: any) => (
+            <tr key={c.id}>
+              <td>{c.url}</td>
               <td>
-                {new Date(capture.created_at).toLocaleString("en-CA", {
+                {new Date(c.created_at).toLocaleString("en-CA", {
                   timeZone: "America/Edmonton"
                 })}
               </td>
-
               <td>
-                <a
-                  const { data } = supabase
-                    .storage
-                    .from("captures")
-                    .getPublicUrl(capture.file_path)
-
-<a href={data.publicUrl} target="_blank">View PDF</a>
-                >
-                  View PDF
-                </a>
+                {c.file_path && (
+                  <a
+                    href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`}
+                    target="_blank"
+                  >
+                    View PDF
+                  </a>
+                )}
               </td>
-
             </tr>
           ))}
         </tbody>
-
       </table>
 
     </div>
