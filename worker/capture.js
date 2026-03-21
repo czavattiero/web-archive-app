@@ -9,7 +9,6 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 dotenv.config({ path: path.resolve(__dirname, "../.env") })
 
-// Supabase client (SERVICE ROLE - REQUIRED)
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -18,28 +17,27 @@ const supabase = createClient(
 async function run() {
   console.log("🚀 Worker started")
 
-  // STEP 1 — FETCH URLS
-  const { data: urls, error: fetchError } = await supabase
+  // ✅ FETCH URLS (INCLUDING user_id)
+  const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
     .lte("next_capture_at", new Date().toISOString())
 
-  if (fetchError) {
-    console.error("❌ Fetch error:", fetchError)
+  if (error) {
+    console.error("❌ Fetch error:", error)
     return
   }
 
   if (!urls || urls.length === 0) {
-    console.log("⚠️ No URLs to process")
+    console.log("⚠️ No URLs found")
     return
   }
 
   console.log(`✅ Found ${urls.length} URLs`)
 
-  // STEP 2 — LAUNCH BROWSER
   const browser = await chromium.launch({
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    args: ["--no-sandbox"],
   })
 
   const context = await browser.newContext()
@@ -47,8 +45,8 @@ async function run() {
   for (const urlObj of urls) {
     console.log("🔍 Processing:", urlObj)
 
-    if (!urlObj.id) {
-      console.error("❌ Missing URL ID — skipping")
+    if (!urlObj.id || !urlObj.user_id) {
+      console.error("❌ Missing id or user_id — skipping")
       continue
     }
 
@@ -62,24 +60,20 @@ async function run() {
 
       const filePath = `${urlObj.id}-${Date.now()}.pdf`
 
-      // STEP 3 — GENERATE PDF
-      const pdfBuffer = await page.pdf({
-        format: "A4",
-      })
+      const pdfBuffer = await page.pdf({ format: "A4" })
 
-      // STEP 4 — UPLOAD TO STORAGE
+      // ✅ Upload
       const { error: uploadError } = await supabase.storage
         .from("captures")
         .upload(filePath, pdfBuffer, {
           contentType: "application/pdf",
-          upsert: false,
         })
 
       if (uploadError) {
         console.error("❌ Upload failed:", uploadError)
 
         await insertCapture({
-          url_id: urlObj.id,
+          urlObj,
           file_path: null,
           status: "failed",
           error: uploadError.message,
@@ -88,29 +82,29 @@ async function run() {
         continue
       }
 
-      console.log("✅ Upload success:", filePath)
+      console.log("✅ Upload success")
 
-      // STEP 5 — INSERT INTO DB (CRITICAL FIX)
+      // ✅ INSERT (FIXED — includes user_id)
       await insertCapture({
-        url_id: urlObj.id,
+        urlObj,
         file_path: filePath,
         status: "success",
         error: null,
       })
 
-      // STEP 6 — UPDATE NEXT CAPTURE
-      const nextCapture = new Date(Date.now() + 24 * 60 * 60 * 1000)
+      // ✅ Update schedule
+      const next = new Date(Date.now() + 24 * 60 * 60 * 1000)
 
       await supabase
         .from("urls")
-        .update({ next_capture_at: nextCapture.toISOString() })
+        .update({ next_capture_at: next.toISOString() })
         .eq("id", urlObj.id)
 
     } catch (err) {
       console.error("❌ Capture failed:", err)
 
       await insertCapture({
-        url_id: urlObj.id,
+        urlObj,
         file_path: null,
         status: "failed",
         error: err.message,
@@ -124,25 +118,24 @@ async function run() {
   console.log("🏁 Worker finished")
 }
 
-// 🔥 SAFE INSERT FUNCTION (NO SILENT FAILURES)
-async function insertCapture({ url_id, file_path, status, error }) {
-  console.log("📥 Inserting capture:", {
-    url_id,
+// 🔥 FIXED INSERT FUNCTION (NOW INCLUDES user_id)
+async function insertCapture({ urlObj, file_path, status, error }) {
+  console.log("📥 Inserting capture...")
+
+  const payload = {
+    url_id: urlObj.id,
+    user_id: urlObj.user_id, // 🔥 THIS IS THE FIX
     file_path,
     status,
-  })
+    error,
+    created_at: new Date().toISOString(),
+  }
+
+  console.log("Payload:", payload)
 
   const { data, error: insertError } = await supabase
     .from("captures")
-    .insert([
-      {
-        url_id,
-        file_path,
-        status,
-        error,
-        created_at: new Date().toISOString(),
-      },
-    ])
+    .insert([payload])
     .select()
 
   if (insertError) {
@@ -152,5 +145,4 @@ async function insertCapture({ url_id, file_path, status, error }) {
   }
 }
 
-// RUN
 run()
