@@ -8,42 +8,38 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export default function DashboardPage() {
-
-  const [user, setUser] = useState<any>(null)
-  const [urls, setUrls] = useState<any[]>([])
+export default function Dashboard() {
   const [captures, setCaptures] = useState<any[]>([])
-  const [newUrl, setNewUrl] = useState("")
-  const [schedule, setSchedule] = useState("weekly")
 
-  // ✅ FETCH URLS
-  async function fetchUrls(userId: string) {
-    const { data } = await supabase
-      .from("urls")
-      .select("*")
-      .eq("user_id", userId)
+  useEffect(() => {
+    async function fetchCaptures() {
+      console.log("🚀 Fetching captures...")
 
-    setUrls(data || [])
-  }
+      const { data, error } = await supabase
+        .from("captures")
+        .select("*")
+        .order("created_at", { ascending: false })
 
-  // ✅ FINAL FIXED FETCH CAPTURES
-  async function fetchCaptures(userId: string) {
+      if (error) {
+        console.error("❌ Fetch error:", error)
+      } else {
+        console.log("✅ Data received:", data)
+        setCaptures(data || [])
+      }
+    }
 
-    // 1. get user's urls
-    const { data: userUrls } = await supabase
-      .from("urls")
-      .select("id, url")
-      .eq("user_id", userId)
+    fetchCaptures()
+  }, [])
 
-    if (!userUrls) return
+  return (
+    <div style={{ padding: "20px" }}>
+      <h1>DEBUG CAPTURES</h1>
 
-    const urlMap = new Map(userUrls.map(u => [u.id, u.url]))
-    const urlIds = new Set(userUrls.map(u => u.id))
+      <p>Total records: {captures.length}</p>
 
-    // 2. get ALL captures (NO FILTER)
-    const { data: allCaptures } = await supabase
-      .from("captures")
-      .select("*")
-      .order("created_at", { ascending: false })
-
-    if (!
+      <pre style={{ background: "#111", color: "#0f0", padding: "10px" }}>
+        {JSON.stringify(captures, null, 2)}
+      </pre>
+    </div>
+  )
+}
