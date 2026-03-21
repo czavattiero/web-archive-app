@@ -13,9 +13,9 @@ function getAlbertaTime() {
 }
 
 async function waitForRealPage(page) {
-  console.log("⏳ Waiting for Cloudflare check...")
+  console.log("⏳ Waiting for Cloudflare...")
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     const html = await page.content()
 
     if (
@@ -23,7 +23,7 @@ async function waitForRealPage(page) {
       !html.includes("Just a moment") &&
       !html.includes("Cloudflare")
     ) {
-      console.log("✅ Page passed verification")
+      console.log("✅ Passed Cloudflare")
       return true
     }
 
@@ -38,23 +38,35 @@ async function capturePage(browser, url) {
     userAgent:
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
     viewport: { width: 1366, height: 768 },
+    timezoneId: "America/Edmonton",
+    locale: "en-US",
   })
 
   const page = await context.newPage()
+
+  // stealth tweak
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "webdriver", {
+      get: () => false,
+    })
+  })
+
+  console.log("🌐 Opening:", url)
 
   await page.goto(url, {
     waitUntil: "domcontentloaded",
     timeout: 60000,
   })
 
-  // 🔥 WAIT FOR CLOUDFLARE
+  // simulate human behavior
+  await page.mouse.move(100, 200)
+  await page.waitForTimeout(2000)
+
   const passed = await waitForRealPage(page)
 
   if (!passed) {
-    throw new Error("Cloudflare block not passed")
+    throw new Error("Cloudflare block")
   }
-
-  await page.waitForTimeout(2000)
 
   const timestamp = getAlbertaTime()
 
@@ -77,16 +89,25 @@ async function capturePage(browser, url) {
 async function run() {
   console.log("🚀 Worker started")
 
-  const { data: urls } = await supabase
+  const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
     .lte("next_capture_at", new Date().toISOString())
 
-  if (!urls || urls.length === 0) return
+  if (error) {
+    console.error("❌ DB error:", error)
+    return
+  }
 
-  // 🔥 HEADFUL MODE (IMPORTANT)
+  if (!urls || urls.length === 0) {
+    console.log("✅ No URLs to process")
+    return
+  }
+
+  console.log("📦 Processing:", urls.length)
+
   const browser = await chromium.launch({
-    headless: false
+    headless: true, // ✅ REQUIRED for GitHub
   })
 
   for (const u of urls) {
@@ -98,7 +119,7 @@ async function run() {
     try {
       pdf = await capturePage(browser, u.url)
     } catch (err) {
-      console.log("❌ Failed:", err.message)
+      console.log("❌ Capture failed:", err.message)
       status = "failed"
       errorMsg = err.message
     }
@@ -106,12 +127,20 @@ async function run() {
     if (pdf) {
       fileName = `${u.id}-${Date.now()}.pdf`
 
-      await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("captures")
         .upload(fileName, pdf, {
           contentType: "application/pdf",
           upsert: true,
         })
+
+      if (uploadError) {
+        console.log("❌ Upload error:", uploadError.message)
+        status = "failed"
+        errorMsg = uploadError.message
+      } else {
+        console.log("✅ Uploaded:", fileName)
+      }
     }
 
     await supabase.from("captures").insert({
@@ -131,6 +160,8 @@ async function run() {
   }
 
   await browser.close()
+
+  console.log("🏁 Worker finished")
 }
 
 run()
