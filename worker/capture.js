@@ -1,167 +1,156 @@
-import { chromium } from "playwright"
+import dotenv from "dotenv"
+import path from "path"
+import { fileURLToPath } from "url"
 import { createClient } from "@supabase/supabase-js"
+import { chromium } from "playwright"
 
+// Setup env
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+dotenv.config({ path: path.resolve(__dirname, "../.env") })
+
+// Supabase client (SERVICE ROLE - REQUIRED)
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-function getAlbertaTime() {
-  return new Date().toLocaleString("en-CA", {
-    timeZone: "America/Edmonton",
-  })
-}
-
-async function waitForRealPage(page) {
-  console.log("⏳ Waiting for Cloudflare...")
-
-  for (let i = 0; i < 6; i++) {
-    const html = await page.content()
-
-    if (
-      !html.includes("security verification") &&
-      !html.includes("Just a moment") &&
-      !html.includes("Cloudflare")
-    ) {
-      console.log("✅ Passed Cloudflare")
-      return true
-    }
-
-    await page.waitForTimeout(3000)
-  }
-
-  return false
-}
-
-async function capturePage(browser, url) {
-  const context = await browser.newContext({
-    userAgent:
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-    viewport: { width: 1366, height: 768 },
-    timezoneId: "America/Edmonton",
-    locale: "en-US",
-  })
-
-  const page = await context.newPage()
-
-  // stealth tweak
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, "webdriver", {
-      get: () => false,
-    })
-  })
-
-  console.log("🌐 Opening:", url)
-
-  await page.goto(url, {
-    waitUntil: "domcontentloaded",
-    timeout: 60000,
-  })
-
-  // simulate human behavior
-  await page.mouse.move(100, 200)
-  await page.waitForTimeout(2000)
-
-  const passed = await waitForRealPage(page)
-
-  if (!passed) {
-    throw new Error("Cloudflare block")
-  }
-
-  const timestamp = getAlbertaTime()
-
-  await page.evaluate((timestamp) => {
-    const banner = document.createElement("div")
-    banner.innerText = `Captured: ${timestamp}`
-    banner.style.background = "white"
-    banner.style.color = "black"
-    banner.style.padding = "10px"
-    document.body.prepend(banner)
-  }, timestamp)
-
-  const pdf = await page.pdf({ format: "A4" })
-
-  await context.close()
-
-  return pdf
-}
-
 async function run() {
   console.log("🚀 Worker started")
 
-  const { data: urls, error } = await supabase
+  // STEP 1 — FETCH URLS
+  const { data: urls, error: fetchError } = await supabase
     .from("urls")
     .select("*")
     .lte("next_capture_at", new Date().toISOString())
 
-  if (error) {
-    console.error("❌ DB error:", error)
+  if (fetchError) {
+    console.error("❌ Fetch error:", fetchError)
     return
   }
 
   if (!urls || urls.length === 0) {
-    console.log("✅ No URLs to process")
+    console.log("⚠️ No URLs to process")
     return
   }
 
-  console.log("📦 Processing:", urls.length)
+  console.log(`✅ Found ${urls.length} URLs`)
 
+  // STEP 2 — LAUNCH BROWSER
   const browser = await chromium.launch({
-    headless: true, // ✅ REQUIRED for GitHub
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
   })
 
-  for (const u of urls) {
-    let pdf = null
-    let status = "success"
-    let errorMsg = null
-    let fileName = null
+  const context = await browser.newContext()
 
-    try {
-      pdf = await capturePage(browser, u.url)
-    } catch (err) {
-      console.log("❌ Capture failed:", err.message)
-      status = "failed"
-      errorMsg = err.message
+  for (const urlObj of urls) {
+    console.log("🔍 Processing:", urlObj)
+
+    if (!urlObj.id) {
+      console.error("❌ Missing URL ID — skipping")
+      continue
     }
 
-    if (pdf) {
-      fileName = `${u.id}-${Date.now()}.pdf`
+    const page = await context.newPage()
 
+    try {
+      await page.goto(urlObj.url, {
+        waitUntil: "networkidle",
+        timeout: 60000,
+      })
+
+      const filePath = `${urlObj.id}-${Date.now()}.pdf`
+
+      // STEP 3 — GENERATE PDF
+      const pdfBuffer = await page.pdf({
+        format: "A4",
+      })
+
+      // STEP 4 — UPLOAD TO STORAGE
       const { error: uploadError } = await supabase.storage
         .from("captures")
-        .upload(fileName, pdf, {
+        .upload(filePath, pdfBuffer, {
           contentType: "application/pdf",
-          upsert: true,
+          upsert: false,
         })
 
       if (uploadError) {
-        console.log("❌ Upload error:", uploadError.message)
-        status = "failed"
-        errorMsg = uploadError.message
-      } else {
-        console.log("✅ Uploaded:", fileName)
+        console.error("❌ Upload failed:", uploadError)
+
+        await insertCapture({
+          url_id: urlObj.id,
+          file_path: null,
+          status: "failed",
+          error: uploadError.message,
+        })
+
+        continue
       }
+
+      console.log("✅ Upload success:", filePath)
+
+      // STEP 5 — INSERT INTO DB (CRITICAL FIX)
+      await insertCapture({
+        url_id: urlObj.id,
+        file_path: filePath,
+        status: "success",
+        error: null,
+      })
+
+      // STEP 6 — UPDATE NEXT CAPTURE
+      const nextCapture = new Date(Date.now() + 24 * 60 * 60 * 1000)
+
+      await supabase
+        .from("urls")
+        .update({ next_capture_at: nextCapture.toISOString() })
+        .eq("id", urlObj.id)
+
+    } catch (err) {
+      console.error("❌ Capture failed:", err)
+
+      await insertCapture({
+        url_id: urlObj.id,
+        file_path: null,
+        status: "failed",
+        error: err.message,
+      })
     }
 
-    await supabase.from("captures").insert({
-      url_id: u.id,
-      file_path: fileName,
-      status,
-      error: errorMsg,
-      created_at: new Date().toISOString(),
-    })
-
-    await supabase
-      .from("urls")
-      .update({
-        next_capture_at: new Date(Date.now() + 7 * 86400000).toISOString(),
-      })
-      .eq("id", u.id)
+    await page.close()
   }
 
   await browser.close()
-
   console.log("🏁 Worker finished")
 }
 
+// 🔥 SAFE INSERT FUNCTION (NO SILENT FAILURES)
+async function insertCapture({ url_id, file_path, status, error }) {
+  console.log("📥 Inserting capture:", {
+    url_id,
+    file_path,
+    status,
+  })
+
+  const { data, error: insertError } = await supabase
+    .from("captures")
+    .insert([
+      {
+        url_id,
+        file_path,
+        status,
+        error,
+        created_at: new Date().toISOString(),
+      },
+    ])
+    .select()
+
+  if (insertError) {
+    console.error("❌ INSERT ERROR:", insertError)
+  } else {
+    console.log("✅ INSERT SUCCESS:", data)
+  }
+}
+
+// RUN
 run()
