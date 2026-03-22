@@ -31,6 +31,41 @@ export default function Dashboard() {
     loadUser()
   }, [])
 
+  // 🔥 REALTIME SUBSCRIPTION
+useEffect(() => {
+  console.log("🚀 INIT REALTIME")
+
+  const channel = supabase
+    .channel("debug-captures")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "captures",
+      },
+      (payload) => {
+        console.log("🔥 EVENT RECEIVED:", payload)
+
+        if (payload.eventType === "INSERT") {
+          setCaptures((prev) => {
+            const exists = prev.find((c) => c.id === payload.new.id)
+            if (exists) return prev
+            return [payload.new, ...prev]
+          })
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log("📡 REALTIME STATUS:", status)
+    })
+
+  return () => {
+    console.log("❌ CLEANUP REALTIME")
+    supabase.removeChannel(channel)
+  }
+}, [])
+
   async function fetchData() {
     const { data: urlsData } = await supabase.from("urls").select("*")
 
