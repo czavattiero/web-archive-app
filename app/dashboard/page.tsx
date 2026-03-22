@@ -13,12 +13,15 @@ export default function Dashboard() {
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
   const [selectedUrlId, setSelectedUrlId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     fetchData()
   }, [])
 
   async function fetchData() {
+    setLoading(true)
+
     const { data: urlsData } = await supabase.from("urls").select("*")
 
     const { data: capturesData } = await supabase
@@ -28,29 +31,35 @@ export default function Dashboard() {
 
     setUrls(urlsData || [])
     setCaptures(capturesData || [])
+    setLoading(false)
   }
 
   async function addUrl() {
     if (!url) return
 
+    setLoading(true)
+
     await supabase.from("urls").insert([
       {
         url,
-        schedule_type: "daily",
         next_capture_at: new Date().toISOString(),
+        schedule_type: "weekly", // default
       },
     ])
 
     setUrl("")
-    fetchData()
+    await fetchData()
   }
 
-  // 🔥 MAP URL DATA
-  const urlMap = Object.fromEntries(urls.map((u) => [u.id, u]))
-
+  // 🔥 FILTER
   const filteredCaptures = selectedUrlId
     ? captures.filter((c) => c.url_id === selectedUrlId)
     : captures
+
+  // 🔥 HELPER: get URL + schedule
+  function getUrlData(url_id: string) {
+    return urls.find((u) => u.id === url_id)
+  }
 
   return (
     <div style={layout}>
@@ -58,8 +67,6 @@ export default function Dashboard() {
       <div style={sidebar}>
         <h2 style={logo}>WebArchive</h2>
         <div style={menuItemActive}>Dashboard</div>
-        <div style={menuItem}>URLs</div>
-        <div style={menuItem}>Captures</div>
       </div>
 
       {/* MAIN */}
@@ -77,7 +84,7 @@ export default function Dashboard() {
               style={input}
             />
             <button onClick={addUrl} style={button}>
-              Add URL
+              {loading ? "Adding..." : "Add URL"}
             </button>
           </div>
         </div>
@@ -117,4 +124,174 @@ export default function Dashboard() {
             <tbody>
               {filteredCaptures.length === 0 ? (
                 <tr>
-                  <td col
+                  <td colSpan={4} style={empty}>
+                    No captures found
+                  </td>
+                </tr>
+              ) : (
+                filteredCaptures.map((c) => {
+                  const urlData = getUrlData(c.url_id)
+                  const filePath = c.file_path
+
+                  // ❌ FAILED
+                  if (!filePath) {
+                    return (
+                      <tr key={c.id}>
+                        <td style={td}>{urlData?.url || "Unknown"}</td>
+                        <td style={td}>
+                          <span style={badgeError}>Failed</span>
+                        </td>
+                        <td style={td}>
+                          {urlData?.schedule_type || "—"}
+                        </td>
+                        <td style={tdSmall}>{c.error}</td>
+                      </tr>
+                    )
+                  }
+
+                  // ✅ SUCCESS
+                  const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${filePath}`
+
+                  return (
+                    <tr key={c.id}>
+                      <td style={td}>{urlData?.url}</td>
+                      <td style={td}>
+                        <span style={badgeSuccess}>Success</span>
+                      </td>
+                      <td style={td}>
+                        {urlData?.schedule_type || "—"}
+                      </td>
+                      <td style={td}>
+                        <a href={publicUrl} target="_blank" style={link}>
+                          Download
+                        </a>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+
+          {selectedUrlId && (
+            <button
+              onClick={() => setSelectedUrlId(null)}
+              style={clearButton}
+            >
+              Clear Filter
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* 🎨 STYLES */
+
+const layout = {
+  display: "flex",
+  background: "#f6f9fc",
+  minHeight: "100vh",
+  fontFamily: "Inter, sans-serif",
+}
+
+const sidebar = {
+  width: "220px",
+  background: "#0a2540",
+  color: "#fff",
+  padding: "20px",
+}
+
+const logo = { marginBottom: "30px" }
+
+const menuItemActive = { padding: "10px 0", fontWeight: "bold" }
+
+const main = { flex: 1, padding: "30px" }
+
+const title = { fontSize: "24px", marginBottom: "20px" }
+
+const card = {
+  background: "#fff",
+  padding: "20px",
+  borderRadius: "10px",
+  marginBottom: "20px",
+}
+
+const row = { display: "flex", gap: "10px" }
+
+const input = {
+  flex: 1,
+  padding: "10px",
+  borderRadius: "6px",
+  border: "1px solid #ddd",
+}
+
+const button = {
+  background: "#635bff",
+  color: "#fff",
+  padding: "10px 16px",
+  borderRadius: "6px",
+  border: "none",
+}
+
+const urlItem = {
+  padding: "8px",
+  cursor: "pointer",
+  borderRadius: "6px",
+}
+
+const urlItemActive = {
+  background: "#eef2ff",
+}
+
+const table = {
+  width: "100%",
+  borderCollapse: "collapse" as const,
+}
+
+const th = {
+  textAlign: "left" as const,
+  padding: "10px",
+  fontSize: "12px",
+  color: "#8898aa",
+}
+
+const td = {
+  padding: "10px",
+  borderTop: "1px solid #eee",
+}
+
+const tdSmall = {
+  padding: "10px",
+  fontSize: "12px",
+  color: "#999",
+}
+
+const empty = {
+  padding: "20px",
+  textAlign: "center" as const,
+}
+
+const badgeSuccess = {
+  background: "#e6fffa",
+  padding: "4px 8px",
+  borderRadius: "6px",
+}
+
+const badgeError = {
+  background: "#fff1f0",
+  padding: "4px 8px",
+  borderRadius: "6px",
+}
+
+const link = {
+  color: "#635bff",
+  textDecoration: "none",
+}
+
+const clearButton = {
+  marginTop: "10px",
+  padding: "8px",
+  borderRadius: "6px",
+}
