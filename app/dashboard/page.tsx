@@ -88,6 +88,51 @@ export default function Dashboard() {
       {captures.map((c) => {
         // 🔥 FIXED PUBLIC URL
         {captures.map((c) => {
+  try {
+    // 🔒 FULL SAFETY CHECK
+    if (!c || typeof c !== "object") {
+      return <div key={Math.random()}>Invalid capture</div>
+    }
+
+    if (!c.file_path) {
+      return (
+        <div key={c.id || Math.random()}>
+          <p>❌ Capture failed</p>
+          <p>{c.error || "Unknown error"}</p>
+        </div>
+      )
+    }
+
+    const { data } = supabase.storage
+      .from("captures")
+      .getPublicUrl(c.file_path)
+
+    if (!data?.publicUrl) {
+      return (
+        <div key={c.id}>
+          <p>⚠️ Invalid file path</p>
+        </div>
+      )
+    }
+
+    return (
+      <div key={c.id}>
+        <p>{c.file_path}</p>
+        <a href={data.publicUrl} target="_blank">
+          View PDF
+        </a>
+      </div>
+    )
+  } catch (err) {
+    console.error("💥 Render error:", err)
+
+    return (
+      <div key={Math.random()}>
+        <p>❌ Render error</p>
+      </div>
+    )
+  }
+})}
   if (!c.file_path) {
     return (
       <div key={c.id}>
