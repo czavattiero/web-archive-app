@@ -21,7 +21,9 @@ async function run() {
   const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
-    .lte("next_capture_at", new Date().toISOString())
+    const { data: urls, error } = await supabase
+      .from("urls")
+      .select("*")
 
   if (error) {
     console.error("❌ Fetch error:", error)
