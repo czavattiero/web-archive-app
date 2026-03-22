@@ -1,39 +1,42 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { createClient } from "@supabase/supabase-js"
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { useRouter } from "next/navigation"
+import { supabase } from "../../lib/supabase"
 
 export default function Dashboard() {
-  const [url, setUrl] = useState("")
+  const router = useRouter()
+
   const [user, setUser] = useState<any>(null)
+  const [loadingUser, setLoadingUser] = useState(true)
+
+  const [url, setUrl] = useState("")
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
 
+  // ✅ WAIT FOR USER FIRST
   useEffect(() => {
-    checkUser()
-    fetchData()
-  }, [])
+    async function loadUser() {
+      const { data } = await supabase.auth.getUser()
 
-  async function checkUser() {
-    const { data } = await supabase.auth.getUser()
+      if (!data.user) {
+        router.push("/login")
+        return
+      }
 
-    if (!data.user) {
-      alert("⚠️ You are NOT logged in")
-      console.error("❌ No user session")
-    } else {
-      console.log("✅ User:", data.user.id)
       setUser(data.user)
+      setLoadingUser(false)
+
+      // 🔥 ONLY FETCH AFTER USER EXISTS
+      fetchData()
     }
-  }
+
+    loadUser()
+  }, [])
 
   async function fetchData() {
     const { data: urlsData } = await supabase.from("urls").select("*")
+
     const { data: capturesData } = await supabase
       .from("captures")
       .select("*")
@@ -45,20 +48,16 @@ export default function Dashboard() {
 
   async function addUrl() {
     if (!user) {
-      alert("❌ You must be logged in")
+      alert("User not ready yet")
       return
     }
 
-    if (!url) return
-
-    setLoading(true)
-
-    console.log("🚀 Inserting with user_id:", user.id)
+    console.log("🔥 Using user_id:", user.id)
 
     const { error } = await supabase.from("urls").insert([
       {
         url,
-        user_id: user.id, // 🔥 CRITICAL FIX
+        user_id: user.id, // ✅ GUARANTEED NOW
         next_capture_at: new Date().toISOString(),
         schedule_type: "weekly",
       },
@@ -66,13 +65,16 @@ export default function Dashboard() {
 
     if (error) {
       console.error("❌ Insert error:", error)
-    } else {
-      console.log("✅ URL inserted")
+      return
     }
 
     setUrl("")
-    setLoading(false)
     fetchData()
+  }
+
+  // 🔒 BLOCK UI UNTIL USER READY
+  if (loadingUser) {
+    return <div style={{ padding: 40 }}>Loading user...</div>
   }
 
   return (
@@ -85,15 +87,14 @@ export default function Dashboard() {
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://example.com"
         />
-        <button onClick={addUrl}>
-          {loading ? "Adding..." : "Add URL"}
-        </button>
+
+        <button onClick={addUrl}>Add URL</button>
       </div>
 
       <h2>Tracked URLs</h2>
       {urls.map((u) => (
         <div key={u.id}>
-          {u.url} — {u.user_id || "❌ NO USER"}
+          {u.url} — {u.user_id}
         </div>
       ))}
 
