@@ -17,13 +17,25 @@ const supabase = createClient(
 async function run() {
   console.log("🚀 Worker started")
 
-  // ✅ FETCH URLS
-  const { data: urls, error } = await supabase
-    .from("urls")
-    .select("*")
-    const { data: urls, error } = await supabase
-      .from("urls")
-      .select("*")
+  // ✅ FETCH URLS (NO FILTER FOR DEBUG)
+const { data: urls, error } = await supabase
+  .from("urls")
+  .select("*")
+
+// 🔥 DEBUG LOG (PUT IT RIGHT HERE)
+console.log("🔥 URLs FROM DB:", urls)
+
+if (error) {
+  console.error("❌ Fetch error:", error)
+  return
+}
+
+if (!urls || urls.length === 0) {
+  console.log("⚠️ No URLs found")
+  return
+}
+
+console.log(`✅ Found ${urls.length} URLs`)
 
   if (error) {
     console.error("❌ Fetch error:", error)
