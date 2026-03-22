@@ -59,13 +59,12 @@ export default function Dashboard() {
     fetchData()
   }
 
-  if (loadingUser) {
-    return <div style={{ padding: 40 }}>Loading...</div>
-  }
-
-  // 🔥 HELPER: find URL from capture
   function getUrlById(id: string) {
     return urls.find((u) => u.id === id)
+  }
+
+  if (loadingUser) {
+    return <div style={{ padding: 40 }}>Loading...</div>
   }
 
   return (
@@ -98,7 +97,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* TRACKED URLS TABLE */}
+        {/* TRACKED URLS */}
         <div style={card}>
           <h3 style={cardTitle}>Tracked URLs</h3>
 
@@ -133,7 +132,7 @@ export default function Dashboard() {
           </table>
         </div>
 
-        {/* CAPTURE HISTORY TABLE */}
+        {/* CAPTURE HISTORY */}
         <div style={card}>
           <h3 style={cardTitle}>Capture History</h3>
 
@@ -155,12 +154,11 @@ export default function Dashboard() {
                 </tr>
               ) : (
                 captures.map((c) => {
-                  const filePath = c.file_path
+                  if (!c.file_path) return null
+
                   const urlData = getUrlById(c.url_id)
 
-                  if (!filePath) return null
-
-                  const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${filePath}`
+                  const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
 
                   return (
                     <tr key={c.id}>
@@ -185,7 +183,7 @@ export default function Dashboard() {
   )
 }
 
-/* 🎨 STYLES */
+/* STYLES */
 
 const layout = {
   display: "flex",
@@ -202,11 +200,9 @@ const sidebar = {
 }
 
 const logo = { marginBottom: "30px" }
-
 const menuActive = { padding: "10px 0", fontWeight: "bold" }
 
 const main = { flex: 1, padding: "30px" }
-
 const title = { fontSize: "24px", marginBottom: "20px" }
 
 const card = {
@@ -218,7 +214,6 @@ const card = {
 }
 
 const cardTitle = { marginBottom: "10px" }
-
 const row = { display: "flex", gap: "10px" }
 
 const input = {
