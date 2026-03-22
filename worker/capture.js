@@ -17,7 +17,7 @@ const supabase = createClient(
 async function run() {
   console.log("🚀 Worker started")
 
-  // ✅ FETCH URLS (INCLUDING user_id)
+  // ✅ FETCH URLS
   const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
@@ -25,7 +25,7 @@ async function run() {
 
   if (error) {
     console.error("❌ Fetch error:", error)
-    return
+    throw error
   }
 
   if (!urls || urls.length === 0) {
@@ -45,8 +45,13 @@ async function run() {
   for (const urlObj of urls) {
     console.log("🔍 Processing:", urlObj)
 
-    if (!urlObj.id || !urlObj.user_id) {
-      console.error("❌ Missing id or user_id — skipping")
+    if (!urlObj.id) {
+      console.error("❌ Missing url_id — skipping")
+      continue
+    }
+
+    if (!urlObj.user_id) {
+      console.error("❌ Missing user_id — THIS IS LIKELY THE BUG")
       continue
     }
 
@@ -62,7 +67,7 @@ async function run() {
 
       const pdfBuffer = await page.pdf({ format: "A4" })
 
-      // ✅ Upload
+      // ✅ UPLOAD
       const { error: uploadError } = await supabase.storage
         .from("captures")
         .upload(filePath, pdfBuffer, {
@@ -82,9 +87,9 @@ async function run() {
         continue
       }
 
-      console.log("✅ Upload success")
+      console.log("✅ Upload success:", filePath)
 
-      // ✅ INSERT (FIXED — includes user_id)
+      // ✅ INSERT INTO DB
       await insertCapture({
         urlObj,
         file_path: filePath,
@@ -92,7 +97,7 @@ async function run() {
         error: null,
       })
 
-      // ✅ Update schedule
+      // ✅ UPDATE NEXT CAPTURE
       const next = new Date(Date.now() + 24 * 60 * 60 * 1000)
 
       await supabase
@@ -118,30 +123,43 @@ async function run() {
   console.log("🏁 Worker finished")
 }
 
-// 🔥 FIXED INSERT FUNCTION (NOW INCLUDES user_id)
+// 🔥 FINAL INSERT FUNCTION (WITH HARD FAIL)
 async function insertCapture({ urlObj, file_path, status, error }) {
-  console.log("📥 Inserting capture...")
+  try {
+    if (!urlObj?.id) {
+      throw new Error("Missing url_id")
+    }
 
-  const payload = {
-    url_id: urlObj.id,
-    user_id: urlObj.user_id, // 🔥 THIS IS THE FIX
-    file_path,
-    status,
-    error,
-    created_at: new Date().toISOString(),
-  }
+    if (!urlObj?.user_id) {
+      throw new Error("Missing user_id")
+    }
 
-  console.log("Payload:", payload)
+    const payload = {
+      url_id: urlObj.id,
+      user_id: urlObj.user_id,
+      file_path: file_path || null,
+      status: status || "unknown",
+      error: error || null,
+      created_at: new Date().toISOString(),
+    }
 
-  const { data, error: insertError } = await supabase
-    .from("captures")
-    .insert([payload])
-    .select()
+    console.log("📥 INSERT PAYLOAD:", JSON.stringify(payload, null, 2))
 
-  if (insertError) {
-    console.error("❌ INSERT ERROR:", insertError)
-  } else {
+    const { data, error: insertError } = await supabase
+      .from("captures")
+      .insert([payload])
+      .select()
+
+    if (insertError) {
+      console.error("❌ INSERT ERROR FULL:", insertError)
+      throw insertError // 🔥 THIS FORCES GITHUB ACTION TO FAIL
+    }
+
     console.log("✅ INSERT SUCCESS:", data)
+
+  } catch (err) {
+    console.error("💥 FINAL INSERT FAILURE:", err.message)
+    throw err // 🔥 ALSO FAIL HERE
   }
 }
 
