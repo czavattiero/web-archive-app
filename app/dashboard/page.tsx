@@ -14,7 +14,6 @@ export default function Dashboard() {
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
 
-  // ✅ WAIT FOR USER FIRST
   useEffect(() => {
     async function loadUser() {
       const { data } = await supabase.auth.getUser()
@@ -26,8 +25,6 @@ export default function Dashboard() {
 
       setUser(data.user)
       setLoadingUser(false)
-
-      // 🔥 ONLY FETCH AFTER USER EXISTS
       fetchData()
     }
 
@@ -47,24 +44,19 @@ export default function Dashboard() {
   }
 
   async function addUrl() {
-    if (!user) {
-      alert("User not ready yet")
-      return
-    }
-
-    console.log("🔥 Using user_id:", user.id)
+    if (!user) return
 
     const { error } = await supabase.from("urls").insert([
       {
         url,
-        user_id: user.id, // ✅ GUARANTEED NOW
+        user_id: user.id,
         next_capture_at: new Date().toISOString(),
         schedule_type: "weekly",
       },
     ])
 
     if (error) {
-      console.error("❌ Insert error:", error)
+      console.error(error)
       return
     }
 
@@ -72,36 +64,228 @@ export default function Dashboard() {
     fetchData()
   }
 
-  // 🔒 BLOCK UI UNTIL USER READY
   if (loadingUser) {
-    return <div style={{ padding: 40 }}>Loading user...</div>
+    return <div style={{ padding: 40 }}>Loading...</div>
   }
 
   return (
-    <div style={{ padding: 40 }}>
-      <h1>Dashboard</h1>
-
-      <div>
-        <input
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://example.com"
-        />
-
-        <button onClick={addUrl}>Add URL</button>
+    <div style={layout}>
+      {/* SIDEBAR */}
+      <div style={sidebar}>
+        <h2 style={logo}>WebArchive</h2>
+        <div style={menuActive}>Dashboard</div>
+        <div style={menu}>URLs</div>
+        <div style={menu}>Captures</div>
       </div>
 
-      <h2>Tracked URLs</h2>
-      {urls.map((u) => (
-        <div key={u.id}>
-          {u.url} — {u.user_id}
-        </div>
-      ))}
+      {/* MAIN */}
+      <div style={main}>
+        <h1 style={title}>Dashboard</h1>
 
-      <h2>Captures</h2>
-      {captures.map((c) => (
-        <div key={c.id}>{c.file_path || "Failed"}</div>
-      ))}
+        {/* ADD URL */}
+        <div style={card}>
+          <h3 style={cardTitle}>Add URL</h3>
+
+          <div style={row}>
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://example.com"
+              style={input}
+            />
+
+            <button onClick={addUrl} style={button}>
+              Add URL
+            </button>
+          </div>
+        </div>
+
+        {/* URL TABLE */}
+        <div style={card}>
+          <h3 style={cardTitle}>Tracked URLs</h3>
+
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={th}>URL</th>
+                <th style={th}>User</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {urls.length === 0 ? (
+                <tr>
+                  <td colSpan={2} style={empty}>
+                    No URLs yet
+                  </td>
+                </tr>
+              ) : (
+                urls.map((u) => (
+                  <tr key={u.id}>
+                    <td style={td}>{u.url}</td>
+                    <td style={tdSmall}>{u.user_id}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* CAPTURE TABLE */}
+        <div style={card}>
+          <h3 style={cardTitle}>Capture History</h3>
+
+          <table style={table}>
+            <thead>
+              <tr>
+                <th style={th}>File</th>
+                <th style={th}>Status</th>
+                <th style={th}>PDF</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {captures.length === 0 ? (
+                <tr>
+                  <td colSpan={3} style={empty}>
+                    No captures yet
+                  </td>
+                </tr>
+              ) : (
+                captures.map((c) => {
+                  const filePath = c.file_path
+
+                  if (!filePath) {
+                    return (
+                      <tr key={c.id}>
+                        <td style={td}>—</td>
+                        <td style={td}>
+                          <span style={badgeError}>Failed</span>
+                        </td>
+                        <td style={tdSmall}>{c.error}</td>
+                      </tr>
+                    )
+                  }
+
+                  const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${filePath}`
+
+                  return (
+                    <tr key={c.id}>
+                      <td style={td}>{filePath}</td>
+                      <td style={td}>
+                        <span style={badgeSuccess}>Success</span>
+                      </td>
+                      <td style={td}>
+                        <a href={publicUrl} target="_blank" style={link}>
+                          View
+                        </a>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
+}
+
+/* 🎨 STYLES */
+
+const layout = {
+  display: "flex",
+  background: "#f6f9fc",
+  minHeight: "100vh",
+  fontFamily: "Inter, sans-serif",
+}
+
+const sidebar = {
+  width: "220px",
+  background: "#0a2540",
+  color: "#fff",
+  padding: "20px",
+}
+
+const logo = { marginBottom: "30px" }
+
+const menu = { padding: "10px 0", opacity: 0.7 }
+const menuActive = { padding: "10px 0", fontWeight: "bold" }
+
+const main = { flex: 1, padding: "30px" }
+
+const title = { fontSize: "24px", marginBottom: "20px" }
+
+const card = {
+  background: "#fff",
+  padding: "20px",
+  borderRadius: "10px",
+  marginBottom: "20px",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+}
+
+const cardTitle = { marginBottom: "10px" }
+
+const row = { display: "flex", gap: "10px" }
+
+const input = {
+  flex: 1,
+  padding: "10px",
+  borderRadius: "6px",
+  border: "1px solid #ddd",
+}
+
+const button = {
+  background: "#635bff",
+  color: "#fff",
+  padding: "10px 16px",
+  borderRadius: "6px",
+  border: "none",
+  cursor: "pointer",
+}
+
+const table = {
+  width: "100%",
+  borderCollapse: "collapse" as const,
+}
+
+const th = {
+  textAlign: "left" as const,
+  padding: "10px",
+  fontSize: "12px",
+  color: "#8898aa",
+}
+
+const td = {
+  padding: "10px",
+  borderTop: "1px solid #eee",
+}
+
+const tdSmall = {
+  padding: "10px",
+  fontSize: "12px",
+  color: "#999",
+}
+
+const empty = {
+  padding: "20px",
+  textAlign: "center" as const,
+}
+
+const badgeSuccess = {
+  background: "#e6fffa",
+  padding: "4px 8px",
+  borderRadius: "6px",
+}
+
+const badgeError = {
+  background: "#fff1f0",
+  padding: "4px 8px",
+  borderRadius: "6px",
+}
+
+const link = {
+  color: "#635bff",
+  textDecoration: "none",
 }
