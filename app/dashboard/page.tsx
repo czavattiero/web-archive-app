@@ -57,20 +57,35 @@ export default function Dashboard() {
   }
 
   async function addUrl() {
-    if (!user || !url) return
+  if (!user || !url) return
 
-    await supabase.from("urls").insert([
-      {
-        url,
-        user_id: user.id,
-        next_capture_at: new Date().toISOString(),
-        schedule_type: "weekly",
-      },
-    ])
+  console.log("➕ Adding URL:", url)
 
-    setUrl("")
-    fetchData()
+  const { error } = await supabase.from("urls").insert([
+    {
+      url,
+      user_id: user.id,
+      next_capture_at: new Date().toISOString(),
+      schedule_type: "weekly",
+      status: "active",
+    },
+  ])
+
+  if (error) {
+    console.error("❌ Insert error:", error)
+    return
   }
+
+  console.log("✅ URL added → triggering worker")
+
+  // 🔥 TRIGGER WORKER INSTANTLY
+  await fetch("/api/run-worker", {
+    method: "POST",
+  })
+
+  setUrl("")
+  fetchData()
+}
 
   function getUrlById(id: string) {
     return urls.find((u) => u.id === id)
