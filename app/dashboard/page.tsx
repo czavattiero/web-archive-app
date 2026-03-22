@@ -10,19 +10,26 @@ const supabase = createClient(
 
 export default function Dashboard() {
   const [url, setUrl] = useState("")
+  const [user, setUser] = useState<any>(null)
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
-  const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    getUser()
+    checkUser()
     fetchData()
   }, [])
 
-  async function getUser() {
+  async function checkUser() {
     const { data } = await supabase.auth.getUser()
-    setUser(data.user)
+
+    if (!data.user) {
+      alert("⚠️ You are NOT logged in")
+      console.error("❌ No user session")
+    } else {
+      console.log("✅ User:", data.user.id)
+      setUser(data.user)
+    }
   }
 
   async function fetchData() {
@@ -37,24 +44,30 @@ export default function Dashboard() {
   }
 
   async function addUrl() {
-    if (!url || !user) {
-      alert("User not loaded yet")
+    if (!user) {
+      alert("❌ You must be logged in")
       return
     }
 
+    if (!url) return
+
     setLoading(true)
+
+    console.log("🚀 Inserting with user_id:", user.id)
 
     const { error } = await supabase.from("urls").insert([
       {
         url,
-        user_id: user.id, // 🔥 FIX HERE
+        user_id: user.id, // 🔥 CRITICAL FIX
         next_capture_at: new Date().toISOString(),
         schedule_type: "weekly",
       },
     ])
 
     if (error) {
-      console.error(error)
+      console.error("❌ Insert error:", error)
+    } else {
+      console.log("✅ URL inserted")
     }
 
     setUrl("")
@@ -79,7 +92,9 @@ export default function Dashboard() {
 
       <h2>Tracked URLs</h2>
       {urls.map((u) => (
-        <div key={u.id}>{u.url}</div>
+        <div key={u.id}>
+          {u.url} — {u.user_id || "❌ NO USER"}
+        </div>
       ))}
 
       <h2>Captures</h2>
