@@ -87,9 +87,29 @@ export default function Dashboard() {
 
       {captures.map((c) => {
         // 🔥 FIXED PUBLIC URL
-        const { data } = supabase.storage
-          .from("captures")
-          .getPublicUrl(c.file_path)
+        {captures.map((c) => {
+  if (!c.file_path) {
+    return (
+      <div key={c.id}>
+        <p>❌ Capture failed</p>
+        <p>{c.error}</p>
+      </div>
+    )
+  }
+
+  const { data } = supabase.storage
+    .from("captures")
+    .getPublicUrl(c.file_path)
+
+  return (
+    <div key={c.id}>
+      <p>{c.file_path}</p>
+      <a href={data.publicUrl} target="_blank">
+        View PDF
+      </a>
+    </div>
+  )
+})}
 
         return (
           <div key={c.id} style={{ marginBottom: 10 }}>
