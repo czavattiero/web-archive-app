@@ -12,6 +12,7 @@ export default function Dashboard() {
   const [url, setUrl] = useState("")
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
+  const [selectedUrlId, setSelectedUrlId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -49,26 +50,28 @@ export default function Dashboard() {
     await fetchData()
   }
 
+  // 🔥 FILTER CAPTURES
+  const filteredCaptures = selectedUrlId
+    ? captures.filter((c) => c.url_id === selectedUrlId)
+    : captures
+
   return (
     <div style={layout}>
       {/* SIDEBAR */}
       <div style={sidebar}>
         <h2 style={logo}>WebArchive</h2>
-
         <div style={menuItemActive}>Dashboard</div>
         <div style={menuItem}>URLs</div>
         <div style={menuItem}>Captures</div>
-        <div style={menuItem}>Settings</div>
       </div>
 
-      {/* MAIN CONTENT */}
+      {/* MAIN */}
       <div style={main}>
         <h1 style={title}>Dashboard</h1>
 
         {/* ADD URL */}
         <div style={card}>
-          <h3 style={cardTitle}>Add URL</h3>
-
+          <h3>Add URL</h3>
           <div style={row}>
             <input
               value={url}
@@ -76,47 +79,44 @@ export default function Dashboard() {
               placeholder="https://example.com"
               style={input}
             />
-            <button onClick={addUrl} style={primaryButton}>
+            <button onClick={addUrl} style={button}>
               {loading ? "Adding..." : "Add URL"}
             </button>
           </div>
         </div>
 
-        {/* URL TABLE */}
+        {/* URL LIST */}
         <div style={card}>
-          <h3 style={cardTitle}>Tracked URLs</h3>
+          <h3>Tracked URLs</h3>
 
-          <table style={table}>
-            <thead>
-              <tr>
-                <th style={th}>URL</th>
-                <th style={th}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {urls.length === 0 ? (
-                <tr>
-                  <td colSpan={2} style={empty}>
-                    No URLs yet
-                  </td>
-                </tr>
-              ) : (
-                urls.map((u) => (
-                  <tr key={u.id}>
-                    <td style={td}>{u.url}</td>
-                    <td style={td}>
-                      <span style={badgeActive}>Active</span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+          {urls.length === 0 ? (
+            <p style={muted}>No URLs yet</p>
+          ) : (
+            urls.map((u) => (
+              <div
+                key={u.id}
+                onClick={() => setSelectedUrlId(u.id)}
+                style={{
+                  ...urlItem,
+                  ...(selectedUrlId === u.id ? urlItemActive : {}),
+                }}
+              >
+                🔗 {u.url}
+              </div>
+            ))
+          )}
         </div>
 
-        {/* CAPTURES TABLE */}
+        {/* CAPTURE HISTORY */}
         <div style={card}>
-          <h3 style={cardTitle}>Captures</h3>
+          <h3>
+            Capture History{" "}
+            {selectedUrlId && (
+              <span style={mutedSmall}>
+                (Filtered by selected URL)
+              </span>
+            )}
+          </h3>
 
           <table style={table}>
             <thead>
@@ -126,15 +126,16 @@ export default function Dashboard() {
                 <th style={th}>Action</th>
               </tr>
             </thead>
+
             <tbody>
-              {captures.length === 0 ? (
+              {filteredCaptures.length === 0 ? (
                 <tr>
                   <td colSpan={3} style={empty}>
-                    No captures yet
+                    No captures found
                   </td>
                 </tr>
               ) : (
-                captures.map((c) => {
+                filteredCaptures.map((c) => {
                   const filePath = c.file_path
 
                   if (!filePath) {
@@ -168,19 +169,29 @@ export default function Dashboard() {
               )}
             </tbody>
           </table>
+
+          {/* CLEAR FILTER */}
+          {selectedUrlId && (
+            <button
+              onClick={() => setSelectedUrlId(null)}
+              style={clearButton}
+            >
+              Clear Filter
+            </button>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-/* 🎨 STRIPE-STYLE UI */
+/* 🎨 STYLES */
 
 const layout = {
   display: "flex",
-  fontFamily: "Inter, sans-serif",
   background: "#f6f9fc",
   minHeight: "100vh",
+  fontFamily: "Inter, sans-serif",
 }
 
 const sidebar = {
@@ -190,47 +201,23 @@ const sidebar = {
   padding: "20px",
 }
 
-const logo = {
-  marginBottom: "30px",
-}
+const logo = { marginBottom: "30px" }
 
-const menuItem = {
-  padding: "10px 0",
-  opacity: 0.7,
-  cursor: "pointer",
-}
+const menuItem = { padding: "10px 0", opacity: 0.7 }
+const menuItemActive = { padding: "10px 0", fontWeight: "bold" }
 
-const menuItemActive = {
-  padding: "10px 0",
-  fontWeight: "bold",
-}
-
-const main = {
-  flex: 1,
-  padding: "30px",
-}
-
-const title = {
-  fontSize: "24px",
-  marginBottom: "20px",
-}
+const main = { flex: 1, padding: "30px" }
+const title = { fontSize: "24px", marginBottom: "20px" }
 
 const card = {
   background: "#fff",
-  borderRadius: "10px",
   padding: "20px",
+  borderRadius: "10px",
   marginBottom: "20px",
   boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
 }
 
-const cardTitle = {
-  marginBottom: "10px",
-}
-
-const row = {
-  display: "flex",
-  gap: "10px",
-}
+const row = { display: "flex", gap: "10px" }
 
 const input = {
   flex: 1,
@@ -239,70 +226,51 @@ const input = {
   border: "1px solid #ddd",
 }
 
-const primaryButton = {
+const button = {
   background: "#635bff",
   color: "#fff",
-  border: "none",
   padding: "10px 16px",
   borderRadius: "6px",
+  border: "none",
+}
+
+const urlItem = {
+  padding: "8px",
   cursor: "pointer",
+  borderRadius: "6px",
 }
 
-const table = {
-  width: "100%",
-  borderCollapse: "collapse" as const,
+const urlItemActive = {
+  background: "#eef2ff",
 }
 
-const th = {
-  textAlign: "left" as const,
-  padding: "10px",
-  fontSize: "12px",
-  color: "#8898aa",
-}
+const muted = { color: "#999" }
+const mutedSmall = { color: "#999", fontSize: "12px" }
 
-const td = {
-  padding: "10px",
-  borderTop: "1px solid #eee",
-}
+const table = { width: "100%", borderCollapse: "collapse" as const }
+const th = { textAlign: "left" as const, padding: "10px", fontSize: "12px" }
+const td = { padding: "10px", borderTop: "1px solid #eee" }
+const tdSmall = { padding: "10px", fontSize: "12px", color: "#999" }
 
-const tdSmall = {
-  padding: "10px",
-  borderTop: "1px solid #eee",
-  fontSize: "12px",
-  color: "#999",
-}
-
-const empty = {
-  padding: "20px",
-  textAlign: "center" as const,
-  color: "#999",
-}
+const empty = { padding: "20px", textAlign: "center" as const }
 
 const badgeSuccess = {
   background: "#e6fffa",
-  color: "#065f46",
   padding: "4px 8px",
   borderRadius: "6px",
-  fontSize: "12px",
 }
 
 const badgeError = {
   background: "#fff1f0",
-  color: "#991b1b",
   padding: "4px 8px",
   borderRadius: "6px",
-  fontSize: "12px",
 }
 
-const badgeActive = {
-  background: "#eef2ff",
-  color: "#3730a3",
-  padding: "4px 8px",
+const link = { color: "#635bff" }
+
+const clearButton = {
+  marginTop: "10px",
+  background: "#eee",
+  padding: "8px",
   borderRadius: "6px",
-  fontSize: "12px",
-}
-
-const link = {
-  color: "#635bff",
-  textDecoration: "none",
 }
