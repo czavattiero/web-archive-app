@@ -88,45 +88,41 @@ export default function Dashboard() {
       {captures.length === 0 && <p>No captures found</p>}
 
       {captures.map((c) => {
-        // 🔥 FIXED PUBLIC URL
-        {captures.map((c) => {
   try {
-    // 🔒 FULL SAFETY CHECK
+    // 🔒 FULL VALIDATION
     if (!c || typeof c !== "object") {
       return <div key={Math.random()}>Invalid capture</div>
     }
 
-    if (!c.file_path) {
+    const filePath = c.file_path
+
+    // 🔥 CRITICAL FIX
+    if (
+      !filePath ||
+      typeof filePath !== "string" ||
+      filePath.trim() === ""
+    ) {
       return (
         <div key={c.id || Math.random()}>
           <p>❌ Capture failed</p>
-          <p>{c.error || "Unknown error"}</p>
+          <p>{c.error || "No file path available"}</p>
         </div>
       )
     }
 
-    const { data } = supabase.storage
-      .from("captures")
-      .getPublicUrl(c.file_path)
-
-    if (!data?.publicUrl) {
-      return (
-        <div key={c.id}>
-          <p>⚠️ Invalid file path</p>
-        </div>
-      )
-    }
+    // ✅ ONLY SAFE CALL
+    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${filePath}`
 
     return (
       <div key={c.id}>
-        <p>{c.file_path}</p>
-        <a href={data.publicUrl} target="_blank">
+        <p>{filePath}</p>
+        <a href={publicUrl} target="_blank">
           View PDF
         </a>
       </div>
     )
   } catch (err) {
-    console.error("💥 Render error:", err)
+    console.error("💥 Render crash:", err)
 
     return (
       <div key={Math.random()}>
