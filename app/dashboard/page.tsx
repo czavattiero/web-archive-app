@@ -14,8 +14,10 @@ export default function Dashboard() {
   const [captures, setCaptures] = useState<any[]>([])
 
   useEffect(() => {
-    fetchData()
-  }, [])
+  window.onerror = function (msg, url, line, col, error) {
+    console.error("🔥 GLOBAL ERROR:", error)
+  }
+}, [])
 
   async function fetchData() {
     console.log("🚀 Fetching data...")
