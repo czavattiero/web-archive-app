@@ -46,7 +46,7 @@ export default function Dashboard() {
   async function addUrl() {
     if (!user) return
 
-    const { error } = await supabase.from("urls").insert([
+    await supabase.from("urls").insert([
       {
         url,
         user_id: user.id,
@@ -54,11 +54,6 @@ export default function Dashboard() {
         schedule_type: "weekly",
       },
     ])
-
-    if (error) {
-      console.error(error)
-      return
-    }
 
     setUrl("")
     fetchData()
@@ -68,14 +63,17 @@ export default function Dashboard() {
     return <div style={{ padding: 40 }}>Loading...</div>
   }
 
+  // 🔥 HELPER: find URL from capture
+  function getUrlById(id: string) {
+    return urls.find((u) => u.id === id)
+  }
+
   return (
     <div style={layout}>
       {/* SIDEBAR */}
       <div style={sidebar}>
         <h2 style={logo}>WebArchive</h2>
         <div style={menuActive}>Dashboard</div>
-        <div style={menu}>URLs</div>
-        <div style={menu}>Captures</div>
       </div>
 
       {/* MAIN */}
@@ -100,7 +98,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* URL TABLE */}
+        {/* TRACKED URLS TABLE */}
         <div style={card}>
           <h3 style={cardTitle}>Tracked URLs</h3>
 
@@ -108,14 +106,15 @@ export default function Dashboard() {
             <thead>
               <tr>
                 <th style={th}>URL</th>
-                <th style={th}>User</th>
+                <th style={th}>Schedule</th>
+                <th style={th}>Date Added</th>
               </tr>
             </thead>
 
             <tbody>
               {urls.length === 0 ? (
                 <tr>
-                  <td colSpan={2} style={empty}>
+                  <td colSpan={3} style={empty}>
                     No URLs yet
                   </td>
                 </tr>
@@ -123,7 +122,10 @@ export default function Dashboard() {
                 urls.map((u) => (
                   <tr key={u.id}>
                     <td style={td}>{u.url}</td>
-                    <td style={tdSmall}>{u.user_id}</td>
+                    <td style={td}>{u.schedule_type || "—"}</td>
+                    <td style={td}>
+                      {new Date(u.created_at).toLocaleString()}
+                    </td>
                   </tr>
                 ))
               )}
@@ -131,15 +133,15 @@ export default function Dashboard() {
           </table>
         </div>
 
-        {/* CAPTURE TABLE */}
+        {/* CAPTURE HISTORY TABLE */}
         <div style={card}>
           <h3 style={cardTitle}>Capture History</h3>
 
           <table style={table}>
             <thead>
               <tr>
-                <th style={th}>File</th>
-                <th style={th}>Status</th>
+                <th style={th}>URL</th>
+                <th style={th}>Captured At</th>
                 <th style={th}>PDF</th>
               </tr>
             </thead>
@@ -154,30 +156,21 @@ export default function Dashboard() {
               ) : (
                 captures.map((c) => {
                   const filePath = c.file_path
+                  const urlData = getUrlById(c.url_id)
 
-                  if (!filePath) {
-                    return (
-                      <tr key={c.id}>
-                        <td style={td}>—</td>
-                        <td style={td}>
-                          <span style={badgeError}>Failed</span>
-                        </td>
-                        <td style={tdSmall}>{c.error}</td>
-                      </tr>
-                    )
-                  }
+                  if (!filePath) return null
 
                   const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${filePath}`
 
                   return (
                     <tr key={c.id}>
-                      <td style={td}>{filePath}</td>
+                      <td style={td}>{urlData?.url || "Unknown"}</td>
                       <td style={td}>
-                        <span style={badgeSuccess}>Success</span>
+                        {new Date(c.created_at).toLocaleString()}
                       </td>
                       <td style={td}>
                         <a href={publicUrl} target="_blank" style={link}>
-                          View
+                          Download
                         </a>
                       </td>
                     </tr>
@@ -210,7 +203,6 @@ const sidebar = {
 
 const logo = { marginBottom: "30px" }
 
-const menu = { padding: "10px 0", opacity: 0.7 }
 const menuActive = { padding: "10px 0", fontWeight: "bold" }
 
 const main = { flex: 1, padding: "30px" }
@@ -262,27 +254,9 @@ const td = {
   borderTop: "1px solid #eee",
 }
 
-const tdSmall = {
-  padding: "10px",
-  fontSize: "12px",
-  color: "#999",
-}
-
 const empty = {
   padding: "20px",
   textAlign: "center" as const,
-}
-
-const badgeSuccess = {
-  background: "#e6fffa",
-  padding: "4px 8px",
-  borderRadius: "6px",
-}
-
-const badgeError = {
-  background: "#fff1f0",
-  padding: "4px 8px",
-  borderRadius: "6px",
 }
 
 const link = {
