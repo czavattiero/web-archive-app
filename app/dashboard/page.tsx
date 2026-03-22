@@ -89,14 +89,12 @@ export default function Dashboard() {
 
       {captures.map((c) => {
   try {
-    // 🔒 FULL VALIDATION
     if (!c || typeof c !== "object") {
       return <div key={Math.random()}>Invalid capture</div>
     }
 
     const filePath = c.file_path
 
-    // 🔥 CRITICAL FIX
     if (
       !filePath ||
       typeof filePath !== "string" ||
@@ -110,7 +108,6 @@ export default function Dashboard() {
       )
     }
 
-    // ✅ ONLY SAFE CALL
     const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${filePath}`
 
     return (
@@ -123,12 +120,7 @@ export default function Dashboard() {
     )
   } catch (err) {
     console.error("💥 Render crash:", err)
-
-    return (
-      <div key={Math.random()}>
-        <p>❌ Render error</p>
-      </div>
-    )
+    return <div key={Math.random()}>Error rendering capture</div>
   }
 })}
   if (!c.file_path) {
@@ -140,9 +132,7 @@ export default function Dashboard() {
     )
   }
 
-  const { data } = supabase.storage
-    .from("captures")
-    .getPublicUrl(c.file_path)
+  const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${filePath}`
 
   return (
     <div key={c.id}>
