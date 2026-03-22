@@ -9,42 +9,97 @@ const supabase = createClient(
 )
 
 export default function Dashboard() {
+  const [url, setUrl] = useState("")
+  const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchCaptures() {
-      console.log("🚀 Fetching captures...")
-
-      const { data, error } = await supabase
-        .from("captures")
-        .select("*")
-        .order("created_at", { ascending: false })
-
-      console.log("DATA:", data)
-
-      if (!error) setCaptures(data || [])
-      setLoading(false)
-    }
-
-    fetchCaptures()
+    fetchData()
   }, [])
 
-  if (loading) return <p>Loading...</p>
+  async function fetchData() {
+    console.log("🚀 Fetching data...")
+
+    const { data: urlsData, error: urlError } = await supabase
+      .from("urls")
+      .select("*")
+
+    const { data: capturesData, error: captureError } = await supabase
+      .from("captures")
+      .select("*")
+      .order("created_at", { ascending: false })
+
+    if (urlError) console.error("❌ URL fetch error:", urlError)
+    if (captureError) console.error("❌ Capture fetch error:", captureError)
+
+    setUrls(urlsData || [])
+    setCaptures(capturesData || [])
+  }
+
+  async function addUrl() {
+    if (!url) return
+
+    console.log("➕ Adding URL:", url)
+
+    const { error } = await supabase.from("urls").insert([
+      {
+        url,
+        next_capture_at: new Date().toISOString(),
+      },
+    ])
+
+    if (error) {
+      console.error("❌ Insert URL error:", error)
+    } else {
+      console.log("✅ URL added")
+    }
+
+    setUrl("")
+    fetchData()
+  }
 
   return (
     <div style={{ padding: 20 }}>
-      <h1>Captures</h1>
+      <h1>Dashboard</h1>
+
+      {/* ADD URL */}
+      <div style={{ marginBottom: 20 }}>
+        <input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="Enter URL"
+          style={{ padding: 8, marginRight: 10, width: 300 }}
+        />
+        <button onClick={addUrl}>Add URL</button>
+      </div>
+
+      {/* URL LIST */}
+      <h2>Tracked URLs</h2>
+      {urls.length === 0 && <p>No URLs yet</p>}
+      {urls.map((u) => (
+        <div key={u.id}>{u.url}</div>
+      ))}
+
+      {/* CAPTURES */}
+      <h2 style={{ marginTop: 30 }}>Captures</h2>
 
       {captures.length === 0 && <p>No captures found</p>}
 
       {captures.map((c) => {
-        const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
+        // 🔥 FIXED PUBLIC URL
+        const { data } = supabase.storage
+          .from("captures")
+          .getPublicUrl(c.file_path)
 
         return (
-          <div key={c.id}>
+          <div key={c.id} style={{ marginBottom: 10 }}>
             <p>{c.file_path}</p>
-            <a href={url} target="_blank">View PDF</a>
+
+            {c.file_path && (
+              <a href={data.publicUrl} target="_blank">
+                View PDF
+              </a>
+            )}
           </div>
         )
       })}
