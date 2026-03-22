@@ -14,6 +14,7 @@ export default function Dashboard() {
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
 
+  // 🔐 Load user
   useEffect(() => {
     async function loadUser() {
       const { data } = await supabase.auth.getUser()
@@ -31,40 +32,17 @@ export default function Dashboard() {
     loadUser()
   }, [])
 
-  // 🔥 REALTIME SUBSCRIPTION
-useEffect(() => {
-  console.log("🚀 INIT REALTIME")
+  // 🔥 AUTO REFRESH (REPLACES REALTIME)
+  useEffect(() => {
+    console.log("🔄 Auto-refresh started")
 
-  const channel = supabase
-    .channel("debug-captures")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "captures",
-      },
-      (payload) => {
-        console.log("🔥 EVENT RECEIVED:", payload)
+    const interval = setInterval(() => {
+      console.log("🔄 Refreshing data...")
+      fetchData()
+    }, 5000) // every 5 seconds
 
-        if (payload.eventType === "INSERT") {
-          setCaptures((prev) => {
-            const exists = prev.find((c) => c.id === payload.new.id)
-            if (exists) return prev
-            return [payload.new, ...prev]
-          })
-        }
-      }
-    )
-    .subscribe((status) => {
-      console.log("📡 REALTIME STATUS:", status)
-    })
-
-  return () => {
-    console.log("❌ CLEANUP REALTIME")
-    supabase.removeChannel(channel)
-  }
-}, [])
+    return () => clearInterval(interval)
+  }, [])
 
   async function fetchData() {
     const { data: urlsData } = await supabase.from("urls").select("*")
@@ -79,7 +57,7 @@ useEffect(() => {
   }
 
   async function addUrl() {
-    if (!user) return
+    if (!user || !url) return
 
     await supabase.from("urls").insert([
       {
@@ -269,11 +247,11 @@ const button = {
 
 const table = {
   width: "100%",
-  borderCollapse: "collapse" as const,
+  borderCollapse: "collapse",
 }
 
 const th = {
-  textAlign: "left" as const,
+  textAlign: "left",
   padding: "10px",
   fontSize: "12px",
   color: "#8898aa",
@@ -286,7 +264,7 @@ const td = {
 
 const empty = {
   padding: "20px",
-  textAlign: "center" as const,
+  textAlign: "center",
 }
 
 const link = {
