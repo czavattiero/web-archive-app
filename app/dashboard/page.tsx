@@ -76,12 +76,18 @@ export default function Dashboard() {
     return
   }
 
-  console.log("✅ URL added → triggering worker")
+  console.log("✅ URL added")
 
-  // 🔥 TRIGGER WORKER INSTANTLY
-  await fetch("/api/run-worker", {
+  // 🔥 ADD THIS LOG
+  console.log("🚀 Triggering worker...")
+
+  const res = await fetch("/api/run-worker", {
     method: "POST",
   })
+
+  const data = await res.json()
+
+  console.log("🔥 Worker trigger response:", data)
 
   setUrl("")
   fetchData()
