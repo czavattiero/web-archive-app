@@ -74,9 +74,9 @@ console.log(`✅ Found ${urls.length} URLs`)
 
     try {
       await page.goto(urlObj.url, {
-        waitUntil: "networkidle",
-        timeout: 60000,
-      })
+       waitUntil: "domcontentloaded",
+       timeout: 45000,
+})
 
       const filePath = `${urlObj.id}-${Date.now()}.pdf`
 
