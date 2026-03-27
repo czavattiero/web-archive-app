@@ -14,8 +14,9 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   process.exit(1)
 }
 
+// ✅ FIXED: added missing comma
 const supabase = createClient(
-  process.env.SUPABASE_URL
+  process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
@@ -38,7 +39,6 @@ async function loadPageWithRetry(page, url, retries = 2) {
         return false
       }
 
-      // wait before retry
       await new Promise((res) => setTimeout(res, 3000))
     }
   }
@@ -123,10 +123,8 @@ async function run() {
         throw new Error("Failed after retries")
       }
 
-      // wait for rendering
       await page.waitForTimeout(3000)
 
-      // ✅ FIXED TIMESTAMP
       const timestamp = new Date().toLocaleString("en-CA", {
         timeZone: "America/Edmonton",
       })
@@ -181,7 +179,6 @@ async function run() {
         error: null,
       })
 
-      // 🔁 Schedule next run
       let next = new Date()
 
       switch (urlObj.schedule_type) {
@@ -198,7 +195,6 @@ async function run() {
           next.setDate(next.getDate() + 30)
           break
         case "custom":
-          // one-time capture
           await supabase
             .from("urls")
             .update({ status: "completed" })
