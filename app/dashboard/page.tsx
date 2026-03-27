@@ -247,7 +247,7 @@ export default function Dashboard() {
 
 /* STYLES */
 
-const layout = {
+const layout: React.CSSProperties = {
   display: "flex",
   background: "#f6f9fc",
   minHeight: "100vh",
@@ -268,7 +268,7 @@ const sidebar: React.CSSProperties = {
 const logo = { marginBottom: "30px" }
 const menuActive = { padding: "10px 0", fontWeight: "bold" }
 
-const logoutButton = {
+const logoutButton: React.CSSProperties = {
   marginTop: "20px",
   background: "#ff4d4f",
   color: "#fff",
@@ -279,10 +279,10 @@ const logoutButton = {
   width: "100%",
 }
 
-const main = { flex: 1, padding: "30px" }
-const title = { fontSize: "24px", marginBottom: "20px" }
+const main: React.CSSProperties = { flex: 1, padding: "30px" }
+const title: React.CSSProperties = { fontSize: "24px", marginBottom: "20px" }
 
-const card = {
+const card: React.CSSProperties = {
   background: "#fff",
   padding: "20px",
   borderRadius: "10px",
@@ -290,17 +290,17 @@ const card = {
   boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
 }
 
-const cardTitle = { marginBottom: "10px" }
-const row = { display: "flex", gap: "10px" }
+const cardTitle: React.CSSProperties = { marginBottom: "10px" }
+const row: React.CSSProperties = { display: "flex", gap: "10px" }
 
-const input = {
+const input: React.CSSProperties = {
   flex: 1,
   padding: "10px",
   borderRadius: "6px",
   border: "1px solid #ddd",
 }
 
-const button = {
+const button: React.CSSProperties = {
   background: "#635bff",
   color: "#fff",
   padding: "10px 16px",
@@ -314,24 +314,24 @@ const table: React.CSSProperties = {
   borderCollapse: "collapse",
 }
 
-const th = {
+const th: React.CSSProperties = {
   textAlign: "left",
   padding: "10px",
   fontSize: "12px",
   color: "#8898aa",
 }
 
-const td = {
+const td: React.CSSProperties = {
   padding: "10px",
   borderTop: "1px solid #eee",
 }
 
-const empty = {
+const empty: React.CSSProperties = {
   padding: "20px",
   textAlign: "center",
 }
 
-const link = {
+const link: React.CSSProperties = {
   color: "#635bff",
   textDecoration: "none",
 }
