@@ -7,10 +7,6 @@ import { supabase } from "../../lib/supabase"
 export default function Dashboard() {
   const router = useRouter()
 
-  <div style={{ background: "red", color: "white", padding: "10px" }}>
-  THIS IS THE FILE I AM EDITING
-</div>
-
   const [user, setUser] = useState<any>(null)
   const [loadingUser, setLoadingUser] = useState(true)
 
