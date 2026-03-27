@@ -282,7 +282,7 @@ const button = {
   cursor: "pointer",
 }
 
-const table = {
+const table: React.CSSProperties = {
   width: "100%",
   borderCollapse: "collapse",
 }
