@@ -268,7 +268,7 @@ const logo = { marginBottom: "30px" }
 const menuActive = { padding: "10px 0", fontWeight: "bold" }
 
 const logoutButton = {
-  marginTop: "30px",
+  marginTop: "20px",
   background: "#ff4d4f",
   color: "#fff",
   padding: "10px",
