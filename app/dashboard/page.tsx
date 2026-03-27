@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
@@ -63,61 +63,70 @@ export default function Dashboard() {
   }
 
   async function addUrl() {
-    if (!user || !url) return
+  console.log("🚨 ADD URL CLICKED")
 
-    let selectedDate = ""
-
-if (schedule === "custom") {
-  if (!customDate || customDate.trim() === "") {
-    alert("Please select a date")
+  if (!user) {
+    alert("User not loaded")
     return
   }
 
-  selectedDate = customDate
-}
+  if (!url || url.trim() === "") {
+    alert("Please enter a URL")
+    return
+  }
 
-    console.log("Schedule:", schedule)
-    console.log("Custom Date:", customDate)
+  // ✅ Always define selectedDate safely
+  let selectedDate = ""
 
-    const now = new Date().toISOString()
-
-    const payload = {
-  url,
-  user_id: user.id,
-  next_capture_at: now,
-  schedule_type: schedule,
-  schedule_value: selectedDate || "", // ✅ important fix
-  status: "active",
-}
-
-console.log("🚀 INSERT PAYLOAD:", payload)
-
-const { data, error } = await supabase
-  .from("urls")
-  .insert([payload])
-  .select()
-
-console.log("📦 INSERT RESULT:", data)
-console.log("❌ INSERT ERROR:", error)
-
-if (error) {
-  console.error("❌ Insert failed:", error)
-  return
-}
-
-    // ⚡ Instant UI update
-    fetchData(user)
-
-    // ⚡ Trigger worker immediately
-    try {
-      await fetch("/api/run-worker", { method: "POST" })
-    } catch (err) {
-      console.error("Worker trigger failed:", err)
+  if (schedule === "custom") {
+    if (!customDate || customDate.trim() === "") {
+      alert("Please select a date")
+      return
     }
 
-    setUrl("")
-    setCustomDate("")
+    selectedDate = customDate
   }
+
+  const now = new Date().toISOString()
+
+  const payload = {
+    url: url.trim(),
+    user_id: user.id,
+    next_capture_at: now, // 🔥 ALWAYS immediate
+    schedule_type: schedule,
+    schedule_value: selectedDate, // always safe string
+    status: "active",
+  }
+
+  console.log("🚀 INSERT PAYLOAD:", payload)
+
+  const { data, error } = await supabase
+    .from("urls")
+    .insert([payload])
+    .select()
+
+  if (error) {
+    console.error("❌ INSERT ERROR:", error)
+    alert("Error inserting URL")
+    return
+  }
+
+  console.log("✅ INSERT SUCCESS:", data)
+
+  // ⚡ Instant UI update
+  await fetchData(user)
+
+  // ⚡ Trigger worker immediately
+  try {
+    await fetch("/api/run-worker", { method: "POST" })
+  } catch (err) {
+    console.error("Worker trigger failed:", err)
+  }
+
+  // ✅ Reset inputs
+  setUrl("")
+  setCustomDate("")
+}
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -184,9 +193,9 @@ if (error) {
             )}
 
             <button
-              onClick={() => setTimeout(addUrl, 50)}
+              onClick={addUrl}
               style={button}
-             >
+            >
               Add URL
              </button>
           </div>
