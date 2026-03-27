@@ -65,15 +65,15 @@ export default function Dashboard() {
   async function addUrl() {
     if (!user || !url) return
 
-    let selectedDate = null
+    let selectedDate = ""
 
 if (schedule === "custom") {
-  selectedDate = customDate
-
-  if (!selectedDate || selectedDate.trim() === "") {
+  if (!customDate || customDate.trim() === "") {
     alert("Please select a date")
     return
   }
+
+  selectedDate = customDate
 }
 
     console.log("Schedule:", schedule)
@@ -81,21 +81,29 @@ if (schedule === "custom") {
 
     const now = new Date().toISOString()
 
-    const { error } = await supabase.from("urls").insert([
-      {
-        url,
-        user_id: user.id,
-        next_capture_at: now, // 🔥 ALWAYS NOW
-        schedule_type: schedule,
-        schedule_value: selectedDate,
-        status: "active",
-      },
-    ])
+    const payload = {
+  url,
+  user_id: user.id,
+  next_capture_at: now,
+  schedule_type: schedule,
+  schedule_value: selectedDate || "", // ✅ important fix
+  status: "active",
+}
 
-    if (error) {
-      console.error("❌ Insert error:", error)
-      return
-    }
+console.log("🚀 INSERT PAYLOAD:", payload)
+
+const { data, error } = await supabase
+  .from("urls")
+  .insert([payload])
+  .select()
+
+console.log("📦 INSERT RESULT:", data)
+console.log("❌ INSERT ERROR:", error)
+
+if (error) {
+  console.error("❌ Insert failed:", error)
+  return
+}
 
     // ⚡ Instant UI update
     fetchData(user)
