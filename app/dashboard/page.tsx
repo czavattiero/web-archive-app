@@ -225,7 +225,11 @@ export default function Dashboard() {
                 urls.map((u) => (
                   <tr key={u.id}>
                     <td style={td}>{u.url}</td>
-                    <td style={td}>{u.schedule_type}</td>
+                    <td style={td}>
+                      {u.schedule_type === "custom"
+                        ? `Specific date: ${new Date(u.schedule_value).toLocaleDateString()}`
+                        : u.schedule_type}
+                    </td>
                     <td style={td}>
                       {new Date(u.created_at).toLocaleString()}
                     </td>
