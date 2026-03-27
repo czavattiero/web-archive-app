@@ -65,10 +65,15 @@ export default function Dashboard() {
   async function addUrl() {
     if (!user || !url) return
 
-    if (schedule === "custom" && !customDate) {
-      alert("Please select a date")
-      return
-    }
+    if (schedule === "custom") {
+  if (!customDate || customDate === "") {
+    alert("Please select a date")
+    return
+  }
+}
+
+    console.log("Schedule:", schedule)
+    console.log("Custom Date:", customDate)
 
     const now = new Date().toISOString()
 
