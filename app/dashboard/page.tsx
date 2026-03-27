@@ -226,10 +226,10 @@ export default function Dashboard() {
                   <tr key={u.id}>
                     <td style={td}>{u.url}</td>
                     <td style={td}>
-                      {u.schedule_type === "custom"
-                        ? `Specific date: ${new Date(u.schedule_value).toLocaleDateString()}`
-                        : u.schedule_type}
-                    </td>
+                      {u.schedule_type === "custom" || u.schedule_type === "custom_date"
+                      ? `Specific date: ${u.schedule_value}`
+                      : u.schedule_type}
+                  </td>
                     <td style={td}>
                       {new Date(u.created_at).toLocaleString()}
                     </td>
