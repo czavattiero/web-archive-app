@@ -13,18 +13,19 @@ export default function Dashboard() {
   const [url, setUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
   const [customDate, setCustomDate] = useState("")
-  
+
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
 
   // 🔐 Load user
   useEffect(() => {
-  const interval = setInterval(() => {
-    if (user) fetchData(user)
-  }, 5000)
+    async function loadUser() {
+      const { data } = await supabase.auth.getUser()
 
-  return () => clearInterval(interval)
-}, [user])
+      if (!data.user) {
+        router.push("/login")
+        return
+      }
 
       setUser(data.user)
       setLoadingUser(false)
@@ -34,113 +35,75 @@ export default function Dashboard() {
     loadUser()
   }, [])
 
-  // 🔥 AUTO REFRESH (REPLACES REALTIME)
+  // 🔄 Auto refresh
   useEffect(() => {
-    console.log("🔄 Auto-refresh started")
-
     const interval = setInterval(() => {
-      console.log("🔄 Refreshing data...")
       if (user) fetchData(user)
     }, 5000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [user])
 
-  async function fetchData(currentUser) {
-  if (!currentUser) return
+  async function fetchData(currentUser: any) {
+    if (!currentUser) return
 
-  const { data: urlsData } = await supabase
-    .from("urls")
-    .select("*")
-    .eq("user_id", currentUser.id)
+    const { data: urlsData } = await supabase
+      .from("urls")
+      .select("*")
+      .eq("user_id", currentUser.id)
 
-  const { data: capturesData } = await supabase
-    .from("captures")
-    .select("*")
-    .eq("user_id", currentUser.id)
-    .order("created_at", { ascending: false })
+    const { data: capturesData } = await supabase
+      .from("captures")
+      .select("*")
+      .eq("user_id", currentUser.id)
+      .order("created_at", { ascending: false })
 
-  setUrls(urlsData || [])
-  setCaptures(capturesData || [])
-}
+    setUrls(urlsData || [])
+    setCaptures(capturesData || [])
+  }
 
   async function addUrl() {
-  if (!user || !url) {
-    console.log("⚠️ Missing user or URL")
-    return
-  }
+    if (!user || !url) return
 
-  // ✅ REQUIRE date if custom
-  if (schedule === "custom" && !customDate) {
-    alert("Please select a date")
-    return
-  }
+    if (schedule === "custom" && !customDate) {
+      alert("Please select a date")
+      return
+    }
 
-  const now = new Date().toISOString()
+    const now = new Date().toISOString()
 
-  const { data, error } = await supabase.from("urls").insert([
-    {
-      url: url,
-      user_id: user.id,
-
-      // 🔥 ALWAYS IMMEDIATE
-      next_capture_at: now,
-
-      schedule_type: schedule,
-      schedule_value: schedule === "custom" ? customDate : null,
-      status: "active",
-    },
-  ])
-
-  if (error) {
-  console.error("❌ Insert error:", error)
-  return
-}
-
-// 🔥 INSTANT UI UPDATE
-fetchData(user)
-
-setUrl("")
-setCustomDate("")
-
-  // 🔥 IMPORTANT: refresh immediately
-  fetchData(user)
-}
+    const { error } = await supabase.from("urls").insert([
+      {
+        url,
+        user_id: user.id,
+        next_capture_at: now, // 🔥 ALWAYS NOW
+        schedule_type: schedule,
+        schedule_value: schedule === "custom" ? customDate : null,
+        status: "active",
+      },
+    ])
 
     if (error) {
       console.error("❌ Insert error:", error)
       return
     }
 
-    console.log("✅ URL added successfully:", data)
+    // ⚡ Instant UI update
+    fetchData(user)
 
+    // ⚡ Trigger worker immediately
     try {
-      console.log("🚀 Calling /api/run-worker...")
-
-      const res = await fetch("/api/run-worker", {
-        method: "POST",
-      })
-
-      const result = await res.json()
-      console.log("🔥 Worker response:", result)
+      await fetch("/api/run-worker", { method: "POST" })
     } catch (err) {
-      console.error("❌ Worker trigger failed:", err)
+      console.error("Worker trigger failed:", err)
     }
 
     setUrl("")
-    fetchData(user)
+    setCustomDate("")
   }
 
-  // ✅ SIGN OUT FUNCTION (ADDED HERE)
   const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut()
-
-    if (error) {
-      console.error("❌ Sign out error:", error)
-      return
-    }
-
-    console.log("✅ Signed out")
+    await supabase.auth.signOut()
     router.push("/login")
   }
 
@@ -156,15 +119,15 @@ setCustomDate("")
     <div style={layout}>
       {/* SIDEBAR */}
       <div style={sidebar}>
-  <div>
-    <h2 style={logo}>WebArchive</h2>
-    <div style={menuActive}>Dashboard</div>
-  </div>
+        <div>
+          <h2 style={logo}>WebArchive</h2>
+          <div style={menuActive}>Dashboard</div>
+        </div>
 
-  <button onClick={handleSignOut} style={logoutButton}>
-    Sign Out
-  </button>
-</div>
+        <button onClick={handleSignOut} style={logoutButton}>
+          Sign Out
+        </button>
+      </div>
 
       {/* MAIN */}
       <div style={main}>
@@ -175,38 +138,38 @@ setCustomDate("")
           <h3 style={cardTitle}>Add URL</h3>
 
           <div style={row}>
-  <input
-    value={url}
-    onChange={(e) => setUrl(e.target.value)}
-    placeholder="https://example.com"
-    style={input}
-  />
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://example.com"
+              style={input}
+            />
 
-  <select
-  value={schedule}
-  onChange={(e) => setSchedule(e.target.value)}
-  style={select}
->
-  <option value="weekly">Weekly</option>
-  <option value="biweekly">Biweekly</option>
-  <option value="29days">Every 29 days</option>
-  <option value="30days">Every 30 days</option>
-  <option value="custom">Specific date</option>
-</select>
-            
-{schedule === "custom" && (
-  <input
-    type="date"
-    value={customDate}
-    onChange={(e) => setCustomDate(e.target.value)}
-    style={input}
-  />
-)}
-            
-  <button onClick={addUrl} style={button}>
-    Add URL
-  </button>
-</div>
+            <select
+              value={schedule}
+              onChange={(e) => setSchedule(e.target.value)}
+              style={select}
+            >
+              <option value="weekly">Weekly</option>
+              <option value="biweekly">Biweekly</option>
+              <option value="29days">Every 29 days</option>
+              <option value="30days">Every 30 days</option>
+              <option value="custom">Specific date</option>
+            </select>
+
+            {schedule === "custom" && (
+              <input
+                type="date"
+                value={customDate}
+                onChange={(e) => setCustomDate(e.target.value)}
+                style={input}
+              />
+            )}
+
+            <button onClick={addUrl} style={button}>
+              Add URL
+            </button>
+          </div>
         </div>
 
         {/* TRACKED URLS */}
@@ -233,7 +196,7 @@ setCustomDate("")
                 urls.map((u) => (
                   <tr key={u.id}>
                     <td style={td}>{u.url}</td>
-                    <td style={td}>{u.schedule_type || "—"}</td>
+                    <td style={td}>{u.schedule_type}</td>
                     <td style={td}>
                       {new Date(u.created_at).toLocaleString()}
                     </td>
@@ -301,7 +264,6 @@ const layout: React.CSSProperties = {
   display: "flex",
   background: "#f6f9fc",
   minHeight: "100vh",
-  fontFamily: "Inter, sans-serif",
 }
 
 const sidebar: React.CSSProperties = {
@@ -312,21 +274,19 @@ const sidebar: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   justifyContent: "space-between",
-  height: "100vh",          // ✅ ADD THIS (CRITICAL)
+  height: "100vh",
 }
 
 const logo = { marginBottom: "30px" }
 const menuActive = { padding: "10px 0", fontWeight: "bold" }
 
 const logoutButton: React.CSSProperties = {
-  marginTop: "20px",
   background: "#ff4d4f",
   color: "#fff",
   padding: "10px",
   borderRadius: "6px",
-  border: "2px solid yellow",
+  border: "none",
   cursor: "pointer",
-  width: "100%",
 }
 
 const main: React.CSSProperties = { flex: 1, padding: "30px" }
@@ -337,14 +297,19 @@ const card: React.CSSProperties = {
   padding: "20px",
   borderRadius: "10px",
   marginBottom: "20px",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
 }
 
-const cardTitle: React.CSSProperties = { marginBottom: "10px" }
+const cardTitle = { marginBottom: "10px" }
 const row: React.CSSProperties = { display: "flex", gap: "10px" }
 
 const input: React.CSSProperties = {
   flex: 1,
+  padding: "10px",
+  borderRadius: "6px",
+  border: "1px solid #ddd",
+}
+
+const select: React.CSSProperties = {
   padding: "10px",
   borderRadius: "6px",
   border: "1px solid #ddd",
@@ -384,10 +349,4 @@ const empty: React.CSSProperties = {
 const link: React.CSSProperties = {
   color: "#635bff",
   textDecoration: "none",
-}
-
-const select: React.CSSProperties = {
-  padding: "10px",
-  borderRadius: "6px",
-  border: "1px solid #ddd",
 }
