@@ -44,17 +44,23 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [])
 
-  async function fetchData() {
-    const { data: urlsData } = await supabase.from("urls").select("*")
+  async function fetchData(currentUser) {
+  if (!currentUser) return
 
-    const { data: capturesData } = await supabase
-      .from("captures")
-      .select("*")
-      .order("created_at", { ascending: false })
+  const { data: urlsData } = await supabase
+    .from("urls")
+    .select("*")
+    .eq("user_id", currentUser.id)
 
-    setUrls(urlsData || [])
-    setCaptures(capturesData || [])
-  }
+  const { data: capturesData } = await supabase
+    .from("captures")
+    .select("*")
+    .eq("user_id", currentUser.id)
+    .order("created_at", { ascending: false })
+
+  setUrls(urlsData || [])
+  setCaptures(capturesData || [])
+}
 
   async function addUrl() {
     if (!user || !url) {
