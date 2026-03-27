@@ -182,27 +182,32 @@ async function run() {
       let next = new Date()
 
       switch (urlObj.schedule_type) {
-        case "weekly":
-          next.setDate(next.getDate() + 7)
-          break
-        case "biweekly":
-          next.setDate(next.getDate() + 14)
-          break
-        case "daily":
-          next.setDate(next.getDate() + 1)
-          break
-        case "monthly":
-          next.setDate(next.getDate() + 30)
-          break
-        case "custom":
-          await supabase
-            .from("urls")
-            .update({ status: "completed" })
-            .eq("id", urlObj.id)
-          break
-        default:
-          next.setDate(next.getDate() + 7)
-      }
+  case "weekly":
+    next.setDate(next.getDate() + 7)
+    break
+
+  case "biweekly":
+    next.setDate(next.getDate() + 14)
+    break
+
+  case "29days":
+    next.setDate(next.getDate() + 29)
+    break
+
+  case "30days":
+    next.setDate(next.getDate() + 30)
+    break
+
+  case "custom":
+    await supabase
+      .from("urls")
+      .update({ status: "completed" })
+      .eq("id", urlObj.id)
+    break
+
+  default:
+    next.setDate(next.getDate() + 7)
+}
 
       if (urlObj.schedule_type !== "custom") {
         await supabase
