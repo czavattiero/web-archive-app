@@ -13,8 +13,6 @@ export default function Dashboard() {
   const [url, setUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
   const [customDate, setCustomDate] = useState("")
-  
-  const customDateRef = useRef<HTMLInputElement>(null)
 
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
@@ -67,8 +65,12 @@ export default function Dashboard() {
   async function addUrl() {
     if (!user || !url) return
 
-    if (schedule === "custom") {
-  if (!customDate || customDate === "") {
+    let selectedDate = null
+
+if (schedule === "custom") {
+  selectedDate = customDate
+
+  if (!selectedDate || selectedDate.trim() === "") {
     alert("Please select a date")
     return
   }
@@ -85,7 +87,7 @@ export default function Dashboard() {
         user_id: user.id,
         next_capture_at: now, // 🔥 ALWAYS NOW
         schedule_type: schedule,
-        schedule_value: schedule === "custom" ? customDate : null,
+        schedule_value: selectedDate,
         status: "active",
       },
     ])
@@ -167,16 +169,18 @@ export default function Dashboard() {
             {schedule === "custom" && (
               <input
                 type="date"
-                ref={customDateRef}   // ✅ ADD THIS LINE
                 value={customDate}
                 onChange={(e) => setCustomDate(e.target.value)}
                 style={input}
               />
             )}
 
-            <button onClick={addUrl} style={button}>
+            <button
+              onClick={() => setTimeout(addUrl, 50)}
+              style={button}
+             >
               Add URL
-            </button>
+             </button>
           </div>
         </div>
 
