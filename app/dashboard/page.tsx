@@ -57,16 +57,28 @@ export default function Dashboard() {
   }
 
   async function addUrl() {
-  if (!user || !url) return
+  if (!user || !url) {
+    console.log("⚠️ Missing user or URL")
+    return
+  }
+
+  const now = new Date().toISOString()
 
   console.log("➕ Adding URL:", url)
+  console.log("🕒 Setting next_capture_at to NOW:", now)
 
-  const { error } = await supabase.from("urls").insert([
+  const { data, error } = await supabase.from("urls").insert([
     {
-      url,
+      url: url,
       user_id: user.id,
-      next_capture_at: new Date().toISOString(),
-      schedule_type: "weekly",
+
+      // 🔥 CRITICAL: ALWAYS NOW
+      next_capture_at: now,
+
+      // ✅ keep scheduling info (DO NOT use it for timing here)
+      schedule_type: "weekly", // (we’ll improve this later)
+      schedule_value: null,
+
       status: "active",
     },
   ])
@@ -76,8 +88,9 @@ export default function Dashboard() {
     return
   }
 
-  console.log("✅ URL added")
+  console.log("✅ URL added successfully:", data)
 
+  // 🚀 Trigger worker immediately (good idea — keep this)
   try {
     console.log("🚀 Calling /api/run-worker...")
 
@@ -85,9 +98,8 @@ export default function Dashboard() {
       method: "POST",
     })
 
-    const data = await res.json()
-
-    console.log("🔥 Worker trigger response:", data)
+    const result = await res.json()
+    console.log("🔥 Worker response:", result)
 
   } catch (err) {
     console.error("❌ Worker trigger failed:", err)
