@@ -12,6 +12,7 @@ export default function Dashboard() {
 
   const [url, setUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
+  const [customDate, setCustomDate] = useState("")
   
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
@@ -81,7 +82,7 @@ export default function Dashboard() {
         user_id: user.id,
         next_capture_at: now,
         schedule_type: schedule,
-        schedule_value: null,
+        schedule_value: schedule === "custom" ? customDate : null,
         status: "active",
       },
     ])
@@ -162,16 +163,26 @@ export default function Dashboard() {
   />
 
   <select
-    value={schedule}
-    onChange={(e) => setSchedule(e.target.value)}
-    style={select}
-  >
-    <option value="weekly">Weekly</option>
-    <option value="biweekly">Biweekly</option>
-    <option value="monthly">Monthly</option>
-    <option value="custom">Custom (one-time)</option>
-  </select>
-
+  value={schedule}
+  onChange={(e) => setSchedule(e.target.value)}
+  style={select}
+>
+  <option value="weekly">Weekly</option>
+  <option value="biweekly">Biweekly</option>
+  <option value="29days">Every 29 days</option>
+  <option value="30days">Every 30 days</option>
+  <option value="custom">Specific date</option>
+</select>
+            
+{schedule === "custom" && (
+  <input
+    type="date"
+    value={customDate}
+    onChange={(e) => setCustomDate(e.target.value)}
+    style={input}
+  />
+)}
+            
   <button onClick={addUrl} style={button}>
     Add URL
   </button>
