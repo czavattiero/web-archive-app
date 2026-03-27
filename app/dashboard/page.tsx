@@ -28,7 +28,7 @@ export default function Dashboard() {
 
       setUser(data.user)
       setLoadingUser(false)
-      fetchData()
+      fetchData(data.user)
     }
 
     loadUser()
@@ -40,7 +40,7 @@ export default function Dashboard() {
 
     const interval = setInterval(() => {
       console.log("🔄 Refreshing data...")
-      fetchData()
+      if (user) fetchData(user)
     }, 5000)
 
     return () => clearInterval(interval)
@@ -107,7 +107,7 @@ export default function Dashboard() {
     }
 
     setUrl("")
-    fetchData()
+    fetchData(user)
   }
 
   // ✅ SIGN OUT FUNCTION (ADDED HERE)
