@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
@@ -13,6 +13,8 @@ export default function Dashboard() {
   const [url, setUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
   const [customDate, setCustomDate] = useState("")
+  
+  const customDateRef = useRef<HTMLInputElement>(null)
 
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
@@ -165,6 +167,7 @@ export default function Dashboard() {
             {schedule === "custom" && (
               <input
                 type="date"
+                ref={customDateRef}   // ✅ ADD THIS LINE
                 value={customDate}
                 onChange={(e) => setCustomDate(e.target.value)}
                 style={input}
