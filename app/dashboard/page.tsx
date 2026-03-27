@@ -19,13 +19,12 @@ export default function Dashboard() {
 
   // 🔐 Load user
   useEffect(() => {
-    async function loadUser() {
-      const { data } = await supabase.auth.getUser()
+  const interval = setInterval(() => {
+    if (user) fetchData(user)
+  }, 5000)
 
-      if (!data.user) {
-        router.push("/login")
-        return
-      }
+  return () => clearInterval(interval)
+}, [user])
 
       setUser(data.user)
       setLoadingUser(false)
@@ -66,26 +65,47 @@ export default function Dashboard() {
 }
 
   async function addUrl() {
-    if (!user || !url) {
-      console.log("⚠️ Missing user or URL")
-      return
-    }
+  if (!user || !url) {
+    console.log("⚠️ Missing user or URL")
+    return
+  }
 
-    const now = new Date().toISOString()
+  // ✅ REQUIRE date if custom
+  if (schedule === "custom" && !customDate) {
+    alert("Please select a date")
+    return
+  }
 
-    console.log("➕ Adding URL:", url)
-    console.log("🕒 Setting next_capture_at to NOW:", now)
+  const now = new Date().toISOString()
 
-    const { data, error } = await supabase.from("urls").insert([
-      {
-        url: url,
-        user_id: user.id,
-        next_capture_at: now,
-        schedule_type: schedule,
-        schedule_value: schedule === "custom" ? customDate : null,
-        status: "active",
-      },
-    ])
+  const { data, error } = await supabase.from("urls").insert([
+    {
+      url: url,
+      user_id: user.id,
+
+      // 🔥 ALWAYS IMMEDIATE
+      next_capture_at: now,
+
+      schedule_type: schedule,
+      schedule_value: schedule === "custom" ? customDate : null,
+      status: "active",
+    },
+  ])
+
+  if (error) {
+  console.error("❌ Insert error:", error)
+  return
+}
+
+// 🔥 INSTANT UI UPDATE
+fetchData(user)
+
+setUrl("")
+setCustomDate("")
+
+  // 🔥 IMPORTANT: refresh immediately
+  fetchData(user)
+}
 
     if (error) {
       console.error("❌ Insert error:", error)
