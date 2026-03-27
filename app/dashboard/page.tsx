@@ -11,6 +11,8 @@ export default function Dashboard() {
   const [loadingUser, setLoadingUser] = useState(true)
 
   const [url, setUrl] = useState("")
+  const [schedule, setSchedule] = useState("weekly")
+  
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
 
@@ -78,7 +80,7 @@ export default function Dashboard() {
         url: url,
         user_id: user.id,
         next_capture_at: now,
-        schedule_type: "weekly",
+        schedule_type: schedule,
         schedule_value: null,
         status: "active",
       },
@@ -152,17 +154,28 @@ export default function Dashboard() {
           <h3 style={cardTitle}>Add URL</h3>
 
           <div style={row}>
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com"
-              style={input}
-            />
+  <input
+    value={url}
+    onChange={(e) => setUrl(e.target.value)}
+    placeholder="https://example.com"
+    style={input}
+  />
 
-            <button onClick={addUrl} style={button}>
-              Add URL
-            </button>
-          </div>
+  <select
+    value={schedule}
+    onChange={(e) => setSchedule(e.target.value)}
+    style={select}
+  >
+    <option value="weekly">Weekly</option>
+    <option value="biweekly">Biweekly</option>
+    <option value="monthly">Monthly</option>
+    <option value="custom">Custom (one-time)</option>
+  </select>
+
+  <button onClick={addUrl} style={button}>
+    Add URL
+  </button>
+</div>
         </div>
 
         {/* TRACKED URLS */}
@@ -340,4 +353,10 @@ const empty: React.CSSProperties = {
 const link: React.CSSProperties = {
   color: "#635bff",
   textDecoration: "none",
+}
+
+const select: React.CSSProperties = {
+  padding: "10px",
+  borderRadius: "6px",
+  border: "1px solid #ddd",
 }
