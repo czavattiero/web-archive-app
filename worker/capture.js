@@ -95,7 +95,35 @@ async function run() {
 
       const filePath = `${urlObj.id}-${Date.now()}.pdf`
 
-      const pdfBuffer = await page.pdf({ format: "A4" })
+      const pdfBuffer = await page.pdf({
+  format: "A4",
+
+  displayHeaderFooter: true,
+
+  headerTemplate: `
+    <div style="
+      width: 100%;
+      font-size: 11px;
+      padding: 8px 12px;
+      text-align: right;
+      background: white;
+      color: black;
+      border-bottom: 1px solid #ccc;
+      box-sizing: border-box;
+    ">
+      <span>Captured: ${timestamp}</span>
+    </div>
+  `,
+
+  footerTemplate: `<div></div>`,
+
+  margin: {
+    top: "70px",   // 🔥 INCREASED (VERY IMPORTANT)
+    bottom: "30px",
+  },
+
+  printBackground: true,
+})
 
       const { error: uploadError } = await supabase.storage
         .from("captures")
