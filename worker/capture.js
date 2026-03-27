@@ -10,11 +10,11 @@ const __dirname = path.dirname(__filename)
 dotenv.config({ path: path.resolve(__dirname, "../.env") })
 
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// 🔁 Retry loader
+// 🔁 Retry loader (FIXED)
 async function loadPageWithRetry(page, url, retries = 2) {
   for (let i = 0; i <= retries; i++) {
     try {
@@ -22,25 +22,48 @@ async function loadPageWithRetry(page, url, retries = 2) {
 
       await page.goto(url, {
         waitUntil: "domcontentloaded",
-        timeout: 45000,
+        timeout: 60000,
       })
 
       return true
-    } catch (error: any) {
-  console.error("❌ CAPTURE FAILED:")
-  console.error("URL:", url.url)
-  console.error("ERROR MESSAGE:", error.message)
-  console.error("FULL ERROR:", error)
+    } catch (error) {
+      console.error(`❌ Attempt ${i + 1} failed:`, error.message)
 
-  await supabase.from("captures").insert([
-    {
-      url_id: url.id,
-      status: "failed",
-      error_message: error.message,
-    },
-  ])
+      if (i === retries) {
+        return false
+      }
+
+      // wait before retry
+      await new Promise((res) => setTimeout(res, 3000))
+    }
+  }
+
+  return false
 }
 
+// 🔥 Insert capture helper
+async function insertCapture({ urlObj, file_path, status, error }) {
+  const payload = {
+    url_id: urlObj.id,
+    user_id: urlObj.user_id,
+    file_path: file_path || null,
+    status,
+    error: error || null,
+    created_at: new Date().toISOString(),
+  }
+
+  const { error: insertError } = await supabase
+    .from("captures")
+    .insert([payload])
+
+  if (insertError) {
+    console.error("❌ Insert error:", insertError)
+  } else {
+    console.log("✅ Capture inserted")
+  }
+}
+
+// 🚀 MAIN WORKER
 async function run() {
   console.log("🚀 Worker started")
 
@@ -98,37 +121,41 @@ async function run() {
       // wait for rendering
       await page.waitForTimeout(3000)
 
+      // ✅ FIXED TIMESTAMP
+      const timestamp = new Date().toLocaleString("en-CA", {
+        timeZone: "America/Edmonton",
+      })
+
       const filePath = `${urlObj.id}-${Date.now()}.pdf`
 
       const pdfBuffer = await page.pdf({
-  format: "A4",
+        format: "A4",
+        displayHeaderFooter: true,
 
-  displayHeaderFooter: true,
+        headerTemplate: `
+          <div style="
+            width: 100%;
+            font-size: 11px;
+            padding: 8px 12px;
+            text-align: right;
+            background: white;
+            color: black;
+            border-bottom: 1px solid #ccc;
+            box-sizing: border-box;
+          ">
+            Captured: ${timestamp}
+          </div>
+        `,
 
-  headerTemplate: `
-    <div style="
-      width: 100%;
-      font-size: 11px;
-      padding: 8px 12px;
-      text-align: right;
-      background: white;
-      color: black;
-      border-bottom: 1px solid #ccc;
-      box-sizing: border-box;
-    ">
-      <span>Captured: ${timestamp}</span>
-    </div>
-  `,
+        footerTemplate: `<div></div>`,
 
-  footerTemplate: `<div></div>`,
+        margin: {
+          top: "70px",
+          bottom: "30px",
+        },
 
-  margin: {
-    top: "70px",   // 🔥 INCREASED (VERY IMPORTANT)
-    bottom: "30px",
-  },
-
-  printBackground: true,
-})
+        printBackground: true,
+      })
 
       const { error: uploadError } = await supabase.storage
         .from("captures")
@@ -149,12 +176,15 @@ async function run() {
         error: null,
       })
 
-      // ✅ schedule next run
+      // 🔁 Schedule next run
       let next = new Date()
 
       switch (urlObj.schedule_type) {
         case "weekly":
           next.setDate(next.getDate() + 7)
+          break
+        case "biweekly":
+          next.setDate(next.getDate() + 14)
           break
         case "daily":
           next.setDate(next.getDate() + 1)
@@ -162,17 +192,26 @@ async function run() {
         case "monthly":
           next.setDate(next.getDate() + 30)
           break
+        case "custom":
+          // one-time capture
+          await supabase
+            .from("urls")
+            .update({ status: "completed" })
+            .eq("id", urlObj.id)
+          break
         default:
           next.setDate(next.getDate() + 7)
       }
 
-      await supabase
-        .from("urls")
-        .update({
-          next_capture_at: next.toISOString(),
-          last_captured_at: new Date().toISOString(),
-        })
-        .eq("id", urlObj.id)
+      if (urlObj.schedule_type !== "custom") {
+        await supabase
+          .from("urls")
+          .update({
+            next_capture_at: next.toISOString(),
+            last_captured_at: new Date().toISOString(),
+          })
+          .eq("id", urlObj.id)
+      }
 
     } catch (err) {
       console.error("❌ Capture failed:", err.message)
@@ -190,28 +229,6 @@ async function run() {
 
   await browser.close()
   console.log("🏁 Worker finished")
-}
-
-// 🔥 Insert function
-async function insertCapture({ urlObj, file_path, status, error }) {
-  const payload = {
-    url_id: urlObj.id,
-    user_id: urlObj.user_id,
-    file_path: file_path || null,
-    status,
-    error: error || null,
-    created_at: new Date().toISOString(),
-  }
-
-  const { error: insertError } = await supabase
-    .from("captures")
-    .insert([payload])
-
-  if (insertError) {
-    console.error("❌ Insert error:", insertError)
-  } else {
-    console.log("✅ Capture inserted")
-  }
 }
 
 run()
