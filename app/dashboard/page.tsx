@@ -254,7 +254,7 @@ const layout = {
   fontFamily: "Inter, sans-serif",
 }
 
-const sidebar = {
+const sidebar: React.CSSProperties = {
   width: "220px",
   background: "#0a2540",
   color: "#fff",
