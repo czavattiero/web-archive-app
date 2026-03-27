@@ -262,6 +262,7 @@ const sidebar = {
   display: "flex",
   flexDirection: "column",
   justifyContent: "space-between",
+  height: "100vh",          // ✅ ADD THIS (CRITICAL)
 }
 
 const logo = { marginBottom: "30px" }
@@ -273,7 +274,7 @@ const logoutButton = {
   color: "#fff",
   padding: "10px",
   borderRadius: "6px",
-  border: "none",
+  border: "2px solid yellow",
   cursor: "pointer",
   width: "100%",
 }
