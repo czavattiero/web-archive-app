@@ -127,14 +127,15 @@ export default function Dashboard() {
     <div style={layout}>
       {/* SIDEBAR */}
       <div style={sidebar}>
-        <h2 style={logo}>WebArchive</h2>
-        <div style={menuActive}>Dashboard</div>
+  <div>
+    <h2 style={logo}>WebArchive</h2>
+    <div style={menuActive}>Dashboard</div>
+  </div>
 
-        {/* ✅ SIGN OUT BUTTON (ADDED HERE) */}
-        <button onClick={handleSignOut} style={logoutButton}>
-          Sign Out
-        </button>
-      </div>
+  <button onClick={handleSignOut} style={logoutButton}>
+    Sign Out
+  </button>
+</div>
 
       {/* MAIN */}
       <div style={main}>
@@ -258,6 +259,9 @@ const sidebar = {
   background: "#0a2540",
   color: "#fff",
   padding: "20px",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "space-between",
 }
 
 const logo = { marginBottom: "30px" }
