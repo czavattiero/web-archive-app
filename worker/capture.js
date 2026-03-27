@@ -26,14 +26,19 @@ async function loadPageWithRetry(page, url, retries = 2) {
       })
 
       return true
-    } catch (err) {
-      console.error("❌ Attempt failed:", err.message)
+    } catch (error: any) {
+  console.error("❌ CAPTURE FAILED:")
+  console.error("URL:", url.url)
+  console.error("ERROR MESSAGE:", error.message)
+  console.error("FULL ERROR:", error)
 
-      if (i === retries) return false
-
-      await page.waitForTimeout(3000)
-    }
-  }
+  await supabase.from("captures").insert([
+    {
+      url_id: url.id,
+      status: "failed",
+      error_message: error.message,
+    },
+  ])
 }
 
 async function run() {
