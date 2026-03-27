@@ -39,7 +39,7 @@ export default function Dashboard() {
     const interval = setInterval(() => {
       console.log("🔄 Refreshing data...")
       fetchData()
-    }, 5000) // every 5 seconds
+    }, 5000)
 
     return () => clearInterval(interval)
   }, [])
@@ -57,57 +57,63 @@ export default function Dashboard() {
   }
 
   async function addUrl() {
-  if (!user || !url) {
-    console.log("⚠️ Missing user or URL")
-    return
+    if (!user || !url) {
+      console.log("⚠️ Missing user or URL")
+      return
+    }
+
+    const now = new Date().toISOString()
+
+    console.log("➕ Adding URL:", url)
+    console.log("🕒 Setting next_capture_at to NOW:", now)
+
+    const { data, error } = await supabase.from("urls").insert([
+      {
+        url: url,
+        user_id: user.id,
+        next_capture_at: now,
+        schedule_type: "weekly",
+        schedule_value: null,
+        status: "active",
+      },
+    ])
+
+    if (error) {
+      console.error("❌ Insert error:", error)
+      return
+    }
+
+    console.log("✅ URL added successfully:", data)
+
+    try {
+      console.log("🚀 Calling /api/run-worker...")
+
+      const res = await fetch("/api/run-worker", {
+        method: "POST",
+      })
+
+      const result = await res.json()
+      console.log("🔥 Worker response:", result)
+    } catch (err) {
+      console.error("❌ Worker trigger failed:", err)
+    }
+
+    setUrl("")
+    fetchData()
   }
 
-  const now = new Date().toISOString()
+  // ✅ SIGN OUT FUNCTION (ADDED HERE)
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut()
 
-  console.log("➕ Adding URL:", url)
-  console.log("🕒 Setting next_capture_at to NOW:", now)
+    if (error) {
+      console.error("❌ Sign out error:", error)
+      return
+    }
 
-  const { data, error } = await supabase.from("urls").insert([
-    {
-      url: url,
-      user_id: user.id,
-
-      // 🔥 CRITICAL: ALWAYS NOW
-      next_capture_at: now,
-
-      // ✅ keep scheduling info (DO NOT use it for timing here)
-      schedule_type: "weekly", // (we’ll improve this later)
-      schedule_value: null,
-
-      status: "active",
-    },
-  ])
-
-  if (error) {
-    console.error("❌ Insert error:", error)
-    return
+    console.log("✅ Signed out")
+    router.push("/login")
   }
-
-  console.log("✅ URL added successfully:", data)
-
-  // 🚀 Trigger worker immediately (good idea — keep this)
-  try {
-    console.log("🚀 Calling /api/run-worker...")
-
-    const res = await fetch("/api/run-worker", {
-      method: "POST",
-    })
-
-    const result = await res.json()
-    console.log("🔥 Worker response:", result)
-
-  } catch (err) {
-    console.error("❌ Worker trigger failed:", err)
-  }
-
-  setUrl("")
-  fetchData()
-}
 
   function getUrlById(id: string) {
     return urls.find((u) => u.id === id)
@@ -123,6 +129,11 @@ export default function Dashboard() {
       <div style={sidebar}>
         <h2 style={logo}>WebArchive</h2>
         <div style={menuActive}>Dashboard</div>
+
+        {/* ✅ SIGN OUT BUTTON (ADDED HERE) */}
+        <button onClick={handleSignOut} style={logoutButton}>
+          Sign Out
+        </button>
       </div>
 
       {/* MAIN */}
@@ -251,6 +262,17 @@ const sidebar = {
 
 const logo = { marginBottom: "30px" }
 const menuActive = { padding: "10px 0", fontWeight: "bold" }
+
+const logoutButton = {
+  marginTop: "30px",
+  background: "#ff4d4f",
+  color: "#fff",
+  padding: "10px",
+  borderRadius: "6px",
+  border: "none",
+  cursor: "pointer",
+  width: "100%",
+}
 
 const main = { flex: 1, padding: "30px" }
 const title = { fontSize: "24px", marginBottom: "20px" }
