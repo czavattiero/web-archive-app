@@ -20,13 +20,13 @@ export default function Home() {
       >
         {/* ✅ BIGGER LOGO */}
         <img
-          src="/screenly.png"
-          alt="Screenly"
-          style={{
-            height: 75,
-            width: "auto",
-          }}
-        />
+  src="/screenly-logo.png"
+  alt="Screenly"
+  style={{
+    height: 90,
+    width: "auto",
+  }}
+/>
 
         <a href="/login">
           <button
