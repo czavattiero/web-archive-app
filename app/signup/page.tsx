@@ -1,196 +1,122 @@
-"use client"
-
-import { useState } from "react"
-import { useSearchParams } from "next/navigation"
-import { supabase } from "../../lib/supabase"
-
-export default function SignupPage() {
-
-  const params = useSearchParams()
-
-  const plan = params.get("plan")
-
-  const [email,setEmail] = useState("")
-  const [password,setPassword] = useState("")
-  const [loading,setLoading] = useState(false)
-
-  async function handleSignup(e:any){
-
-    e.preventDefault()
-
-    setLoading(true)
-
-    try{
-
-      // 1️⃣ create user
-      const { error } = await supabase.auth.signUp({
-        email,
-        password
-      })
-
-      if(error){
-
-        // if user already exists → try login
-        if(error.message.includes("already registered")){
-
-          const { error:loginError } =
-            await supabase.auth.signInWithPassword({
-              email,
-              password
-            })
-
-          if(loginError){
-            alert("User exists. Please log in.")
-            setLoading(false)
-            return
-          }
-
-        } else {
-
-          alert(error.message)
-          setLoading(false)
-          return
-
-        }
-
-      }
-
-      // 2️⃣ ensure session exists
-      const { data:sessionData } = await supabase.auth.getSession()
-
-      if(!sessionData.session){
-
-        const { error:loginError } =
-          await supabase.auth.signInWithPassword({
-            email,
-            password
-          })
-
-        if(loginError){
-          alert("Login failed")
-          setLoading(false)
-          return
-        }
-
-      }
-
-      // 3️⃣ start Stripe checkout
-      const res = await fetch("/api/checkout",{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json"
-        },
-        body:JSON.stringify({
-          plan,
-          email
-        })
-      })
-
-      const data = await res.json()
-
-      if(!data.url){
-        alert("Stripe checkout failed")
-        setLoading(false)
-        return
-      }
-
-      // 4️⃣ redirect to Stripe
-      window.location.href = data.url
-
-    }catch(err){
-
-      console.error(err)
-      alert("Signup failed")
-
-    }
-
-    setLoading(false)
-
-  }
-
-  return(
-
+export default function Signup() {
+  return (
     <main
       style={{
-        minHeight:"100vh",
-        display:"flex",
-        justifyContent:"center",
-        alignItems:"center",
-        background:"#f7f8fb",
-        fontFamily:"system-ui"
+        minHeight: "100vh",
+        background: "linear-gradient(to bottom, #ffffff, #f7f8fb)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "system-ui, sans-serif",
+        padding: 20,
       }}
     >
 
+      {/* CONTAINER */}
       <div
         style={{
-          background:"white",
-          padding:40,
-          borderRadius:12,
-          width:400,
-          boxShadow:"0 10px 30px rgba(0,0,0,0.1)"
+          width: 420,
+          background: "white",
+          padding: 40,
+          borderRadius: 20,
+          boxShadow: "0 25px 60px rgba(0,0,0,0.12)",
         }}
       >
 
-        <h1>Create your account</h1>
+        {/* 🔥 LOGO */}
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <img
+            src="/screenly-logo.png"
+            alt="Screenly"
+            style={{
+              height: 80,
+              marginBottom: 10,
+            }}
+          />
+        </div>
 
-        <p style={{marginBottom:20}}>
-          Selected plan: <strong>{plan}</strong>
+        {/* TITLE */}
+        <h1
+          style={{
+            fontSize: 26,
+            fontWeight: 700,
+            marginBottom: 10,
+            textAlign: "center",
+          }}
+        >
+          Create your account
+        </h1>
+
+        {/* PLAN */}
+        <p
+          style={{
+            textAlign: "center",
+            color: "#6B7280",
+            marginBottom: 25,
+          }}
+        >
+          Selected plan: <strong style={{ color: "#6A11CB" }}>Pro</strong>
         </p>
 
-        <form onSubmit={handleSignup}>
+        {/* FORM */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
           <input
             type="email"
             placeholder="Email"
-            required
-            value={email}
-            onChange={(e)=>setEmail(e.target.value)}
             style={{
-              width:"100%",
-              padding:12,
-              marginBottom:12,
-              borderRadius:6,
-              border:"1px solid #ddd"
+              padding: "14px",
+              borderRadius: 10,
+              border: "1px solid #E5E7EB",
+              fontSize: 14,
+              outline: "none",
             }}
           />
 
           <input
             type="password"
             placeholder="Password"
-            required
-            value={password}
-            onChange={(e)=>setPassword(e.target.value)}
             style={{
-              width:"100%",
-              padding:12,
-              marginBottom:20,
-              borderRadius:6,
-              border:"1px solid #ddd"
+              padding: "14px",
+              borderRadius: 10,
+              border: "1px solid #E5E7EB",
+              fontSize: 14,
+              outline: "none",
             }}
           />
 
           <button
-            type="submit"
             style={{
-              width:"100%",
-              padding:12,
-              background:"#5B4DFF",
-              color:"white",
-              border:"none",
-              borderRadius:8,
-              cursor:"pointer",
-              fontWeight:600
+              marginTop: 10,
+              background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
+              color: "white",
+              border: "none",
+              padding: "14px",
+              borderRadius: 12,
+              fontWeight: 600,
+              fontSize: 15,
+              cursor: "pointer",
+              boxShadow: "0 10px 25px rgba(106,17,203,0.25)",
             }}
           >
-            {loading ? "Creating..." : "Continue to payment"}
+            Continue to payment
           </button>
 
-        </form>
+        </div>
+
+        {/* FOOTER TEXT */}
+        <p
+          style={{
+            fontSize: 12,
+            color: "#9CA3AF",
+            marginTop: 20,
+            textAlign: "center",
+          }}
+        >
+          Secure checkout powered by Stripe
+        </p>
 
       </div>
-
     </main>
-
   )
-
 }
