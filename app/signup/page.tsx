@@ -16,7 +16,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
- async function handleSignup(e: any) {
+async function handleSignup(e: any) {
   e.preventDefault()
 
   setLoading(true)
@@ -25,65 +25,39 @@ export default function SignupPage() {
   try {
     console.log("1. Starting signup...")
 
-    // 1️⃣ Create user
-    const { error } = await supabase.auth.signUp({
+    // Try signup
+    const { error: signupError } = await supabase.auth.signUp({
       email,
       password
     })
 
-    console.log("2. Signup result:", error)
+    console.log("2. Signup result:", signupError)
 
-    if (error) {
-
-      // If user already exists → login instead
-      if (error.message.includes("already registered")) {
-
-        console.log("User exists → logging in")
-
-        const { error: loginError } =
-          await supabase.auth.signInWithPassword({
-            email,
-            password
-          })
-
-        if (loginError) {
-          setError("User exists. Please log in.")
-          setLoading(false)
-          return
-        }
-
-      } else {
-        setError(error.message)
-        setLoading(false)
-        return
-      }
+    // If signup fails because user exists → ignore and continue
+    if (signupError && !signupError.message.includes("already registered")) {
+      setError(signupError.message)
+      setLoading(false)
+      return
     }
 
-    // 2️⃣ ENSURE SESSION (🔥 THIS WAS MISSING)
-    console.log("3. Checking session...")
+    // 🔥 ALWAYS LOGIN (this is the key fix)
+    console.log("3. Logging in...")
 
-    const { data: sessionData } = await supabase.auth.getSession()
+    const { error: loginError } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
 
-    if (!sessionData.session) {
-
-      console.log("No session → logging in manually")
-
-      const { error: loginError } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password
-        })
-
-      if (loginError) {
-        setError("Login failed")
-        setLoading(false)
-        return
-      }
+    if (loginError) {
+      setError("Login failed. Try correct password.")
+      setLoading(false)
+      return
     }
 
-    console.log("4. Session ready → calling Stripe")
+    console.log("4. Logged in → calling Stripe")
 
-    // 3️⃣ Call Stripe API (KEEP YOUR CURRENT ROUTE NAME)
+    // Call Stripe
     const res = await fetch("/api/checkout", {
       method: "POST",
       headers: {
@@ -96,7 +70,6 @@ export default function SignupPage() {
     })
 
     const data = await res.json()
-
     console.log("5. Stripe response:", data)
 
     if (!data.url) {
@@ -105,17 +78,15 @@ export default function SignupPage() {
       return
     }
 
-    console.log("6. Redirecting to Stripe:", data.url)
+    console.log("6. Redirecting to Stripe")
 
-    // 4️⃣ Redirect
     window.location.href = data.url
 
   } catch (err) {
     console.error("Signup error:", err)
-    setError("Signup failed")
+    setError("Something went wrong")
+    setLoading(false)
   }
-
-  setLoading(false)
 }
 
   return (
