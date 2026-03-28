@@ -1,61 +1,33 @@
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2023-10-16"
-})
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 export async function POST(req: Request) {
 
-  try {
+  const { email, plan } = await req.json()
 
-    const { plan, email, userId } = await req.json()
+  const priceId =
+    plan === "pro"
+      ? process.env.STRIPE_PRO_PRICE_ID
+      : process.env.STRIPE_BASIC_PRICE_ID
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL!
-
-    let priceId = ""
-
-    if (plan === "basic") {
-      priceId = process.env.STRIPE_BASIC_PRICE_ID!
-    }
-
-    if (plan === "pro") {
-      priceId = process.env.STRIPE_PRO_PRICE_ID!
-    }
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-
-      customer_email: email,
-
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1
-        }
-      ],
-
-      metadata: {
-        user_id: userId
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    payment_method_types: ["card"],
+    customer_email: email,
+    line_items: [
+      {
+        price: priceId!,
+        quantity: 1,
       },
+    ],
 
-      success_url: `${siteUrl}/login`,
-      cancel_url: `${siteUrl}/`
-    })
+    // ✅ THIS IS THE LINE YOU NEED TO CHANGE
+    success_url: "http://localhost:3000/dashboard?fromSignup=true",
 
-    return NextResponse.json({
-      url: session.url
-    })
+    cancel_url: "http://localhost:3000/signup",
+  })
 
-  } catch (error) {
-
-    console.error(error)
-
-    return NextResponse.json(
-      { error: "Stripe checkout failed" },
-      { status: 500 }
-    )
-
-  }
-
+  return NextResponse.json({ url: session.url })
 }
