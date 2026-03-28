@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
 export default function LoginPage() {
 
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -15,12 +16,17 @@ export default function LoginPage() {
   useEffect(() => {
     async function checkSession() {
       const { data } = await supabase.auth.getUser()
-      if (data.user) {
+
+      // ✅ KEY FIX: DO NOT redirect if coming from signup/payment
+      const fromSignup = searchParams.get("fromSignup")
+
+      if (data.user && !fromSignup) {
         router.push("/dashboard")
       }
     }
+
     checkSession()
-  }, [router])
+  }, [router, searchParams])
 
   async function handleLogin(e: any) {
     e.preventDefault()
@@ -113,22 +119,18 @@ export default function LoginPage() {
             }}
           />
 
-          {/* 🔥 FORGOT PASSWORD */}
+          {/* Forgot password */}
           <div style={{ textAlign: "right", marginTop: -6 }}>
-            <a
-              href="/forgot-password"
-              style={{
-                fontSize: 13,
-                color: "#6A11CB",
-                textDecoration: "none",
-                fontWeight: 500,
-              }}
-            >
+            <a href="/forgot-password" style={{
+              fontSize: 13,
+              color: "#6A11CB",
+              fontWeight: 500,
+            }}>
               Forgot password?
             </a>
           </div>
 
-          {/* BUTTON WITH SPINNER */}
+          {/* BUTTON */}
           <button
             type="submit"
             disabled={loading}
@@ -140,9 +142,7 @@ export default function LoginPage() {
               padding: "14px",
               borderRadius: 12,
               fontWeight: 600,
-              fontSize: 15,
               cursor: "pointer",
-              boxShadow: "0 10px 25px rgba(106,17,203,0.25)",
               opacity: loading ? 0.8 : 1,
               display: "flex",
               alignItems: "center",
@@ -170,7 +170,6 @@ export default function LoginPage() {
 
         </form>
 
-        {/* FOOTER */}
         <p style={{
           fontSize: 13,
           color: "#6B7280",
@@ -185,7 +184,7 @@ export default function LoginPage() {
 
       </div>
 
-      {/* 🔥 SPINNER ANIMATION */}
+      {/* Spinner animation */}
       <style>
         {`
           @keyframes spin {
