@@ -12,24 +12,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
 
-  /*
-  If user already logged in, go directly to dashboard
-  */
   useEffect(() => {
     async function checkSession() {
       const { data } = await supabase.auth.getUser()
-
       if (data.user) {
         router.push("/dashboard")
       }
     }
-
     checkSession()
   }, [router])
 
   async function handleLogin(e: any) {
     e.preventDefault()
-
     setLoading(true)
 
     const { error } = await supabase.auth.signInWithPassword({
@@ -60,7 +54,6 @@ export default function LoginPage() {
       }}
     >
 
-      {/* CONTAINER */}
       <div
         style={{
           width: 420,
@@ -73,33 +66,23 @@ export default function LoginPage() {
 
         {/* LOGO */}
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <img
-            src="/screenly-logo.png"
-            alt="Screenly"
-            style={{ height: 80 }}
-          />
+          <img src="/screenly-logo.png" alt="Screenly" style={{ height: 80 }} />
         </div>
 
         {/* TITLE */}
-        <h1
-          style={{
-            fontSize: 26,
-            fontWeight: 700,
-            marginBottom: 20,
-            textAlign: "center",
-          }}
-        >
+        <h1 style={{
+          fontSize: 26,
+          fontWeight: 700,
+          marginBottom: 20,
+          textAlign: "center",
+        }}>
           Welcome back
         </h1>
 
         {/* FORM */}
         <form
           onSubmit={handleLogin}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 14,
-          }}
+          style={{ display: "flex", flexDirection: "column", gap: 14 }}
         >
 
           <input
@@ -130,6 +113,22 @@ export default function LoginPage() {
             }}
           />
 
+          {/* 🔥 FORGOT PASSWORD */}
+          <div style={{ textAlign: "right", marginTop: -6 }}>
+            <a
+              href="#"
+              style={{
+                fontSize: 13,
+                color: "#6A11CB",
+                textDecoration: "none",
+                fontWeight: 500,
+              }}
+            >
+              Forgot password?
+            </a>
+          </div>
+
+          {/* BUTTON WITH SPINNER */}
           <button
             type="submit"
             disabled={loading}
@@ -144,23 +143,40 @@ export default function LoginPage() {
               fontSize: 15,
               cursor: "pointer",
               boxShadow: "0 10px 25px rgba(106,17,203,0.25)",
-              opacity: loading ? 0.7 : 1,
+              opacity: loading ? 0.8 : 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
             }}
           >
+
+            {loading && (
+              <div
+                style={{
+                  width: 16,
+                  height: 16,
+                  border: "2px solid white",
+                  borderTop: "2px solid transparent",
+                  borderRadius: "50%",
+                  animation: "spin 1s linear infinite",
+                }}
+              />
+            )}
+
             {loading ? "Logging in..." : "Log in"}
+
           </button>
 
         </form>
 
         {/* FOOTER */}
-        <p
-          style={{
-            fontSize: 13,
-            color: "#6B7280",
-            marginTop: 20,
-            textAlign: "center",
-          }}
-        >
+        <p style={{
+          fontSize: 13,
+          color: "#6B7280",
+          marginTop: 20,
+          textAlign: "center",
+        }}>
           Don’t have an account?{" "}
           <a href="/signup" style={{ color: "#6A11CB", fontWeight: 600 }}>
             Sign up
@@ -168,6 +184,16 @@ export default function LoginPage() {
         </p>
 
       </div>
+
+      {/* 🔥 SPINNER ANIMATION */}
+      <style>
+        {`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}
+      </style>
 
     </main>
   )
