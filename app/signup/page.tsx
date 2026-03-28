@@ -22,6 +22,7 @@ export default function SignupPage() {
     setLoading(true)
     setError("")
 
+    // 1. Create user
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -33,15 +34,35 @@ export default function SignupPage() {
       return
     }
 
-    // OPTIONAL: handle email confirmation
+    // ⚠️ If email confirmation is enabled
     if (!data.session) {
       alert("Check your email to confirm your account")
       setLoading(false)
       return
     }
 
-    // Redirect after signup
-    router.push(`/dashboard`)
+    // 2. Call Stripe checkout API
+    const res = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        plan,
+      }),
+    })
+
+    const { url } = await res.json()
+
+    if (!url) {
+      setError("Failed to start checkout")
+      setLoading(false)
+      return
+    }
+
+    // 3. Redirect to Stripe
+    window.location.href = url
   }
 
   return (
@@ -63,7 +84,6 @@ export default function SignupPage() {
         boxShadow: "0 25px 60px rgba(0,0,0,0.12)",
       }}>
 
-        {/* LOGO */}
         <div style={{ textAlign: "center", marginBottom: 20 }}>
           <img src="/screenly-logo.png" style={{ height: 80 }} />
         </div>
@@ -85,7 +105,6 @@ export default function SignupPage() {
           Selected plan: <strong style={{ color: "#6A11CB" }}>{plan}</strong>
         </p>
 
-        {/* ✅ FORM WRAPPER */}
         <form onSubmit={handleSignup} style={{
           display: "flex",
           flexDirection: "column",
@@ -138,7 +157,6 @@ export default function SignupPage() {
 
         </form>
 
-        {/* ERROR */}
         {error && (
           <p style={{ color: "red", marginTop: 15 }}>
             {error}
