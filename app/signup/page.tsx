@@ -17,16 +17,21 @@ export default function SignupPage() {
   const [error, setError] = useState("")
 
   async function handleSignup(e: any) {
-    e.preventDefault()
+  e.preventDefault()
 
-    setLoading(true)
-    setError("")
+  setLoading(true)
+  setError("")
+
+  try {
+    console.log("1. Starting signup...")
 
     // 1. Create user
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
     })
+
+    console.log("2. Supabase done")
 
     if (error) {
       setError(error.message)
@@ -34,36 +39,47 @@ export default function SignupPage() {
       return
     }
 
-    // ⚠️ If email confirmation is enabled
-    if (!data.session) {
-      alert("Check your email to confirm your account")
-      setLoading(false)
-      return
-    }
+    console.log("3. Calling Stripe API...")
 
-    // 2. Call Stripe checkout API
+    // 2. Call Stripe API
     const res = await fetch("/api/create-checkout-session", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        email,
-        plan,
-      }),
+      body: JSON.stringify({ email, plan }),
     })
 
-    const { url } = await res.json()
+    console.log("4. Response status:", res.status)
 
-    if (!url) {
-      setError("Failed to start checkout")
+    const json = await res.json()
+    console.log("5. API response:", json)
+
+    const { url, error: apiError } = json
+
+    if (apiError) {
+      setError(apiError)
       setLoading(false)
       return
     }
 
+    if (!url) {
+      setError("No checkout URL returned")
+      setLoading(false)
+      return
+    }
+
+    console.log("6. Redirecting to Stripe:", url)
+
     // 3. Redirect to Stripe
     window.location.href = url
+
+  } catch (err: any) {
+    console.error("Signup error:", err)
+    setError("Something went wrong")
+    setLoading(false)
   }
+}
 
   return (
     <main style={{
