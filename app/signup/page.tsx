@@ -16,7 +16,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  async function handleSignup(e: any) {
+ async function handleSignup(e: any) {
   e.preventDefault()
 
   setLoading(true)
@@ -25,60 +25,97 @@ export default function SignupPage() {
   try {
     console.log("1. Starting signup...")
 
-    // 1. Create user
+    // 1️⃣ Create user
     const { error } = await supabase.auth.signUp({
       email,
-      password,
+      password
     })
 
-    console.log("2. Supabase done")
+    console.log("2. Signup result:", error)
 
     if (error) {
-      setError(error.message)
-      setLoading(false)
-      return
+
+      // If user already exists → login instead
+      if (error.message.includes("already registered")) {
+
+        console.log("User exists → logging in")
+
+        const { error: loginError } =
+          await supabase.auth.signInWithPassword({
+            email,
+            password
+          })
+
+        if (loginError) {
+          setError("User exists. Please log in.")
+          setLoading(false)
+          return
+        }
+
+      } else {
+        setError(error.message)
+        setLoading(false)
+        return
+      }
     }
 
-    console.log("3. Calling Stripe API...")
+    // 2️⃣ ENSURE SESSION (🔥 THIS WAS MISSING)
+    console.log("3. Checking session...")
 
-    // 2. Call Stripe API
-    const res = await fetch("/api/create-checkout-session", {
+    const { data: sessionData } = await supabase.auth.getSession()
+
+    if (!sessionData.session) {
+
+      console.log("No session → logging in manually")
+
+      const { error: loginError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password
+        })
+
+      if (loginError) {
+        setError("Login failed")
+        setLoading(false)
+        return
+      }
+    }
+
+    console.log("4. Session ready → calling Stripe")
+
+    // 3️⃣ Call Stripe API (KEEP YOUR CURRENT ROUTE NAME)
+    const res = await fetch("/api/checkout", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
-      body: JSON.stringify({ email, plan }),
+      body: JSON.stringify({
+        email,
+        plan
+      })
     })
 
-    console.log("4. Response status:", res.status)
+    const data = await res.json()
 
-    const json = await res.json()
-    console.log("5. API response:", json)
+    console.log("5. Stripe response:", data)
 
-    const { url, error: apiError } = json
-
-    if (apiError) {
-      setError(apiError)
+    if (!data.url) {
+      setError("Stripe checkout failed")
       setLoading(false)
       return
     }
 
-    if (!url) {
-      setError("No checkout URL returned")
-      setLoading(false)
-      return
-    }
+    console.log("6. Redirecting to Stripe:", data.url)
 
-    console.log("6. Redirecting to Stripe:", url)
+    // 4️⃣ Redirect
+    window.location.href = data.url
 
-    // 3. Redirect to Stripe
-    window.location.href = url
-
-  } catch (err: any) {
+  } catch (err) {
     console.error("Signup error:", err)
-    setError("Something went wrong")
-    setLoading(false)
+    setError("Signup failed")
   }
+
+  setLoading(false)
 }
 
   return (
