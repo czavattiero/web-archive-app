@@ -12,19 +12,21 @@ export default function Home() {
 
       {/* HEADER */}
       <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingBottom: 10,
+  }}
+>
         {/* ✅ BIGGER LOGO */}
         <img
   src="/screenly-logo.png"
   alt="Screenly"
   style={{
-    height: 90,
+    height: 130,          // 🔥 increase size
     width: "auto",
+    objectFit: "contain",
   }}
 />
 
