@@ -116,7 +116,7 @@ export default function LoginPage() {
           {/* 🔥 FORGOT PASSWORD */}
           <div style={{ textAlign: "right", marginTop: -6 }}>
             <a
-              href="#"
+              href="/forgot-password"
               style={{
                 fontSize: 13,
                 color: "#6A11CB",
