@@ -1,14 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
 export default function SignupPage() {
 
-  const router = useRouter()
   const searchParams = useSearchParams()
-
   const plan = searchParams.get("plan") || "basic"
 
   const [email, setEmail] = useState("")
@@ -16,111 +14,73 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-async function handleSignup(e: any) {
-  e.preventDefault()
+  async function handleSignup(e: any) {
+    e.preventDefault()
 
-  setLoading(true)
-  setError("")
+    setLoading(true)
+    setError("")
 
-  try {
-    console.log("1. Signup...")
-
-    const { error: signupError } = await supabase.auth.signUp({
-      email,
-      password
-    })
-
-    if (signupError && !signupError.message.includes("already registered")) {
-      setError(signupError.message)
-      setLoading(false)
-      return
-    }
-
-    console.log("2. Login...")
-
-    const { error: loginError } =
-      await supabase.auth.signInWithPassword({
+    try {
+      const { error: signupError } = await supabase.auth.signUp({
         email,
         password
       })
 
-    if (loginError) {
-      setError("Login failed")
+      if (signupError && !signupError.message.includes("already registered")) {
+        setError(signupError.message)
+        setLoading(false)
+        return
+      }
+
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+
+      if (loginError) {
+        setError("Login failed")
+        setLoading(false)
+        return
+      }
+
+      const { data: userData } = await supabase.auth.getUser()
+
+      if (!userData?.user) {
+        setError("User not authenticated")
+        setLoading(false)
+        return
+      }
+
+      await supabase.from("profiles").upsert({
+        id: userData.user.id,
+        email: userData.user.email,
+        subscribed: false
+      })
+
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email, plan })
+      })
+
+      const data = await res.json()
+
+      if (!data.url) {
+        setError("Checkout failed")
+        setLoading(false)
+        return
+      }
+
+      window.location.href = data.url
+
+    } catch (err) {
+      console.error("Signup error:", err)
+      setError("Something went wrong")
       setLoading(false)
-      return
     }
-
-    console.log("3. Save profile...")
-
-const { data: userData, error: userError } = await supabase.auth.getUser()
-
-console.log("USER DATA:", userData, userError)
-
-if (!userData.user) {
-  console.log("❌ No user found")
-  setError("User not authenticated")
-  setLoading(false)
-  return
-}
-
-// 🔥 FORCE INSERT (not upsert for now)
-const { data: insertData, error: insertError } = await supabase
-  .from("profiles")
-  .insert({
-    id: userData.user.id,
-    email: userData.user.email,
-    subscribed: false
-  })
-  .select()
-
-console.log("INSERT RESULT:", insertData, insertError)
-
-if (insertError) {
-  console.log("❌ Insert failed:", insertError)
-  setError(insertError.message)
-  setLoading(false)
-  return
-}
-
-console.log("✅ Profile created")
-
-    console.log("4. CALLING CHECKOUT API")
-
-    const res = await fetch("/api/checkout", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ email, plan })
-    })
-
-    const data = await res.json()
-
-    console.log("5. Checkout response:", data)
-
-    if (!data.url) {
-      setError("Stripe failed")
-      setLoading(false)
-      return
-    }
-
-    console.log("6. Redirecting to Stripe")
-
-    window.location.href = data.url
-
-  } catch (err) {
-    console.error(err)
-    setError("Something went wrong")
-    setLoading(false)
   }
-}
-
-  } catch (err) {
-    console.error("Signup error:", err)
-    setError("Something went wrong")
-    setLoading(false)
-  }
-}
 
   return (
     <main style={{
@@ -141,26 +101,14 @@ console.log("✅ Profile created")
         boxShadow: "0 25px 60px rgba(0,0,0,0.12)",
       }}>
 
-        <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <img src="/screenly-logo.png" style={{ height: 80 }} />
-        </div>
-
         <h1 style={{
           fontSize: 26,
           fontWeight: 700,
           textAlign: "center",
-          marginBottom: 10,
+          marginBottom: 20,
         }}>
           Create your account
         </h1>
-
-        <p style={{
-          textAlign: "center",
-          color: "#6B7280",
-          marginBottom: 25,
-        }}>
-          Selected plan: <strong style={{ color: "#6A11CB" }}>{plan}</strong>
-        </p>
 
         <form onSubmit={handleSignup} style={{
           display: "flex",
@@ -219,15 +167,6 @@ console.log("✅ Profile created")
             {error}
           </p>
         )}
-
-        <p style={{
-          fontSize: 12,
-          color: "#9CA3AF",
-          marginTop: 20,
-          textAlign: "center",
-        }}>
-          Secure checkout powered by Stripe
-        </p>
 
       </div>
 
