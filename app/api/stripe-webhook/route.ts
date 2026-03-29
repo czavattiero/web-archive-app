@@ -12,25 +12,11 @@ const supabase = createClient(
 )
 
 export async function POST(req: Request) {
-  const body = await req.text()
-  const sig = req.headers.get("stripe-signature")!
-
-  let event
-
-  try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    )
-  } catch (err) {
-    console.error("❌ Webhook signature failed:", err)
-    return new NextResponse("Webhook Error", { status: 400 })
-  }
+  const event = await req.json()
 
   // 🎯 HANDLE CHECKOUT SUCCESS
   if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session
+  const session = event.data.object
 
     const email = session.customer_email
 
