@@ -56,10 +56,15 @@ export async function POST(req: Request) {
     })
 
     // ✅ 3. SAVE CUSTOMER ID TO SUPABASE
-    await supabase
-      .from("profiles")
-      .update({ stripe_customer_id: customerId })
-      .eq("email", email)
+console.log("Saving customer ID:", customerId, "for email:", email)
+
+const { data: updateData, error: updateError } = await supabase
+  .from("profiles")
+  .update({ stripe_customer_id: customerId })
+  .eq("email", email)
+  .select()
+
+console.log("Supabase update result:", updateData, updateError)
 
     // ✅ 4. RETURN CHECKOUT URL
     return NextResponse.json({ url: session.url })
