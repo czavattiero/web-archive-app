@@ -23,69 +23,59 @@ async function handleSignup(e: any) {
   setError("")
 
   try {
-    console.log("1. Starting signup...")
+    console.log("1. Signup...")
 
-    // Try signup
     const { error: signupError } = await supabase.auth.signUp({
       email,
       password
     })
 
-    console.log("2. Signup result:", signupError)
-
-    // If signup fails because user exists → ignore and continue
     if (signupError && !signupError.message.includes("already registered")) {
       setError(signupError.message)
       setLoading(false)
       return
     }
 
-    // 🔥 ALWAYS LOGIN (this is the key fix)
-    console.log("3. Logging in...")
+    console.log("2. Login...")
 
-const { error: loginError } =
-  await supabase.auth.signInWithPassword({
-    email,
-    password
-  })
+    const { error: loginError } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
 
-if (loginError) {
-  setError("Login failed. Try correct password.")
-  setLoading(false)
-  return
-}
+    if (loginError) {
+      setError("Login failed")
+      setLoading(false)
+      return
+    }
 
-// ✅ 🔥 STEP 4 — SAVE USER IN DATABASE
-console.log("4. Saving user profile...")
+    console.log("3. Save profile...")
 
-const { data: userData } = await supabase.auth.getUser()
+    const { data: userData } = await supabase.auth.getUser()
 
-await supabase.from("profiles").upsert({
-  id: userData.user?.id,
-  email: userData.user?.email,
-  subscribed: false
-})
+    await supabase.from("profiles").upsert({
+      id: userData.user?.id,
+      email: userData.user?.email,
+      subscribed: false
+    })
 
-console.log("5. Profile saved → calling Stripe")
+    console.log("4. CALLING CHECKOUT API")
 
-    // Call Stripe
-    console.log("🚀 CALLING CHECKOUT API")
     const res = await fetch("/api/checkout", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        email,
-        plan
-      })
+      body: JSON.stringify({ email, plan })
     })
 
     const data = await res.json()
-    console.log("5. Stripe response:", data)
+
+    console.log("5. Checkout response:", data)
 
     if (!data.url) {
-      setError("Stripe checkout failed")
+      setError("Stripe failed")
       setLoading(false)
       return
     }
@@ -93,6 +83,13 @@ console.log("5. Profile saved → calling Stripe")
     console.log("6. Redirecting to Stripe")
 
     window.location.href = data.url
+
+  } catch (err) {
+    console.error(err)
+    setError("Something went wrong")
+    setLoading(false)
+  }
+}
 
   } catch (err) {
     console.error("Signup error:", err)
