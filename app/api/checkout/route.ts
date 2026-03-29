@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
-// 🔥 Create Supabase admin client
+// 🔥 Supabase admin client (required to update DB)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -23,11 +23,28 @@ export async function POST(req: Request) {
       throw new Error("Missing price ID")
     }
 
-    // ✅ Create Stripe checkout session
+    // ✅ 1. CREATE OR GET STRIPE CUSTOMER
+    const existingCustomers = await stripe.customers.list({
+      email,
+      limit: 1,
+    })
+
+    let customerId: string
+
+    if (existingCustomers.data.length > 0) {
+      customerId = existingCustomers.data[0].id
+    } else {
+      const newCustomer = await stripe.customers.create({
+        email,
+      })
+      customerId = newCustomer.id
+    }
+
+    // ✅ 2. CREATE CHECKOUT SESSION WITH CUSTOMER
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
+      customer: customerId, // 🔥 IMPORTANT
       payment_method_types: ["card"],
-      customer_email: email,
       line_items: [
         {
           price: priceId,
@@ -38,16 +55,13 @@ export async function POST(req: Request) {
       cancel_url: "http://localhost:3000/signup",
     })
 
-    // 🔥 VERY IMPORTANT — SAVE CUSTOMER ID
-    const customerId = session.customer as string
+    // ✅ 3. SAVE CUSTOMER ID TO SUPABASE
+    await supabase
+      .from("profiles")
+      .update({ stripe_customer_id: customerId })
+      .eq("email", email)
 
-    if (customerId) {
-      await supabase
-        .from("profiles")
-        .update({ stripe_customer_id: customerId })
-        .eq("email", email)
-    }
-
+    // ✅ 4. RETURN CHECKOUT URL
     return NextResponse.json({ url: session.url })
 
   } catch (err: any) {
