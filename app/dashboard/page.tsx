@@ -20,17 +20,32 @@ export default function Dashboard() {
   // 🔐 Load user
   useEffect(() => {
     async function loadUser() {
-      const { data } = await supabase.auth.getUser()
+  const { data } = await supabase.auth.getUser()
 
-      if (!data.user) {
-        router.push("/login")
-        return
-      }
+  if (!data.user) {
+    router.push("/login")
+    return
+  }
 
-      setUser(data.user)
-      setLoadingUser(false)
-      fetchData(data.user)
-    }
+  // ✅ CHECK SUBSCRIPTION HERE
+  const { data: subscription } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .eq("user_id", data.user.id)
+    .single()
+
+  if (!subscription) {
+    console.log("❌ No subscription → redirecting to signup")
+    router.push("/signup")
+    return
+  }
+
+  console.log("✅ Subscription found:", subscription)
+
+  setUser(data.user)
+  setLoadingUser(false)
+  fetchData(data.user)
+}
 
     loadUser()
   }, [])
