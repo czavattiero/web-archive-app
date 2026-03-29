@@ -69,6 +69,7 @@ await supabase.from("profiles").upsert({
 console.log("5. Profile saved → calling Stripe")
 
     // Call Stripe
+    console.log("🚀 CALLING CHECKOUT API")
     const res = await fetch("/api/checkout", {
       method: "POST",
       headers: {
