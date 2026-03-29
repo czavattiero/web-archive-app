@@ -43,19 +43,30 @@ async function handleSignup(e: any) {
     // 🔥 ALWAYS LOGIN (this is the key fix)
     console.log("3. Logging in...")
 
-    const { error: loginError } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
+const { error: loginError } =
+  await supabase.auth.signInWithPassword({
+    email,
+    password
+  })
 
-    if (loginError) {
-      setError("Login failed. Try correct password.")
-      setLoading(false)
-      return
-    }
+if (loginError) {
+  setError("Login failed. Try correct password.")
+  setLoading(false)
+  return
+}
 
-    console.log("4. Logged in → calling Stripe")
+// ✅ 🔥 STEP 4 — SAVE USER IN DATABASE
+console.log("4. Saving user profile...")
+
+const { data: userData } = await supabase.auth.getUser()
+
+await supabase.from("profiles").upsert({
+  id: userData.user?.id,
+  email: userData.user?.email,
+  subscribed: false
+})
+
+console.log("5. Profile saved → calling Stripe")
 
     // Call Stripe
     const res = await fetch("/api/checkout", {
