@@ -52,13 +52,37 @@ async function handleSignup(e: any) {
 
     console.log("3. Save profile...")
 
-    const { data: userData } = await supabase.auth.getUser()
+const { data: userData, error: userError } = await supabase.auth.getUser()
 
-    await supabase.from("profiles").upsert({
-      id: userData.user?.id,
-      email: userData.user?.email,
-      subscribed: false
-    })
+console.log("USER DATA:", userData, userError)
+
+if (!userData.user) {
+  console.log("❌ No user found")
+  setError("User not authenticated")
+  setLoading(false)
+  return
+}
+
+// 🔥 FORCE INSERT (not upsert for now)
+const { data: insertData, error: insertError } = await supabase
+  .from("profiles")
+  .insert({
+    id: userData.user.id,
+    email: userData.user.email,
+    subscribed: false
+  })
+  .select()
+
+console.log("INSERT RESULT:", insertData, insertError)
+
+if (insertError) {
+  console.log("❌ Insert failed:", insertError)
+  setError(insertError.message)
+  setLoading(false)
+  return
+}
+
+console.log("✅ Profile created")
 
     console.log("4. CALLING CHECKOUT API")
 
