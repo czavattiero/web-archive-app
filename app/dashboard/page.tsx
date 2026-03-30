@@ -141,8 +141,6 @@ export default function Dashboard() {
     <div style={{ display: "flex", minHeight: "100vh", background: "#f6f9fc" }}>
       {/* SIDEBAR */}
       <div
-      )
-      }
         style={{
           width: 220,
           background: "#0a2540",
@@ -160,11 +158,10 @@ export default function Dashboard() {
 />
           <div style={{ marginTop: 20, fontWeight: "bold" }}>Dashboard</div>
         </div>
-      )
-      }  
+</div>   // ✅ ADD THIS LINE (THIS CLOSES SIDEBAR)
 
-      {/* MAIN */}
-      <div style={{ flex: 1, padding: 30 }}>
+{/* MAIN */}
+<div style={{ flex: 1, padding: 30 }}>
         {/* 🔥 TOP RIGHT BAR */}
         <div
           style={{
