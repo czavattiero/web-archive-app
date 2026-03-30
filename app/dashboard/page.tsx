@@ -8,7 +8,7 @@ export default function Dashboard() {
   const router = useRouter()
 
   const [user, setUser] = useState<any>(null)
-  const [loadingUser, setLoadingUser] = useState(true)
+  const [loading, setLoading] = useState(true)
 
   const [url, setUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
@@ -17,51 +17,53 @@ export default function Dashboard() {
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
 
-  // 🔐 Load user
+  // ✅ SAFE AUTH + SUBSCRIPTION CHECK
   useEffect(() => {
-    async function loadUser() {
-  const { data } = await supabase.auth.getUser()
+    async function init() {
+      const { data } = await supabase.auth.getUser()
 
-  if (!data.user) {
-    router.push("/login")
-    return
-  }
+      // ❌ Not logged in → go to signup
+      if (!data.user) {
+        window.location.href = "/signup"
+        return
+      }
 
-  // ✅ CHECK SUBSCRIPTION HERE
-  const { data: subscription } = await supabase
-    .from("subscriptions")
-    .select("*")
-    .eq("user_id", data.user.id)
-    .single()
+      // ✅ Check subscription
+      const { data: subscription } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("user_id", data.user.id)
+        .maybeSingle()
 
-  if (!subscription) {
-    console.log("❌ No subscription → redirecting to signup")
-    router.push("/signup")
-    return
-  }
+      if (!subscription) {
+        console.log("❌ No subscription → redirecting")
+        window.location.href = "/signup"
+        return
+      }
 
-  console.log("✅ Subscription found:", subscription)
+      // ✅ User is valid
+      setUser(data.user)
+      setLoading(false)
 
-  setUser(data.user)
-  setLoadingUser(false)
-  fetchData(data.user)
-}
+      // ✅ Load data
+      fetchData(data.user)
+    }
 
-    loadUser()
+    init()
   }, [])
 
   // 🔄 Auto refresh
   useEffect(() => {
+    if (!user) return
+
     const interval = setInterval(() => {
-      if (user) fetchData(user)
+      fetchData(user)
     }, 5000)
 
     return () => clearInterval(interval)
   }, [user])
 
   async function fetchData(currentUser: any) {
-    if (!currentUser) return
-
     const { data: urlsData } = await supabase
       .from("urls")
       .select("*")
@@ -78,118 +80,129 @@ export default function Dashboard() {
   }
 
   async function addUrl() {
-  console.log("🚨 ADD URL CLICKED")
+    if (!user) return
 
-  if (!user) {
-    alert("User not loaded")
-    return
-  }
-
-  if (!url || url.trim() === "") {
-    alert("Please enter a URL")
-    return
-  }
-
-  // ✅ Always define selectedDate safely
-  let selectedDate = ""
-
-  if (schedule === "custom") {
-    if (!customDate || customDate.trim() === "") {
-      alert("Please select a date")
+    if (!url.trim()) {
+      alert("Enter a URL")
       return
     }
 
-    selectedDate = customDate
-  }
+    let selectedDate = ""
 
-  const now = new Date().toISOString()
+    if (schedule === "custom") {
+      if (!customDate) {
+        alert("Select a date")
+        return
+      }
+      selectedDate = customDate
+    }
 
-  const payload = {
-    url: url.trim(),
-    user_id: user.id,
-    next_capture_at: now, // 🔥 ALWAYS immediate
-    schedule_type: schedule,
-    schedule_value: selectedDate, // always safe string
-    status: "active",
-  }
+    const now = new Date().toISOString()
 
-  console.log("🚀 INSERT PAYLOAD:", payload)
+    const { error } = await supabase.from("urls").insert([
+      {
+        url: url.trim(),
+        user_id: user.id,
+        next_capture_at: now, // 🔥 DO NOT CHANGE
+        schedule_type: schedule,
+        schedule_value: selectedDate,
+        status: "active",
+      },
+    ])
 
-  const { data, error } = await supabase
-    .from("urls")
-    .insert([payload])
-    .select()
+    if (error) {
+      alert("Error adding URL")
+      return
+    }
 
-  if (error) {
-    console.error("❌ INSERT ERROR:", error)
-    alert("Error inserting URL")
-    return
-  }
+    await fetchData(user)
 
-  console.log("✅ INSERT SUCCESS:", data)
-
-  // ⚡ Instant UI update
-  await fetchData(user)
-
-  // ⚡ Trigger worker immediately
-  try {
+    // 🔥 trigger worker
     await fetch("/api/run-worker", { method: "POST" })
-  } catch (err) {
-    console.error("Worker trigger failed:", err)
-  }
 
-  // ✅ Reset inputs
-  setUrl("")
-  setCustomDate("")
-}
+    setUrl("")
+    setCustomDate("")
+  }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    router.push("/login")
+    window.location.href = "/signup"
   }
 
   function getUrlById(id: string) {
     return urls.find((u) => u.id === id)
   }
 
-  if (loadingUser) {
+  // ✅ CRITICAL LOADING GUARD
+  if (loading) {
     return <div style={{ padding: 40 }}>Loading...</div>
   }
 
   return (
-    <div style={layout}>
+    <div style={{ display: "flex", minHeight: "100vh", background: "#f6f9fc" }}>
       {/* SIDEBAR */}
-      <div style={sidebar}>
+      <div
+        style={{
+          width: 220,
+          background: "#0a2540",
+          color: "#fff",
+          padding: 20,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+        }}
+      >
         <div>
-          <h2 style={logo}>WebArchive</h2>
-          <div style={menuActive}>Dashboard</div>
+          <img src="/screenly-logo.png" style={{ height: 32 }} />
+          <div style={{ marginTop: 20, fontWeight: "bold" }}>Dashboard</div>
         </div>
-
-        <button onClick={handleSignOut} style={logoutButton}>
-          Sign Out
-        </button>
       </div>
 
       {/* MAIN */}
-      <div style={main}>
-        <h1 style={title}>Dashboard</h1>
+      <div style={{ flex: 1, padding: 30 }}>
+        {/* 🔥 TOP RIGHT BAR */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginBottom: 20,
+            gap: 12,
+          }}
+        >
+          <div>{user?.email}</div>
+
+          <button
+            onClick={handleSignOut}
+            style={{
+              background: "#ef4444",
+              color: "#fff",
+              padding: "6px 12px",
+              borderRadius: 6,
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Sign Out
+          </button>
+        </div>
+
+        <h1>Dashboard</h1>
 
         {/* ADD URL */}
-        <div style={card}>
-          <h3 style={cardTitle}>Add URL</h3>
+        <div style={{ background: "#fff", padding: 20, borderRadius: 10 }}>
+          <h3>Add URL</h3>
 
-          <div style={row}>
+          <div style={{ display: "flex", gap: 10 }}>
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com"
-              style={input}
+              style={{ flex: 1, padding: 10 }}
             />
 
             <select
               value={schedule}
               onChange={(e) => setSchedule(e.target.value)}
-              style={select}
             >
               <option value="weekly">Weekly</option>
               <option value="biweekly">Biweekly</option>
@@ -203,198 +216,32 @@ export default function Dashboard() {
                 type="date"
                 value={customDate}
                 onChange={(e) => setCustomDate(e.target.value)}
-                style={input}
               />
             )}
 
-            <button
-              onClick={addUrl}
-              style={button}
-            >
-              Add URL
-             </button>
+            <button onClick={addUrl}>Add URL</button>
           </div>
         </div>
 
         {/* TRACKED URLS */}
-        <div style={card}>
-          <h3 style={cardTitle}>Tracked URLs</h3>
+        <div style={{ marginTop: 20 }}>
+          <h3>Tracked URLs</h3>
 
-          <table style={table}>
-            <thead>
-              <tr>
-                <th style={th}>URL</th>
-                <th style={th}>Schedule</th>
-                <th style={th}>Date Added</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {urls.length === 0 ? (
-                <tr>
-                  <td colSpan={3} style={empty}>
-                    No URLs yet
-                  </td>
-                </tr>
-              ) : (
-                urls.map((u) => (
-                  <tr key={u.id}>
-                    <td style={td}>{u.url}</td>
-                    <td style={td}>
-                      {u.schedule_type === "custom" || u.schedule_type === "custom_date"
-                      ? `Specific date: ${u.schedule_value}`
-                      : u.schedule_type}
-                  </td>
-                    <td style={td}>
-                      {new Date(u.created_at).toLocaleString()}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+          {urls.map((u) => (
+            <div key={u.id}>{u.url}</div>
+          ))}
         </div>
 
         {/* CAPTURE HISTORY */}
-        <div style={card}>
-          <h3 style={cardTitle}>Capture History</h3>
+        <div style={{ marginTop: 20 }}>
+          <h3>Capture History</h3>
 
-          <table style={table}>
-            <thead>
-              <tr>
-                <th style={th}>URL</th>
-                <th style={th}>Captured At</th>
-                <th style={th}>PDF</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {captures.length === 0 ? (
-                <tr>
-                  <td colSpan={3} style={empty}>
-                    No captures yet
-                  </td>
-                </tr>
-              ) : (
-                captures.map((c) => {
-                  if (!c.file_path) return null
-
-                  const urlData = getUrlById(c.url_id)
-
-                  const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
-
-                  return (
-                    <tr key={c.id}>
-                      <td style={td}>{urlData?.url || "Unknown"}</td>
-                      <td style={td}>
-                        {new Date(c.created_at).toLocaleString()}
-                      </td>
-                      <td style={td}>
-                        <a href={publicUrl} target="_blank" style={link}>
-                          Download
-                        </a>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
+          {captures.map((c) => {
+            const urlData = getUrlById(c.url_id)
+            return <div key={c.id}>{urlData?.url}</div>
+          })}
         </div>
       </div>
     </div>
   )
-}
-
-/* STYLES */
-
-const layout: React.CSSProperties = {
-  display: "flex",
-  background: "#f6f9fc",
-  minHeight: "100vh",
-}
-
-const sidebar: React.CSSProperties = {
-  width: "220px",
-  background: "#0a2540",
-  color: "#fff",
-  padding: "20px",
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "space-between",
-  height: "100vh",
-}
-
-const logo = { marginBottom: "30px" }
-const menuActive = { padding: "10px 0", fontWeight: "bold" }
-
-const logoutButton: React.CSSProperties = {
-  background: "#ff4d4f",
-  color: "#fff",
-  padding: "10px",
-  borderRadius: "6px",
-  border: "none",
-  cursor: "pointer",
-}
-
-const main: React.CSSProperties = { flex: 1, padding: "30px" }
-const title: React.CSSProperties = { fontSize: "24px", marginBottom: "20px" }
-
-const card: React.CSSProperties = {
-  background: "#fff",
-  padding: "20px",
-  borderRadius: "10px",
-  marginBottom: "20px",
-}
-
-const cardTitle = { marginBottom: "10px" }
-const row: React.CSSProperties = { display: "flex", gap: "10px" }
-
-const input: React.CSSProperties = {
-  flex: 1,
-  padding: "10px",
-  borderRadius: "6px",
-  border: "1px solid #ddd",
-}
-
-const select: React.CSSProperties = {
-  padding: "10px",
-  borderRadius: "6px",
-  border: "1px solid #ddd",
-}
-
-const button: React.CSSProperties = {
-  background: "#635bff",
-  color: "#fff",
-  padding: "10px 16px",
-  borderRadius: "6px",
-  border: "none",
-  cursor: "pointer",
-}
-
-const table: React.CSSProperties = {
-  width: "100%",
-  borderCollapse: "collapse",
-}
-
-const th: React.CSSProperties = {
-  textAlign: "left",
-  padding: "10px",
-  fontSize: "12px",
-  color: "#8898aa",
-}
-
-const td: React.CSSProperties = {
-  padding: "10px",
-  borderTop: "1px solid #eee",
-}
-
-const empty: React.CSSProperties = {
-  padding: "20px",
-  textAlign: "center",
-}
-
-const link: React.CSSProperties = {
-  color: "#635bff",
-  textDecoration: "none",
 }
