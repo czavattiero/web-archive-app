@@ -27,19 +27,18 @@ export default function Dashboard() {
         window.location.href = "/signup"
         return
       }
+      
+      // TEMP: disable subscription check
+// const { data: subscription } = await supabase
+//   .from("subscriptions")
+//   .select("*")
+//   .eq("user_id", data.user.id)
+//   .maybeSingle()
 
-      // ✅ Check subscription
-      const { data: subscription } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", data.user.id)
-        .maybeSingle()
-
-      if (!subscription) {
-        console.log("❌ No subscription → redirecting")
-        window.location.href = "/signup"
-        return
-      }
+// if (!subscription) {
+//   window.location.href = "/signup"
+//   return
+// }
 
       // ✅ User is valid
       setUser(data.user)
