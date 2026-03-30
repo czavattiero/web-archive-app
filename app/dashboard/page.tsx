@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-const router = useRouter()
 import { supabase } from "../../lib/supabase"
 
 export default function Dashboard() {
@@ -136,8 +135,8 @@ export default function Dashboard() {
   // ✅ CRITICAL LOADING GUARD
   if (loading) {
     return <div style={{ padding: 40 }}>Loading...</div>
-
-  return (
+  }
+  
     <div style={{ display: "flex", minHeight: "100vh", background: "#f6f9fc" }}>
       {/* SIDEBAR */}
       <div
@@ -174,7 +173,7 @@ export default function Dashboard() {
           <div>{user?.email}</div>
 
           <button
-            onClick={handleSignOut}
+            onClick={handleLogout}
             style={{
               background: "#ef4444",
               color: "#fff",
@@ -276,16 +275,6 @@ export default function Dashboard() {
     fontSize: 14,
     outline: "none",
     boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-  }}
-/>
-  value={search}
-  onChange={(e) => setSearch(e.target.value)}
-  style={{
-    width: "100%",
-    padding: "10px",
-    margin: "10px 0 20px 0",
-    borderRadius: 8,
-    border: "1px solid #E5E7EB",
   }}
 />
 
