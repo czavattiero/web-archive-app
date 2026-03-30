@@ -30,9 +30,10 @@ export default function Dashboard() {
     if (!isMounted) return
 
     if (!data.user) {
-      router.replace("/signup")
-      return
-    }
+  console.log("🚨 DASHBOARD REDIRECT TRIGGERED")
+  router.replace("/signup")
+  return
+}
 
     setUser(data.user)
     setLoading(false)
