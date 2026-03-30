@@ -8,24 +8,23 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // 🔥 IMPORTANT
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
 export async function POST(req: Request) {
   const event = await req.json()
 
-  // 🎯 HANDLE CHECKOUT SUCCESS
   if (event.type === "checkout.session.completed") {
-  const session = event.data.object
+    const session = event.data.object
 
     const email = session.customer_email
 
     console.log("✅ Payment success for:", email)
 
-    // 🔥 FIND USER BY EMAIL
     const { data: users } = await supabase.auth.admin.listUsers()
 
-    const user = users.users.find(u => u.email === email)
+    // ✅ FIXED LINE
+    const user = (users?.users || []).find((u: any) => u.email === email)
 
     if (!user) {
       console.log("❌ No user found for email:", email)
@@ -34,7 +33,6 @@ export async function POST(req: Request) {
 
     console.log("✅ Found user:", user.id)
 
-    // 🔥 SAVE SUBSCRIPTION WITH user_id
     const { error } = await supabase.from("subscriptions").insert({
       user_id: user.id,
       stripe_customer_id: session.customer,
