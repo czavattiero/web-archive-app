@@ -226,19 +226,90 @@ export default function Dashboard() {
         <div style={{ marginTop: 20 }}>
           <h3>Tracked URLs</h3>
 
-          {urls.map((u) => (
-            <div key={u.id}>{u.url}</div>
-          ))}
+          <table style={{ width: "100%", marginTop: 10 }}>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>URL</th>
+      <th style={{ textAlign: "left" }}>Schedule</th>
+      <th style={{ textAlign: "left" }}>Date Added</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {urls.length === 0 ? (
+      <tr>
+        <td colSpan={3}>No URLs yet</td>
+      </tr>
+    ) : (
+      urls.map((u) => (
+        <tr key={u.id}>
+          <td>{u.url}</td>
+
+          <td>
+            {u.schedule_type === "custom"
+              ? `Specific date: ${u.schedule_value}`
+              : u.schedule_type === "weekly"
+              ? "Every week"
+              : u.schedule_type === "biweekly"
+              ? "Every 2 weeks"
+              : u.schedule_type === "29days"
+              ? "Every 29 days"
+              : u.schedule_type === "30days"
+              ? "Every 30 days"
+              : u.schedule_type}
+          </td>
+
+          <td>
+            {new Date(u.created_at).toLocaleString()}
+          </td>
+        </tr>
+      ))
+    )}
+  </tbody>
+</table>
         </div>
 
         {/* CAPTURE HISTORY */}
         <div style={{ marginTop: 20 }}>
           <h3>Capture History</h3>
 
-          {captures.map((c) => {
-            const urlData = getUrlById(c.url_id)
-            return <div key={c.id}>{urlData?.url}</div>
-          })}
+          <table style={{ width: "100%", marginTop: 10 }}>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>URL</th>
+      <th style={{ textAlign: "left" }}>Captured At</th>
+      <th style={{ textAlign: "left" }}>PDF</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {captures.length === 0 ? (
+      <tr>
+        <td colSpan={3}>No captures yet</td>
+      </tr>
+    ) : (
+      captures.map((c) => {
+        if (!c.file_path) return null
+
+        const urlData = getUrlById(c.url_id)
+
+        const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
+
+        return (
+          <tr key={c.id}>
+            <td>{urlData?.url || "Unknown"}</td>
+            <td>{new Date(c.created_at).toLocaleString()}</td>
+            <td>
+              <a href={publicUrl} target="_blank">
+                Download
+              </a>
+            </td>
+          </tr>
+        )
+      })
+    )}
+  </tbody>
+</table>
         </div>
       </div>
     </div>
