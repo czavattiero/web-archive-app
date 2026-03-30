@@ -122,8 +122,11 @@ export default function Dashboard() {
   const handleLogout = async () => {
   await supabase.auth.signOut()
 
-  // 🔥 force full reset (important)
-  window.location.replace("/")
+  // 🔥 Clear local storage session manually (critical)
+  localStorage.clear()
+
+  // 🔥 Hard redirect (no React interference)
+  window.location.href = "/"
 }
 
   function getUrlById(id: string) {
