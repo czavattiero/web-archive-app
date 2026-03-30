@@ -190,6 +190,11 @@ export default function Dashboard() {
         </div>
 
         <h1>Dashboard</h1>
+        {loading && (
+  <p style={{ color: "#6b7280" }}>
+    Capturing... ⏳ This may take ~10 seconds
+  </p>
+)}
 
         {/* ADD URL */}
         <div style={{ background: "#fff", padding: 20, borderRadius: 10 }}>
