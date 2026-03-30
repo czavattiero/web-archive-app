@@ -196,36 +196,70 @@ export default function Dashboard() {
           <h3>Add URL</h3>
 
           <div style={{ display: "flex", gap: 10 }}>
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com"
-              style={{ flex: 1, padding: 10 }}
-            />
+            <div
+  style={{
+    display: "flex",
+    gap: 10,
+    alignItems: "center",
+  }}
+>
+  <input
+    type="text"
+    placeholder="https://example.com"
+    value={url}
+    onChange={(e) => setUrl(e.target.value)}
+    style={{
+      flex: 1,
+      padding: "12px",
+      borderRadius: 10,
+      border: "1px solid #E5E7EB",
+    }}
+  />
 
-            <select
-              value={schedule}
-              onChange={(e) => setSchedule(e.target.value)}
-            >
-              <option value="weekly">Weekly</option>
-              <option value="biweekly">Biweekly</option>
-              <option value="29days">Every 29 days</option>
-              <option value="30days">Every 30 days</option>
-              <option value="custom">Specific date</option>
-            </select>
+  <select
+    value={schedule}
+    onChange={(e) => setSchedule(e.target.value)}
+    style={{
+      padding: "12px",
+      borderRadius: 10,
+      border: "1px solid #E5E7EB",
+    }}
+  >
+    <option value="weekly">Weekly</option>
+    <option value="biweekly">Biweekly</option>
+    <option value="29days">Every 29 days</option>
+    <option value="30days">Every 30 days</option>
+    <option value="custom">Specific date</option>
+  </select>
 
-            {schedule === "custom" && (
-              <input
-                type="date"
-                value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
-              />
-            )}
+  {schedule === "custom" && (
+    <input
+      type="date"
+      value={customDate}
+      onChange={(e) => setCustomDate(e.target.value)}
+      style={{
+        padding: "12px",
+        borderRadius: 10,
+        border: "1px solid #E5E7EB",
+      }}
+    />
+  )}
 
-            <button onClick={addUrl}>Add URL</button>
-          </div>
-        </div>
-
+  <button
+    onClick={addUrl}
+    style={{
+      background: "#6A11CB",
+      color: "white",
+      padding: "12px 18px",
+      borderRadius: 10,
+      border: "none",
+      fontWeight: 600,
+      cursor: "pointer",
+    }}
+  >
+    Add URL
+  </button>
+</div>
         {/* TRACKED URLS */}
         <div style={{ marginTop: 20 }}>
           <h3>Tracked URLs</h3>
