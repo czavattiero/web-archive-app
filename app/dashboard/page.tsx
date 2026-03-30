@@ -231,7 +231,20 @@ export default function Dashboard() {
           <h3>Tracked URLs</h3>
           <input
   type="text"
-  placeholder="Search URLs..."
+  placeholder="🔍 Search your URLs..."
+  value={search}
+  onChange={(e) => setSearch(e.target.value)}
+  style={{
+    width: "100%",
+    padding: "12px 14px",
+    margin: "10px 0 20px 0",
+    borderRadius: 10,
+    border: "1px solid #E5E7EB",
+    fontSize: 14,
+    outline: "none",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+  }}
+/>
   value={search}
   onChange={(e) => setSearch(e.target.value)}
   style={{
