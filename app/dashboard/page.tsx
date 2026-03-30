@@ -70,48 +70,58 @@ export default function Dashboard() {
   }
 
   async function addUrl() {
-    if (!user) return
+  if (!user) return
 
-    if (!url.trim()) {
-      alert("Enter a URL")
-      return
-    }
-
-    let selectedDate = ""
-
-    if (schedule === "custom") {
-      if (!customDate) {
-        alert("Select a date")
-        return
-      }
-      selectedDate = customDate
-    }
-
-    const now = new Date().toISOString()
-
-    const { error } = await supabase.from("urls").insert([
-      {
-        url: url.trim(),
-        user_id: user.id,
-        next_capture_at: now,
-        schedule_type: schedule,
-        schedule_value: selectedDate,
-        status: "active",
-      },
-    ])
-
-    if (error) {
-      alert("Error adding URL")
-      return
-    }
-
-    await fetchData(user)
-    await fetch("/api/run-worker", { method: "POST" })
-
-    setUrl("")
-    setCustomDate("")
+  if (!url.trim()) {
+    alert("Enter a URL")
+    return
   }
 
+  let selectedDate = ""
+
+  if (schedule === "custom") {
+    if (!customDate) {
+      alert("Select a date")
+      return
+    }
+    selectedDate = customDate
+  }
+
+  const now = new Date().toISOString()
+
+  const { error } = await supabase.from("urls").insert([
+    {
+      url: url.trim(),
+      user_id: user.id,
+      next_capture_at: now,
+      schedule_type: schedule,
+      schedule_value: selectedDate,
+      status: "active",
+    },
+  ])
+
+  if (error) {
+    alert("Error adding URL")
+    return
+  }
+
+  // ✅ 1. Trigger worker FIRST
+  await fetch("/api/run-worker", { method: "POST" })
+
+  // ✅ 2. Show immediate feedback (optional but recommended)
+  setLoading(true)
+
+  // ✅ 3. Wait before refreshing data
+  setTimeout(async () => {
+    await fetchData(user)
+    setLoading(false)
+  }, 8000) // ⏱ adjust if needed
+
+  // ✅ 4. Reset inputs
+  setUrl("")
+  setCustomDate("")
+}
+  
   const handleLogout = async () => {
     await supabase.auth.signOut()
     localStorage.clear()
