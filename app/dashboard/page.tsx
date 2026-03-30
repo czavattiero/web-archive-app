@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+const router = useRouter()
 import { supabase } from "../../lib/supabase"
 
 export default function Dashboard() {
@@ -20,38 +21,31 @@ export default function Dashboard() {
 
   // ✅ SAFE AUTH + SUBSCRIPTION CHECK
   useEffect(() => {
-    async function init() {
-      const { data } = await supabase.auth.getUser()
+  let isMounted = true
 
-      // ❌ Not logged in → go to signup
-      if (!data.user) {
-        window.location.href = "/signup"
-        return
-      }
-      
-      // TEMP: disable subscription check
-// const { data: subscription } = await supabase
-//   .from("subscriptions")
-//   .select("*")
-//   .eq("user_id", data.user.id)
-//   .maybeSingle()
+  async function init() {
+    const { data } = await supabase.auth.getUser()
 
-// if (!subscription) {
-//   window.location.href = "/signup"
-//   return
-// }
+    // 🛑 prevent running after unmount (fixes logout bug)
+    if (!isMounted) return
 
-      // ✅ User is valid
-      setUser(data.user)
-      setLoading(false)
-
-      // ✅ Load data
-      fetchData(data.user)
+    if (!data.user) {
+      router.replace("/signup")
+      return
     }
 
-    init()
-  }, [])
+    setUser(data.user)
+    setLoading(false)
 
+    fetchData(data.user)
+  }
+
+  init()
+
+  return () => {
+    isMounted = false
+  }
+}, [])
   // 🔄 Auto refresh
   useEffect(() => {
     if (!user) return
@@ -124,10 +118,12 @@ export default function Dashboard() {
     setCustomDate("")
   }
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    window.location.href = "/"
-  }
+  const handleLogout = async () => {
+  await supabase.auth.signOut()
+
+  // 🔥 force full reset (important)
+  window.location.replace("/")
+}
 
   function getUrlById(id: string) {
     return urls.find((u) => u.id === id)
