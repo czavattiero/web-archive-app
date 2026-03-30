@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic"
 
 export const metadata = {
   title: "Screenly",
-  description: "Automated website archiving",
+  description: "Automated screenshots with timestamp",
 }
 
 export default function RootLayout({
