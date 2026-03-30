@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [customDate, setCustomDate] = useState("")
 
   const [urls, setUrls] = useState<any[]>([])
+  const [search, setSearch] = useState("")
   const [captures, setCaptures] = useState<any[]>([])
 
   // ✅ SAFE AUTH + SUBSCRIPTION CHECK
@@ -152,7 +153,10 @@ export default function Dashboard() {
         }}
       >
         <div>
-          <img src="/screenly-logo.png" style={{ height: 32 }} />
+          <img 
+  src="/screenly-logo.png" 
+  style={{ width: 140, marginBottom: 20 }} 
+/>
           <div style={{ marginTop: 20, fontWeight: "bold" }}>Dashboard</div>
         </div>
       </div>
@@ -225,6 +229,19 @@ export default function Dashboard() {
         {/* TRACKED URLS */}
         <div style={{ marginTop: 20 }}>
           <h3>Tracked URLs</h3>
+          <input
+  type="text"
+  placeholder="Search URLs..."
+  value={search}
+  onChange={(e) => setSearch(e.target.value)}
+  style={{
+    width: "100%",
+    padding: "10px",
+    margin: "10px 0 20px 0",
+    borderRadius: 8,
+    border: "1px solid #E5E7EB",
+  }}
+/>
 
           <table style={{ width: "100%", marginTop: 10 }}>
   <thead>
@@ -241,7 +258,11 @@ export default function Dashboard() {
         <td colSpan={3}>No URLs yet</td>
       </tr>
     ) : (
-      urls.map((u) => (
+      urls
+  .filter((u) =>
+    u.url.toLowerCase().includes(search.toLowerCase())
+  )
+  .map((u) => (
         <tr key={u.id}>
           <td>{u.url}</td>
 
@@ -288,7 +309,14 @@ export default function Dashboard() {
         <td colSpan={3}>No captures yet</td>
       </tr>
     ) : (
-      captures.map((c) => {
+      captures
+  .filter((c) => {
+    const urlData = getUrlById(c.url_id)
+    return urlData?.url
+      ?.toLowerCase()
+      .includes(search.toLowerCase())
+  })
+  .map((c) => {
         if (!c.file_path) return null
 
         const urlData = getUrlById(c.url_id)
