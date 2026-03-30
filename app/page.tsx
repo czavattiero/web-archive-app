@@ -1,3 +1,5 @@
+"use client"
+
 export default function Home() {
   return (
     <main
@@ -75,8 +77,9 @@ export default function Home() {
             }}
           >
             Add a URL once. Screenly monitors and saves it as a PDF according to your schedule
+</p>
 
-          <div style={{ display: "flex", gap: 16 }}>
+<div style={{ display: "flex", gap: 16 }}>
             <a href="/signup">
               <button
                 style={{
