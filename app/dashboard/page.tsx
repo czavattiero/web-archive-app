@@ -126,7 +126,7 @@ export default function Dashboard() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    window.location.href = "/signup"
+    window.location.href = "/"
   }
 
   function getUrlById(id: string) {
