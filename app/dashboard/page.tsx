@@ -137,9 +137,12 @@ export default function Dashboard() {
     return <div style={{ padding: 40 }}>Loading...</div>
   }
   
+  return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f6f9fc" }}>
       {/* SIDEBAR */}
       <div
+      )
+      }
         style={{
           width: 220,
           background: "#0a2540",
@@ -157,7 +160,8 @@ export default function Dashboard() {
 />
           <div style={{ marginTop: 20, fontWeight: "bold" }}>Dashboard</div>
         </div>
-      </div>
+      )
+      }  
 
       {/* MAIN */}
       <div style={{ flex: 1, padding: 30 }}>
