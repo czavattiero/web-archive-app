@@ -136,7 +136,6 @@ export default function Dashboard() {
   // ✅ CRITICAL LOADING GUARD
   if (loading) {
     return <div style={{ padding: 40 }}>Loading...</div>
-  }
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f6f9fc" }}>
