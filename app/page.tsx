@@ -62,7 +62,7 @@ export default function Home() {
         {/* LEFT */}
         <div>
           <h1 style={{ fontSize: 56, fontWeight: 800, marginBottom: 24 }}>
-            Automatically capture and archive any webpage
+            Automated screenshots with timestamp
           </h1>
 
           <p
@@ -74,8 +74,7 @@ export default function Home() {
               maxWidth: 550,
             }}
           >
-            Add a URL once. Screenly monitors and saves it as a PDF — so you never lose important content again.
-          </p>
+            Add a URL once. Screenly monitors and saves it as a PDF according to your schedule
 
           <div style={{ display: "flex", gap: 16 }}>
             <a href="/signup">
