@@ -54,7 +54,7 @@ export default function Home() {
       >
         <div>
           <h1 style={{ fontSize: 52, fontWeight: 800 }}>
-            Prove your job posting stayed online — automatically
+            Automated screenshots with timestamp.
           </h1>
 
           <p
@@ -66,8 +66,7 @@ export default function Home() {
               lineHeight: 1.6,
             }}
           >
-            Generate timestamped screenshots of job postings over time to meet
-            compliance requirements for Canadian immigration applications.
+            No manual screenshots. No gaps. No uncertainty.
           </p>
 
           <div style={{ marginTop: 30 }}>
@@ -133,7 +132,7 @@ export default function Home() {
             <div style={{ fontSize: 40 }}>📄</div>
             <h3>Download proof</h3>
             <p style={{ color: "#6B7280" }}>
-              Use for compliance or submissions
+              Access and download your timestamped PDFs for 62 days
             </p>
           </div>
         </div>
@@ -193,8 +192,8 @@ export default function Home() {
 
             <ul style={list}>
               <li>Unlimited URLs</li>
-              <li>Custom schedules</li>
-              <li>Priority support</li>
+              <li>Scheduled captures</li>
+              <li>PDF downloads</li>
             </ul>
 
             <p style={{ marginTop: 20, fontWeight: 600 }}>
