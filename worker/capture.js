@@ -14,13 +14,12 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   process.exit(1)
 }
 
-// ✅ FIXED: added missing comma
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// 🔁 Retry loader (FIXED)
+// 🔁 Retry loader
 async function loadPageWithRetry(page, url, retries = 2) {
   for (let i = 0; i <= retries; i++) {
     try {
@@ -35,14 +34,11 @@ async function loadPageWithRetry(page, url, retries = 2) {
     } catch (error) {
       console.error(`❌ Attempt ${i + 1} failed:`, error.message)
 
-      if (i === retries) {
-        return false
-      }
+      if (i === retries) return false
 
       await new Promise((res) => setTimeout(res, 3000))
     }
   }
-
   return false
 }
 
@@ -65,6 +61,31 @@ async function insertCapture({ urlObj, file_path, status, error }) {
     console.error("❌ Insert error:", insertError)
   } else {
     console.log("✅ Capture inserted")
+  }
+}
+
+// ✅ NEW: Safe next-date calculator (NO mutation bugs)
+function getNextCaptureDate(urlObj) {
+  const base = new Date()
+
+  switch (urlObj.schedule_type) {
+    case "weekly":
+      return new Date(base.getTime() + 7 * 24 * 60 * 60 * 1000)
+
+    case "biweekly":
+      return new Date(base.getTime() + 14 * 24 * 60 * 60 * 1000)
+
+    case "29days":
+      return new Date(base.getTime() + 29 * 24 * 60 * 60 * 1000)
+
+    case "30days":
+      return new Date(base.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+    case "custom":
+      return null
+
+    default:
+      return new Date(base.getTime() + 7 * 24 * 60 * 60 * 1000)
   }
 }
 
@@ -94,10 +115,7 @@ async function run() {
 
   const browser = await chromium.launch({
     headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-blink-features=AutomationControlled",
-    ],
+    args: ["--no-sandbox", "--disable-blink-features=AutomationControlled"],
   })
 
   const context = await browser.newContext({
@@ -119,9 +137,7 @@ async function run() {
     try {
       const loaded = await loadPageWithRetry(page, urlObj.url)
 
-      if (!loaded) {
-        throw new Error("Failed after retries")
-      }
+      if (!loaded) throw new Error("Failed after retries")
 
       await page.waitForTimeout(3000)
 
@@ -134,29 +150,13 @@ async function run() {
       const pdfBuffer = await page.pdf({
         format: "A4",
         displayHeaderFooter: true,
-
         headerTemplate: `
-          <div style="
-            width: 100%;
-            font-size: 11px;
-            padding: 8px 12px;
-            text-align: right;
-            background: white;
-            color: black;
-            border-bottom: 1px solid #ccc;
-            box-sizing: border-box;
-          ">
+          <div style="width:100%;font-size:11px;padding:8px 12px;text-align:right;background:white;color:black;border-bottom:1px solid #ccc;">
             Captured: ${timestamp}
           </div>
         `,
-
         footerTemplate: `<div></div>`,
-
-        margin: {
-          top: "70px",
-          bottom: "30px",
-        },
-
+        margin: { top: "70px", bottom: "30px" },
         printBackground: true,
       })
 
@@ -166,9 +166,7 @@ async function run() {
           contentType: "application/pdf",
         })
 
-      if (uploadError) {
-        throw new Error(uploadError.message)
-      }
+      if (uploadError) throw new Error(uploadError.message)
 
       console.log("✅ Upload success:", filePath)
 
@@ -179,41 +177,22 @@ async function run() {
         error: null,
       })
 
-      let next = new Date()
+      // ✅ FIXED SCHEDULING
+      const nextDate = getNextCaptureDate(urlObj)
 
-      switch (urlObj.schedule_type) {
-  case "weekly":
-    next.setDate(next.getDate() + 7)
-    break
-
-  case "biweekly":
-    next.setDate(next.getDate() + 14)
-    break
-
-  case "29days":
-    next.setDate(next.getDate() + 29)
-    break
-
-  case "30days":
-    next.setDate(next.getDate() + 30)
-    break
-
-  case "custom":
-    await supabase
-      .from("urls")
-      .update({ status: "completed" })
-      .eq("id", urlObj.id)
-    break
-
-  default:
-    next.setDate(next.getDate() + 7)
-}
-
-      if (urlObj.schedule_type !== "custom") {
+      if (urlObj.schedule_type === "custom") {
         await supabase
           .from("urls")
           .update({
-            next_capture_at: next.toISOString(),
+            status: "completed",
+            last_captured_at: new Date().toISOString(),
+          })
+          .eq("id", urlObj.id)
+      } else {
+        await supabase
+          .from("urls")
+          .update({
+            next_capture_at: nextDate.toISOString(),
             last_captured_at: new Date().toISOString(),
           })
           .eq("id", urlObj.id)
