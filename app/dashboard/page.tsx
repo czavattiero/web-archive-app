@@ -9,7 +9,6 @@ export default function Dashboard() {
 
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  
   const [isCapturing, setIsCapturing] = useState(false)
 
   const [url, setUrl] = useState("")
@@ -21,12 +20,8 @@ export default function Dashboard() {
   const [captures, setCaptures] = useState<any[]>([])
 
   useEffect(() => {
-    let isMounted = true
-
     async function init() {
       const { data } = await supabase.auth.getUser()
-
-      if (!isMounted) return
 
       if (!data.user) {
         router.replace("/signup")
@@ -39,10 +34,6 @@ export default function Dashboard() {
     }
 
     init()
-
-    return () => {
-      isMounted = false
-    }
   }, [router])
 
   useEffect(() => {
@@ -72,58 +63,44 @@ export default function Dashboard() {
   }
 
   async function addUrl() {
-  if (!user) return
+    if (!user) return
+    if (!url.trim()) return alert("Enter a URL")
 
-  if (!url.trim()) {
-    alert("Enter a URL")
-    return
-  }
+    let selectedDate = ""
 
-  let selectedDate = ""
-
-  if (schedule === "custom") {
-    if (!customDate) {
-      alert("Select a date")
-      return
+    if (schedule === "custom") {
+      if (!customDate) return alert("Select a date")
+      selectedDate = customDate
     }
-    selectedDate = customDate
+
+    const now = new Date().toISOString()
+
+    const { error } = await supabase.from("urls").insert([
+      {
+        url: url.trim(),
+        user_id: user.id,
+        next_capture_at: now,
+        schedule_type: schedule,
+        schedule_value: selectedDate,
+        status: "active",
+      },
+    ])
+
+    if (error) return alert("Error adding URL")
+
+    await fetch("/api/run-worker", { method: "POST" })
+
+    setIsCapturing(true)
+
+    setTimeout(async () => {
+      await fetchData(user)
+      setIsCapturing(false)
+    }, 8000)
+
+    setUrl("")
+    setCustomDate("")
   }
 
-  const now = new Date().toISOString()
-
-  const { error } = await supabase.from("urls").insert([
-    {
-      url: url.trim(),
-      user_id: user.id,
-      next_capture_at: now,
-      schedule_type: schedule,
-      schedule_value: selectedDate,
-      status: "active",
-    },
-  ])
-
-  if (error) {
-    alert("Error adding URL")
-    return
-  }
-
-  // ✅ 1. Trigger worker FIRST
-  await fetch("/api/run-worker", { method: "POST" })
-
-  // ✅ 2. Show immediate feedback (optional but recommended)
-  setIsCapturing(true)
-
-  // ✅ 3. Wait before refreshing data
-  setTimeout(async () => {
-    await fetchData(user)
-    setIsCapturing(false)
-  }, 8000) // ⏱ adjust if needed
-
-  // ✅ 4. Reset inputs
-  setUrl("")
-  setCustomDate("")
-}
-  
   const handleLogout = async () => {
     await supabase.auth.signOut()
     localStorage.clear()
@@ -134,107 +111,58 @@ export default function Dashboard() {
     return urls.find((u) => u.id === id)
   }
 
-  if (loading) {
-    return <div style={{ padding: 40 }}>Loading...</div>
-  }
+  if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F5F7FB" }}>
       
       {/* SIDEBAR */}
-      <div
-  style={{
-    width: 240,
-    background: "#0F172A", // darker modern navy
-    color: "#fff",
-    padding: 24,
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-  }}
->
-        <div>
-          <img
-            src="/screenly-logo.png"
-            style={{ width: 160, marginBottom: 20 }}
-          />
-          <div style={{ marginTop: 20, fontWeight: "bold" }}>Dashboard</div>
-        </div>
+      <div style={{
+        width: 240,
+        background: "#0F172A",
+        color: "#fff",
+        padding: 24
+      }}>
+        <img src="/screenly-logo.png" style={{ width: 160 }} />
+        <div style={{ marginTop: 30, fontWeight: "bold" }}>Dashboard</div>
       </div>
 
       {/* MAIN */}
       <div style={{ flex: 1, padding: 40 }}>
         
-        {/* TOP BAR */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            marginBottom: 20,
-            gap: 12,
-          }}
-        >
+        {/* TOP */}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <div>{user?.email}</div>
-
-          <button
-            onClick={handleLogout}
-            style={{
-              background: "#ef4444",
-              color: "#fff",
-              padding: "6px 12px",
-              borderRadius: 6,
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
+          <button onClick={handleLogout} style={{
+            background: "#ef4444",
+            color: "#fff",
+            padding: "6px 12px",
+            borderRadius: 6,
+            border: "none"
+          }}>
             Sign Out
           </button>
         </div>
 
-        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 20 }}>
-  Dashboard
-</h1>
+        <h1 style={{ fontSize: 28, marginBottom: 20 }}>Dashboard</h1>
+
         {isCapturing && (
-  <p style={{ color: "#6b7280", marginBottom: 10 }}>
-    Capturing... ⏳ This may take ~10 seconds
-  </p>
-)}
+          <p style={{ color: "#6b7280" }}>Capturing... ⏳</p>
+        )}
 
         {/* ADD URL */}
-        <div
-  style={{
-    background: "#ffffff",
-    padding: 24,
-    borderRadius: 16,
-    boxShadow: "0 10px 25px rgba(0,0,0,0.05)",
-    border: "1px solid #eef0f5",
-  }}
->
+        <div style={cardStyle}>
           <h3>Add URL</h3>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 10 }}>
             <input
-              type="text"
-              placeholder="https://example.com"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              style={{
-                flex: 1,
-                padding: "12px",
-                borderRadius: 10,
-                border: "1px solid #E5E7EB",
-              }}
+              placeholder="https://example.com"
+              style={inputStyle}
             />
 
-            <select
-              value={schedule}
-              onChange={(e) => setSchedule(e.target.value)}
-              style={{
-                padding: "12px",
-                borderRadius: 10,
-                border: "1px solid #E5E7EB",
-              }}
-            >
+            <select value={schedule} onChange={(e) => setSchedule(e.target.value)} style={inputStyle}>
               <option value="weekly">Weekly</option>
               <option value="biweekly">Biweekly</option>
               <option value="29days">Every 29 days</option>
@@ -247,189 +175,113 @@ export default function Dashboard() {
                 type="date"
                 value={customDate}
                 onChange={(e) => setCustomDate(e.target.value)}
-                style={{
-                  padding: "12px",
-                  borderRadius: 10,
-                  border: "1px solid #E5E7EB",
-                  background: "#F9FAFB",
-                  boxShadow: "inset 0 1px 2px rgba(0,0,0,0.05)",
-                }}
+                style={inputStyle}
               />
             )}
 
-            <button
-              onClick={addUrl}
-              style={{
-                background: "linear-gradient(135deg, #7C3AED, #9333EA)",
-                color: "white",
-                padding: "12px 18px",
-                borderRadius: 10,
-                border: "none",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
+            <button onClick={addUrl} style={buttonStyle}>
               Add URL
             </button>
           </div>
         </div>
 
-        {/* TRACKED URLS */}
-        <div
-  style={{
-    marginTop: 20,
-    background: "#fff",
-    padding: 24,
-    borderRadius: 16,
-    boxShadow: "0 10px 25px rgba(0,0,0,0.05)",
-    border: "1px solid #eef0f5",
-  }}
->
+        {/* TRACKED */}
+        <div style={cardStyle}>
           <h3>Tracked URLs</h3>
 
           <input
-            type="text"
-            placeholder="🔍 Search your URLs..."
+            placeholder="Search..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "12px 14px",
-              margin: "10px 0 20px 0",
-              borderRadius: 10,
-              border: "1px solid #E5E7EB",
-            }}
+            style={searchStyle}
           />
 
-          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 10px" }}>
-            <thead>
-              <tr>
-                <th align="left">URL</th>
-                <th align="left">Schedule</th>
-                <th align="left">Date Added</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {urls.length === 0 ? (
-                <tr>
-                  <td colSpan={3}>No URLs yet</td>
-                </tr>
-              ) : (
-                urls
-                  .filter((u) =>
-                    u.url.toLowerCase().includes(search.toLowerCase())
-                  )
-                  .map((u) => (
-                    <tr
-                      key={u.id}
-                      style={{
-                        background: "#fff",
-                        boxShadow: "0 4px 10px rgba(0,0,0,0.04)",
-                      }}
->
-                      <td>{u.url}</td>
-                      <td>
-                        {u.schedule_type === "custom"
-                          ? `Specific date: ${u.schedule_value}`
-                          : u.schedule_type === "weekly"
-                          ? "Every week"
-                          : u.schedule_type === "biweekly"
-                          ? "Every 2 weeks"
-                          : u.schedule_type === "29days"
-                          ? "Every 29 days"
-                          : u.schedule_type === "30days"
-                          ? "Every 30 days"
-                          : u.schedule_type}
-                      </td>
-                      <td>
-                        {new Date(u.created_at).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))
-              )}
-            </tbody>
-          </table>
+          {urls.map((u) => (
+            <div key={u.id} style={rowCard}>
+              <div style={{ flex: 2 }}>{u.url}</div>
+              <div style={{ flex: 1 }}>
+                {u.schedule_type === "custom"
+                  ? `Specific: ${u.schedule_value}`
+                  : u.schedule_type}
+              </div>
+              <div style={{ flex: 1 }}>
+                {new Date(u.created_at).toLocaleString()}
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* CAPTURE HISTORY */}
-        <div
-  style={{
-    marginTop: 20,
-    background: "#ffffff",
-    padding: 24,
-    borderRadius: 16,
-    boxShadow: "0 10px 25px rgba(0,0,0,0.05)",
-    border: "1px solid #eef0f5",
-  }}
->
+        {/* CAPTURES */}
+        <div style={cardStyle}>
           <h3>Capture History</h3>
 
-          <table
-  style={{
-    width: "100%",
-    borderCollapse: "separate",
-    borderSpacing: "0 10px",
-  }}
->
-            <thead>
-              <tr>
-                <th align="left">URL</th>
-                <th align="left">Captured At</th>
-                <th align="left">PDF</th>
-              </tr>
-            </thead>
+          {captures.map((c) => {
+            if (!c.file_path) return null
 
-            <tbody>
-              {captures.length === 0 ? (
-                <tr>
-                  <td colSpan={3}>No captures yet</td>
-                </tr>
-              ) : (
-                captures
-                  .filter((c) => {
-                    const urlData = getUrlById(c.url_id)
-                    return urlData?.url
-                      ?.toLowerCase()
-                      .includes(search.toLowerCase())
-                  })
-                  .map((c) => {
-                    if (!c.file_path) return null
+            const urlData = getUrlById(c.url_id)
+            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
 
-                    const urlData = getUrlById(c.url_id)
-
-                    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
-
-                    return (
-                      <tr
-  key={c.id}
-  style={{
-    background: "#fff",
-    boxShadow: "0 4px 10px rgba(0,0,0,0.04)",
-  }}
->
-                        <td>{urlData?.url || "Unknown"}</td>
-                        <td>
-                          {new Date(c.created_at).toLocaleString()}
-                        </td>
-                        <td>
-                          <a
-  href={publicUrl}
-  target="_blank"
-  style={{ color: "#7C3AED", fontWeight: 500 }}
->
-                            Download
-                          </a>
-                        </td>
-                      </tr>
-                    )
-                  })
-              )}
-            </tbody>
-          </table>
+            return (
+              <div key={c.id} style={rowCard}>
+                <div style={{ flex: 2 }}>{urlData?.url}</div>
+                <div style={{ flex: 1 }}>
+                  {new Date(c.created_at).toLocaleString()}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <a href={publicUrl} target="_blank" style={{ color: "#7C3AED" }}>
+                    Download
+                  </a>
+                </div>
+              </div>
+            )
+          })}
         </div>
 
       </div>
     </div>
   )
+}
+
+/* STYLES */
+
+const cardStyle = {
+  background: "#fff",
+  padding: 24,
+  borderRadius: 16,
+  boxShadow: "0 10px 25px rgba(0,0,0,0.05)",
+  marginTop: 20
+}
+
+const rowCard = {
+  display: "flex",
+  padding: "14px 16px",
+  marginTop: 10,
+  background: "#fff",
+  borderRadius: 12,
+  boxShadow: "0 4px 10px rgba(0,0,0,0.04)"
+}
+
+const inputStyle = {
+  padding: "12px",
+  borderRadius: 10,
+  border: "1px solid #E5E7EB",
+  background: "#F9FAFB"
+}
+
+const searchStyle = {
+  width: "100%",
+  padding: "12px",
+  marginTop: 10,
+  borderRadius: 10,
+  border: "1px solid #E5E7EB",
+  background: "#F9FAFB"
+}
+
+const buttonStyle = {
+  background: "linear-gradient(135deg, #7C3AED, #9333EA)",
+  color: "#fff",
+  padding: "12px 18px",
+  borderRadius: 10,
+  border: "none",
+  fontWeight: 600
 }
