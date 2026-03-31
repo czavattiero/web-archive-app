@@ -9,6 +9,8 @@ export default function Dashboard() {
 
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  
+  const [isCapturing, setIsCapturing] = useState(false)
 
   const [url, setUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
