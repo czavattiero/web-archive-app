@@ -139,20 +139,20 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f6f9fc" }}>
+    <div style={{ display: "flex", minHeight: "100vh", background: "#F5F7FB" }}>
       
       {/* SIDEBAR */}
       <div
-        style={{
-          width: 240,
-          background: "#0a2540",
-          color: "#fff",
-          padding: 20,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-        }}
-      >
+  style={{
+    width: 240,
+    background: "#0F172A", // darker modern navy
+    color: "#fff",
+    padding: 24,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+  }}
+>
         <div>
           <img
             src="/screenly-logo.png"
@@ -163,7 +163,7 @@ export default function Dashboard() {
       </div>
 
       {/* MAIN */}
-      <div style={{ flex: 1, padding: 30 }}>
+      <div style={{ flex: 1, padding: 40 }}>
         
         {/* TOP BAR */}
         <div
@@ -191,7 +191,9 @@ export default function Dashboard() {
           </button>
         </div>
 
-        <h1>Dashboard</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 20 }}>
+  Dashboard
+</h1>
         {isCapturing && (
   <p style={{ color: "#6b7280", marginBottom: 10 }}>
     Capturing... ⏳ This may take ~10 seconds
@@ -199,7 +201,15 @@ export default function Dashboard() {
 )}
 
         {/* ADD URL */}
-        <div style={{ background: "#fff", padding: 20, borderRadius: 10 }}>
+        <div
+  style={{
+    background: "#ffffff",
+    padding: 24,
+    borderRadius: 16,
+    boxShadow: "0 10px 25px rgba(0,0,0,0.05)",
+    border: "1px solid #eef0f5",
+  }}
+>
           <h3>Add URL</h3>
 
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -241,6 +251,8 @@ export default function Dashboard() {
                   padding: "12px",
                   borderRadius: 10,
                   border: "1px solid #E5E7EB",
+                  background: "#F9FAFB",
+                  boxShadow: "inset 0 1px 2px rgba(0,0,0,0.05)",
                 }}
               />
             )}
@@ -248,7 +260,7 @@ export default function Dashboard() {
             <button
               onClick={addUrl}
               style={{
-                background: "#6A11CB",
+                background: "linear-gradient(135deg, #7C3AED, #9333EA)",
                 color: "white",
                 padding: "12px 18px",
                 borderRadius: 10,
@@ -263,7 +275,16 @@ export default function Dashboard() {
         </div>
 
         {/* TRACKED URLS */}
-        <div style={{ marginTop: 20 }}>
+        <div
+  style={{
+    marginTop: 20,
+    background: "#fff",
+    padding: 24,
+    borderRadius: 16,
+    boxShadow: "0 10px 25px rgba(0,0,0,0.05)",
+    border: "1px solid #eef0f5",
+  }}
+>
           <h3>Tracked URLs</h3>
 
           <input
@@ -280,7 +301,7 @@ export default function Dashboard() {
             }}
           />
 
-          <table style={{ width: "100%" }}>
+          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 10px" }}>
             <thead>
               <tr>
                 <th align="left">URL</th>
@@ -300,7 +321,13 @@ export default function Dashboard() {
                     u.url.toLowerCase().includes(search.toLowerCase())
                   )
                   .map((u) => (
-                    <tr key={u.id}>
+                    <tr
+                      key={u.id}
+                      style={{
+                        background: "#fff",
+                        boxShadow: "0 4px 10px rgba(0,0,0,0.04)",
+                      }}
+>
                       <td>{u.url}</td>
                       <td>
                         {u.schedule_type === "custom"
@@ -329,7 +356,13 @@ export default function Dashboard() {
         <div style={{ marginTop: 20 }}>
           <h3>Capture History</h3>
 
-          <table style={{ width: "100%" }}>
+          <table
+  style={{
+    width: "100%",
+    borderCollapse: "separate",
+    borderSpacing: "0 10px",
+  }}
+>
             <thead>
               <tr>
                 <th align="left">URL</th>
@@ -359,13 +392,23 @@ export default function Dashboard() {
                     const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
 
                     return (
-                      <tr key={c.id}>
+                      <tr
+  key={c.id}
+  style={{
+    background: "#fff",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.04)",
+  }}
+>
                         <td>{urlData?.url || "Unknown"}</td>
                         <td>
                           {new Date(c.created_at).toLocaleString()}
                         </td>
                         <td>
-                          <a href={publicUrl} target="_blank">
+                          <a
+  href={publicUrl}
+  target="_blank"
+  style={{ color: "#7C3AED", fontWeight: 500 }}
+>
                             Download
                           </a>
                         </td>
