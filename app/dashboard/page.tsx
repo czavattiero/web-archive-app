@@ -353,7 +353,16 @@ export default function Dashboard() {
         </div>
 
         {/* CAPTURE HISTORY */}
-        <div style={{ marginTop: 20 }}>
+        <div
+  style={{
+    marginTop: 20,
+    background: "#ffffff",
+    padding: 24,
+    borderRadius: 16,
+    boxShadow: "0 10px 25px rgba(0,0,0,0.05)",
+    border: "1px solid #eef0f5",
+  }}
+>
           <h3>Capture History</h3>
 
           <table
