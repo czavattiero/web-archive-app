@@ -116,7 +116,7 @@ export default function Home() {
             <div style={{ fontSize: 40 }}>🔗</div>
             <h3>Add URL</h3>
             <p style={{ color: "#6B7280" }}>
-              Paste your job posting link
+              Paste your URL
             </p>
           </div>
 
@@ -132,7 +132,7 @@ export default function Home() {
             <div style={{ fontSize: 40 }}>📄</div>
             <h3>Download proof</h3>
             <p style={{ color: "#6B7280" }}>
-              Access and download your timestamped PDFs for 62 days
+              Timestamped PDFs available for 62 days
             </p>
           </div>
         </div>
