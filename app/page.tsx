@@ -76,7 +76,7 @@ export default function Home() {
               maxWidth: 550,
             }}
           >
-            Add a URL once. Screenly monitors and saves it as a PDF according to your schedule
+            No manual screenshots. No gaps. No uncertainty.
 </p>
 
 <div style={{ display: "flex", gap: 16 }}>
@@ -109,12 +109,7 @@ export default function Home() {
                   cursor: "pointer",
                 }}
               >
-                Log in
-              </button>
-            </a>
-          </div>
-        </div>
-
+               
         {/* RIGHT */}
         <div style={{ display: "flex", justifyContent: "center" }}>
           <img
@@ -131,27 +126,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* TRUST */}
-      <section
-        style={{
-          textAlign: "center",
-          marginTop: 100,
-          paddingTop: 40,
-          borderTop: "1px solid #eee",
-        }}
-      >
-        <p style={{ fontSize: 14, color: "#9CA3AF", marginBottom: 12 }}>
-          Trusted for monitoring important web content
-        </p>
-
-        <div style={{ display: "flex", justifyContent: "center", gap: 40, color: "#9CA3AF", fontSize: 14 }}>
-          <span>Legal Teams</span>
-          <span>Researchers</span>
-          <span>Compliance</span>
-          <span>Startups</span>
-        </div>
-      </section>
-
       {/* HOW IT WORKS */}
       <section style={{ marginTop: 120, textAlign: "center" }}>
         <h2 style={{ fontSize: 32, fontWeight: 800, marginBottom: 60 }}>
@@ -163,7 +137,7 @@ export default function Home() {
             <div style={{ fontSize: 48 }}>🔗</div>
             <h3 style={{ fontSize: 18 }}>Add URL</h3>
             <p style={{ fontSize: 15, color: "#6B7280" }}>
-              Paste any webpage you want to monitor
+              Paste the webpage you want to monitor
             </p>
           </div>
 
@@ -171,7 +145,7 @@ export default function Home() {
             <div style={{ fontSize: 48 }}>⚡</div>
             <h3 style={{ fontSize: 18 }}>We capture it</h3>
             <p style={{ fontSize: 15, color: "#6B7280" }}>
-              Screenshots saved automatically
+              Screenshots saved automatically with timestamp
             </p>
           </div>
 
@@ -179,7 +153,7 @@ export default function Home() {
             <div style={{ fontSize: 48 }}>📄</div>
             <h3 style={{ fontSize: 18 }}>Download anytime</h3>
             <p style={{ fontSize: 15, color: "#6B7280" }}>
-              Access PDFs from dashboard
+              Download PDFs from dashboard
             </p>
           </div>
         </div>
@@ -198,21 +172,21 @@ export default function Home() {
           <div>
             <h3 style={{ fontSize: 18 }}>Automated capture</h3>
             <p style={{ fontSize: 15, color: "#6B7280" }}>
-              Daily, weekly or custom schedules
+              Choose the schedule for each URL (e.g., weekly, biweekly, 30 days, specific day)
             </p>
           </div>
 
           <div>
             <h3 style={{ fontSize: 18 }}>Secure storage</h3>
             <p style={{ fontSize: 15, color: "#6B7280" }}>
-              PDFs stored safely and accessible anytime
+              PDFs stored in your dashboard for 62 days
             </p>
           </div>
 
           <div>
             <h3 style={{ fontSize: 18 }}>Scalable</h3>
             <p style={{ fontSize: 15, color: "#6B7280" }}>
-              Monitor unlimited URLs with pro plan
+              Monitor unlimited URLs with custom plan
             </p>
           </div>
         </div>
@@ -240,7 +214,7 @@ export default function Home() {
 
             <ul style={{ listStyle: "none", padding: 0, marginTop: 20 }}>
               <li>10 monitored URLs</li>
-              <li>Daily captures</li>
+              <li>Scheduled captures with timestamp</li>
               <li>PDF download</li>
             </ul>
 
@@ -286,10 +260,9 @@ export default function Home() {
             <p style={{ color: "#6B7280" }}>per month</p>
 
             <ul style={{ listStyle: "none", padding: 0, marginTop: 20 }}>
-              <li>Unlimited URLs</li>
-              <li>Hourly captures</li>
-              <li>Priority processing</li>
-              <li>PDF archive</li>
+              <li>20 to 50 URLs</li>
+              <li>Scheduled captures with timestamp</li>
+              <li>PDF download</li>
             </ul>
 
             <a href="/signup?plan=pro">
