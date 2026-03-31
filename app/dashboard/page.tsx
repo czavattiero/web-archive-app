@@ -109,12 +109,12 @@ export default function Dashboard() {
   await fetch("/api/run-worker", { method: "POST" })
 
   // ✅ 2. Show immediate feedback (optional but recommended)
-  setLoading(true)
+  setIsCapturing(true)
 
   // ✅ 3. Wait before refreshing data
   setTimeout(async () => {
     await fetchData(user)
-    setLoading(false)
+    setIsCapturing(false)
   }, 8000) // ⏱ adjust if needed
 
   // ✅ 4. Reset inputs
@@ -190,8 +190,8 @@ export default function Dashboard() {
         </div>
 
         <h1>Dashboard</h1>
-        {loading && (
-  <p style={{ color: "#6b7280" }}>
+        {isCapturing && (
+  <p style={{ color: "#6b7280", marginBottom: 10 }}>
     Capturing... ⏳ This may take ~10 seconds
   </p>
 )}
