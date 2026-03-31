@@ -66,27 +66,55 @@ async function insertCapture({ urlObj, file_path, status, error }) {
 
 // ✅ NEW: Safe next-date calculator (NO mutation bugs)
 function getNextCaptureDate(urlObj) {
-  const base = new Date()
+  const now = new Date()
 
+  // Get Alberta date parts safely
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Edmonton",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+
+  const parts = formatter.formatToParts(now)
+  const year = parts.find(p => p.type === "year").value
+  const month = parts.find(p => p.type === "month").value
+  const day = parts.find(p => p.type === "day").value
+
+  // Create Alberta 9:00 AM in UTC
+  let next = new Date(`${year}-${month}-${day}T09:00:00-06:00`)
+
+  // If already past today's 9AM → move to tomorrow
+  if (now >= next) {
+    next.setDate(next.getDate() + 1)
+  }
+
+  // Apply schedule
   switch (urlObj.schedule_type) {
     case "weekly":
-      return new Date(base.getTime() + 7 * 24 * 60 * 60 * 1000)
+      next.setDate(next.getDate() + 6)
+      break
 
     case "biweekly":
-      return new Date(base.getTime() + 14 * 24 * 60 * 60 * 1000)
+      next.setDate(next.getDate() + 13)
+      break
 
     case "29days":
-      return new Date(base.getTime() + 29 * 24 * 60 * 60 * 1000)
+      next.setDate(next.getDate() + 28)
+      break
 
     case "30days":
-      return new Date(base.getTime() + 30 * 24 * 60 * 60 * 1000)
+      next.setDate(next.getDate() + 29)
+      break
 
     case "custom":
       return null
 
     default:
-      return new Date(base.getTime() + 7 * 24 * 60 * 60 * 1000)
+      next.setDate(next.getDate() + 6)
   }
+
+  return next
 }
 
 // 🚀 MAIN WORKER
