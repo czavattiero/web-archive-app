@@ -16,8 +16,8 @@ export default function Dashboard() {
   const [customDate, setCustomDate] = useState("")
 
   const [urls, setUrls] = useState<any[]>([])
-  const [search, setSearch] = useState("")
   const [captures, setCaptures] = useState<any[]>([])
+  const [search, setSearch] = useState("")
 
   useEffect(() => {
     async function init() {
@@ -130,16 +130,10 @@ export default function Dashboard() {
       {/* MAIN */}
       <div style={{ flex: 1, padding: 40 }}>
         
-        {/* TOP */}
+        {/* TOP BAR */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <div>{user?.email}</div>
-          <button onClick={handleLogout} style={{
-            background: "#ef4444",
-            color: "#fff",
-            padding: "6px 12px",
-            borderRadius: 6,
-            border: "none"
-          }}>
+          <button onClick={handleLogout} style={buttonDanger}>
             Sign Out
           </button>
         </div>
@@ -162,7 +156,11 @@ export default function Dashboard() {
               style={inputStyle}
             />
 
-            <select value={schedule} onChange={(e) => setSchedule(e.target.value)} style={inputStyle}>
+            <select
+              value={schedule}
+              onChange={(e) => setSchedule(e.target.value)}
+              style={inputStyle}
+            >
               <option value="weekly">Weekly</option>
               <option value="biweekly">Biweekly</option>
               <option value="29days">Every 29 days</option>
@@ -179,13 +177,13 @@ export default function Dashboard() {
               />
             )}
 
-            <button onClick={addUrl} style={buttonStyle}>
+            <button onClick={addUrl} style={buttonPrimary}>
               Add URL
             </button>
           </div>
         </div>
 
-        {/* TRACKED */}
+        {/* TRACKED URLS */}
         <div style={cardStyle}>
           <h3>Tracked URLs</h3>
 
@@ -196,24 +194,50 @@ export default function Dashboard() {
             style={searchStyle}
           />
 
-          {urls.map((u) => (
-            <div key={u.id} style={rowCard}>
-              <div style={{ flex: 2 }}>{u.url}</div>
-              <div style={{ flex: 1 }}>
-                {u.schedule_type === "custom"
-                  ? `Specific: ${u.schedule_value}`
-                  : u.schedule_type}
+          <div style={headerRow}>
+            <div style={{ flex: 2 }}>URL</div>
+            <div style={{ flex: 1 }}>Schedule</div>
+            <div style={{ flex: 1 }}>Date Added</div>
+          </div>
+
+          {urls
+            .filter((u) =>
+              u.url.toLowerCase().includes(search.toLowerCase())
+            )
+            .map((u) => (
+              <div key={u.id} style={rowCard}>
+                <div style={{ flex: 2 }}>{u.url}</div>
+
+                <div style={{ flex: 1 }}>
+                  {u.schedule_type === "custom"
+                    ? `Specific: ${u.schedule_value}`
+                    : u.schedule_type === "weekly"
+                    ? "Weekly"
+                    : u.schedule_type === "biweekly"
+                    ? "Biweekly"
+                    : u.schedule_type === "29days"
+                    ? "Every 29 days"
+                    : u.schedule_type === "30days"
+                    ? "Every 30 days"
+                    : u.schedule_type}
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  {new Date(u.created_at).toLocaleString()}
+                </div>
               </div>
-              <div style={{ flex: 1 }}>
-                {new Date(u.created_at).toLocaleString()}
-              </div>
-            </div>
-          ))}
+            ))}
         </div>
 
-        {/* CAPTURES */}
+        {/* CAPTURE HISTORY */}
         <div style={cardStyle}>
           <h3>Capture History</h3>
+
+          <div style={headerRow}>
+            <div style={{ flex: 2 }}>URL</div>
+            <div style={{ flex: 1 }}>Captured At</div>
+            <div style={{ flex: 1 }}>PDF</div>
+          </div>
 
           {captures.map((c) => {
             if (!c.file_path) return null
@@ -224,11 +248,13 @@ export default function Dashboard() {
             return (
               <div key={c.id} style={rowCard}>
                 <div style={{ flex: 2 }}>{urlData?.url}</div>
+
                 <div style={{ flex: 1 }}>
                   {new Date(c.created_at).toLocaleString()}
                 </div>
+
                 <div style={{ flex: 1 }}>
-                  <a href={publicUrl} target="_blank" style={{ color: "#7C3AED" }}>
+                  <a href={publicUrl} target="_blank" style={linkStyle}>
                     Download
                   </a>
                 </div>
@@ -261,6 +287,15 @@ const rowCard = {
   boxShadow: "0 4px 10px rgba(0,0,0,0.04)"
 }
 
+const headerRow = {
+  display: "flex",
+  padding: "10px 16px",
+  marginTop: 10,
+  color: "#6B7280",
+  fontWeight: 600,
+  fontSize: 13,
+}
+
 const inputStyle = {
   padding: "12px",
   borderRadius: 10,
@@ -277,11 +312,26 @@ const searchStyle = {
   background: "#F9FAFB"
 }
 
-const buttonStyle = {
+const buttonPrimary = {
   background: "linear-gradient(135deg, #7C3AED, #9333EA)",
   color: "#fff",
   padding: "12px 18px",
   borderRadius: 10,
   border: "none",
-  fontWeight: 600
+  fontWeight: 600,
+  cursor: "pointer"
+}
+
+const buttonDanger = {
+  background: "#ef4444",
+  color: "#fff",
+  padding: "6px 12px",
+  borderRadius: 6,
+  border: "none",
+  cursor: "pointer"
+}
+
+const linkStyle = {
+  color: "#7C3AED",
+  fontWeight: 500
 }
