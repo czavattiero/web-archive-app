@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [customDate, setCustomDate] = useState("")
 
   const [urls, setUrls] = useState<any[]>([])
+  const [captures, setCaptures] = useState<any[]>([])
   const [search, setSearch] = useState("")
 
   useEffect(() => {
@@ -34,44 +35,84 @@ export default function Dashboard() {
     init()
   }, [router])
 
+  useEffect(() => {
+    if (!user) return
+    const interval = setInterval(() => fetchData(user), 5000)
+    return () => clearInterval(interval)
+  }, [user])
+
   async function fetchData(currentUser: any) {
-    const { data } = await supabase
+    const { data: urlsData } = await supabase
       .from("urls")
       .select("*")
       .eq("user_id", currentUser.id)
 
-    setUrls(data || [])
+    const { data: capturesData } = await supabase
+      .from("captures")
+      .select("*")
+      .eq("user_id", currentUser.id)
+      .order("created_at", { ascending: false })
+
+    setUrls(urlsData || [])
+    setCaptures(capturesData || [])
   }
 
   async function addUrl() {
-    if (!user || !url.trim()) return
+    if (!user) return
+    if (!url.trim()) return alert("Enter a URL")
+
+    let nextCapture: Date
+
+    if (schedule === "custom") {
+      if (!customDate) return alert("Select a date")
+
+      nextCapture = new Date(
+        new Date(customDate).toLocaleString("en-US", {
+          timeZone: "America/Edmonton",
+        })
+      )
+      nextCapture.setHours(9, 0, 0, 0)
+    } else {
+      nextCapture = new Date()
+    }
 
     const { error } = await supabase.from("urls").insert([
       {
         url: url.trim(),
         user_id: user.id,
+        next_capture_at: nextCapture.toISOString(),
         schedule_type: schedule,
         schedule_value: schedule === "custom" ? customDate : null,
-        next_capture_at: new Date().toISOString(),
         status: "active",
       },
     ])
 
-    if (error) return alert("Error")
+    if (error) return alert("Error adding URL")
+
+    if (schedule !== "custom") {
+      await fetch("/api/run-worker", { method: "POST" })
+    }
 
     setUrl("")
     setCustomDate("")
-    fetchData(user)
   }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
+    localStorage.clear()
     window.location.href = "/"
   }
 
-  function formatTime(date: string) {
-    return new Date(date).toLocaleString("en-CA", {
+  function getUrlById(id: string) {
+    return urls.find((u) => u.id === id)
+  }
+
+  function formatAlbertaTime(dateString: string | null) {
+    if (!dateString) return "—"
+
+    return new Date(dateString).toLocaleString("en-CA", {
       timeZone: "America/Edmonton",
+      year: "numeric",
       month: "short",
       day: "numeric",
       hour: "numeric",
@@ -79,90 +120,87 @@ export default function Dashboard() {
     })
   }
 
-  function Status({ status }: any) {
+  function StatusBadge({ status }: { status: string }) {
     const base = {
       padding: "4px 10px",
       borderRadius: 999,
       fontSize: 12,
       fontWeight: 600,
+      display: "inline-block",
     }
 
-    if (status === "completed")
-      return <span style={{ ...base, background: "#EEF2FF", color: "#4338CA" }}>Completed</span>
-
     if (status === "active")
-      return <span style={{ ...base, background: "#ECFDF5", color: "#047857" }}>Active</span>
+      return <span style={{ ...base, background: "#DCFCE7", color: "#166534" }}>Active</span>
 
-    return <span style={{ ...base, background: "#FEE2E2", color: "#991B1B" }}>Failed</span>
+    if (status === "completed")
+      return <span style={{ ...base, background: "#E0E7FF", color: "#3730A3" }}>Completed</span>
+
+    if (status === "failed")
+      return <span style={{ ...base, background: "#FEE2E2", color: "#991B1B" }}>Failed</span>
+
+    return <span style={{ ...base, background: "#E5E7EB", color: "#374151" }}>{status}</span>
   }
 
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
   return (
-    <div style={{ background: "#F9FAFB", minHeight: "100vh" }}>
+    <div style={{ minHeight: "100vh", background: "#ffffff" }}>
 
       {/* TOP BAR */}
-      <div style={topBar}>
-        <img src="/screenly-logo.png" style={{ width: 120 }} />
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "20px 40px",
+        borderBottom: "1px solid #eee"
+      }}>
+        <img src="/screenly-logo.png" style={{ width: 140 }} />
 
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <span style={{ fontSize: 14, color: "#555" }}>{user.email}</span>
-          <button onClick={handleLogout} style={logoutBtn}>Sign Out</button>
+          <div style={{ fontSize: 14, color: "#555" }}>{user?.email}</div>
+          <button onClick={handleLogout} style={buttonDanger}>Sign Out</button>
         </div>
       </div>
 
       {/* CONTENT */}
-      <div style={{ maxWidth: 1100, margin: "40px auto", padding: "0 20px" }}>
-
-        <h1 style={title}>Dashboard</h1>
+      <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
+        <h1 style={{ fontSize: 26, marginBottom: 24, fontWeight: 700 }}>Dashboard</h1>
 
         {/* ADD URL */}
-        <div style={card}>
+        <div style={cardStyle}>
           <h3 style={sectionTitle}>Add URL</h3>
 
           <div style={{ display: "flex", gap: 10 }}>
+            {/* 🔥 FULL WIDTH URL INPUT */}
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com/job-posting"
-              style={{ ...input, flex: 2 }}
+              style={{ ...inputStyle, flex: 2 }}
             />
 
-            <select
-              value={schedule}
-              onChange={(e) => setSchedule(e.target.value)}
-              style={input}
-            >
+            <select value={schedule} onChange={(e) => setSchedule(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
               <option value="weekly">Weekly</option>
               <option value="biweekly">Biweekly</option>
+              <option value="29days">Every 29 days</option>
+              <option value="30days">Every 30 days</option>
               <option value="custom">Specific date</option>
             </select>
 
             {schedule === "custom" && (
-              <input
-                type="date"
-                value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
-                style={input}
-              />
+              <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
             )}
 
-            <button onClick={addUrl} style={addBtn}>Add</button>
+            <button onClick={addUrl} style={buttonPrimary}>Add</button>
           </div>
         </div>
 
         {/* TRACKED URLS */}
-        <div style={card}>
+        <div style={cardStyle}>
           <h3 style={sectionTitle}>Tracked URLs</h3>
 
-          <input
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ ...input, marginBottom: 15 }}
-          />
+          <input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} style={searchStyle} />
 
-          {/* HEADERS */}
           <div style={headerRow}>
             <div style={{ flex: 3 }}>URL</div>
             <div style={{ flex: 1 }}>Schedule</div>
@@ -171,19 +209,46 @@ export default function Dashboard() {
             <div style={{ flex: 1 }}>Added</div>
           </div>
 
-          {urls
-            .filter((u) => u.url.toLowerCase().includes(search.toLowerCase()))
-            .map((u) => (
-              <div key={u.id} style={row}>
-                <div style={{ flex: 3, wordBreak: "break-word" }}>{u.url}</div>
-                <div style={{ flex: 1 }}>{u.schedule_type}</div>
-                <div style={{ flex: 1 }}>{formatTime(u.next_capture_at)}</div>
-                <div style={{ flex: 1 }}><Status status={u.status} /></div>
-                <div style={{ flex: 1 }}>{formatTime(u.created_at)}</div>
-              </div>
-            ))}
+          {urls.filter((u) => u.url.toLowerCase().includes(search.toLowerCase())).map((u) => (
+            <div key={u.id} style={rowCard}>
+              <div style={{ flex: 3, wordBreak: "break-all" }}>{u.url}</div>
+              <div style={{ flex: 1 }}>{u.schedule_type}</div>
+              <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
+              <div style={{ flex: 1 }}><StatusBadge status={u.status} /></div>
+              <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
+            </div>
+          ))}
         </div>
 
+        {/* CAPTURE HISTORY */}
+        <div style={cardStyle}>
+          <h3 style={sectionTitle}>Capture History</h3>
+
+          <div style={headerRow}>
+            <div style={{ flex: 3 }}>URL</div>
+            <div style={{ flex: 1 }}>Captured</div>
+            <div style={{ flex: 1 }}>Status</div>
+            <div style={{ flex: 1 }}>PDF</div>
+          </div>
+
+          {captures.map((c) => {
+            if (!c.file_path) return null
+
+            const urlData = getUrlById(c.url_id)
+            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
+
+            return (
+              <div key={c.id} style={rowCard}>
+                <div style={{ flex: 3 }}>{urlData?.url}</div>
+                <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
+                <div style={{ flex: 1 }}><StatusBadge status={c.status} /></div>
+                <div style={{ flex: 1 }}>
+                  <a href={publicUrl} target="_blank" style={linkStyle}>Download</a>
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
@@ -191,75 +256,74 @@ export default function Dashboard() {
 
 /* STYLES */
 
-const topBar = {
+const cardStyle = {
   background: "#fff",
-  padding: "16px 30px",
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  borderBottom: "1px solid #eee"
-}
-
-const title = {
-  fontSize: 26,
-  fontWeight: 700,
-  marginBottom: 20,
-  color: "#111827"
-}
-
-const card = {
-  background: "#fff",
-  padding: 20,
-  borderRadius: 12,
+  padding: 24,
+  borderRadius: 14,
   border: "1px solid #eee",
-  marginBottom: 20
+  marginTop: 20
 }
 
 const sectionTitle = {
-  fontSize: 15,
+  fontSize: 16,
   fontWeight: 600,
   marginBottom: 12
 }
 
+const rowCard = {
+  display: "flex",
+  padding: "12px 14px",
+  marginTop: 8,
+  background: "#fff",
+  borderRadius: 10,
+  border: "1px solid #f1f1f1"
+}
+
 const headerRow = {
   display: "flex",
-  fontSize: 12,
+  padding: "8px 14px",
+  marginTop: 10,
   color: "#6B7280",
   fontWeight: 600,
-  marginBottom: 8
+  fontSize: 12,
 }
 
-const row = {
-  display: "flex",
-  padding: "12px 0",
-  borderTop: "1px solid #f3f4f6",
-  fontSize: 14,
-  alignItems: "center"
-}
-
-const input = {
+const inputStyle = {
   padding: "10px",
   borderRadius: 8,
   border: "1px solid #ddd",
-  width: "100%",
-  fontSize: 14
+  background: "#fff"
 }
 
-const addBtn = {
+const searchStyle = {
+  width: "100%",
+  padding: "10px",
+  marginTop: 10,
+  borderRadius: 8,
+  border: "1px solid #ddd",
+}
+
+const buttonPrimary = {
   background: "#7C3AED",
   color: "#fff",
-  border: "none",
   padding: "10px 16px",
   borderRadius: 8,
+  border: "none",
   fontWeight: 600,
   cursor: "pointer"
 }
 
-const logoutBtn = {
+const buttonDanger = {
   background: "#ef4444",
   color: "#fff",
-  border: "none",
-  padding: "6px 10px",
+  padding: "6px 12px",
   borderRadius: 6,
+  border: "none",
   cursor: "pointer"
 }
+
+const linkStyle = {
+  color: "#7C3AED",
+  fontWeight: 500
+}
+
