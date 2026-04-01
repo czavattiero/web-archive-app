@@ -89,8 +89,8 @@ export default function Dashboard() {
 
     if (error) return alert("Error adding URL")
 
-    if (schedule !== "custom") {
-      await fetch("/api/run-worker", { method: "POST" })
+    // 🔥 ALWAYS trigger immediate capture
+await fetch("/api/run-worker", { method: "POST" })
     }
 
     setUrl("")
