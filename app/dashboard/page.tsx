@@ -62,49 +62,45 @@ export default function Dashboard() {
     setCaptures(capturesData || [])
   }
 
-async function addUrl() {
-  if (!user) return
-  if (!url.trim()) return alert("Enter a URL")
+  async function addUrl() {
+    if (!user) return
+    if (!url.trim()) return alert("Enter a URL")
 
-  let nextCapture: Date
+    let nextCapture: Date
 
-  if (schedule === "custom") {
-    if (!customDate) return alert("Select a date")
+    if (schedule === "custom") {
+      if (!customDate) return alert("Select a date")
 
-    // 🔥 Set to 9AM Alberta (DST-safe)
-    nextCapture = new Date(
-      new Date(customDate).toLocaleString("en-US", {
-        timeZone: "America/Edmonton",
-      })
-    )
+      nextCapture = new Date(
+        new Date(customDate).toLocaleString("en-US", {
+          timeZone: "America/Edmonton",
+        })
+      )
+      nextCapture.setHours(9, 0, 0, 0)
+    } else {
+      nextCapture = new Date()
+    }
 
-    nextCapture.setHours(9, 0, 0, 0)
-  } else {
-    // Immediate capture
-    nextCapture = new Date()
+    const { error } = await supabase.from("urls").insert([
+      {
+        url: url.trim(),
+        user_id: user.id,
+        next_capture_at: nextCapture.toISOString(),
+        schedule_type: schedule,
+        schedule_value: schedule === "custom" ? customDate : null,
+        status: "active",
+      },
+    ])
+
+    if (error) return alert("Error adding URL")
+
+    if (schedule !== "custom") {
+      await fetch("/api/run-worker", { method: "POST" })
+    }
+
+    setUrl("")
+    setCustomDate("")
   }
-
-  const { error } = await supabase.from("urls").insert([
-    {
-      url: url.trim(),
-      user_id: user.id,
-      next_capture_at: nextCapture.toISOString(), // ✅ CRITICAL
-      schedule_type: schedule,
-      schedule_value: schedule === "custom" ? customDate : null,
-      status: "active",
-    },
-  ])
-
-  if (error) return alert("Error adding URL")
-
-  // Only trigger immediately for non-custom
-  if (schedule !== "custom") {
-    await fetch("/api/run-worker", { method: "POST" })
-  }
-
-  setUrl("")
-  setCustomDate("")
-}
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -114,6 +110,20 @@ async function addUrl() {
 
   function getUrlById(id: string) {
     return urls.find((u) => u.id === id)
+  }
+
+  // 🔥 NEW: Alberta formatter
+  function formatAlbertaTime(dateString: string | null) {
+    if (!dateString) return "—"
+
+    return new Date(dateString).toLocaleString("en-CA", {
+      timeZone: "America/Edmonton",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })
   }
 
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
@@ -135,7 +145,6 @@ async function addUrl() {
       {/* MAIN */}
       <div style={{ flex: 1, padding: 40 }}>
         
-        {/* TOP BAR */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <div>{user?.email}</div>
           <button onClick={handleLogout} style={buttonDanger}>
@@ -202,6 +211,7 @@ async function addUrl() {
           <div style={headerRow}>
             <div style={{ flex: 2 }}>URL</div>
             <div style={{ flex: 1 }}>Schedule</div>
+            <div style={{ flex: 1 }}>Next Capture</div> {/* NEW */}
             <div style={{ flex: 1 }}>Date Added</div>
           </div>
 
@@ -225,6 +235,11 @@ async function addUrl() {
                     : u.schedule_type === "30days"
                     ? "Every 30 days"
                     : u.schedule_type}
+                </div>
+
+                {/* 🔥 NEW COLUMN */}
+                <div style={{ flex: 1 }}>
+                  {formatAlbertaTime(u.next_capture_at)}
                 </div>
 
                 <div style={{ flex: 1 }}>
@@ -255,7 +270,7 @@ async function addUrl() {
                 <div style={{ flex: 2 }}>{urlData?.url}</div>
 
                 <div style={{ flex: 1 }}>
-                  {new Date(c.created_at).toLocaleString()}
+                  {formatAlbertaTime(c.created_at)}
                 </div>
 
                 <div style={{ flex: 1 }}>
