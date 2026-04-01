@@ -143,6 +143,15 @@ export default function Dashboard() {
 
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
+  const filteredUrls = urls.filter((u) =>
+  u.url.toLowerCase().includes(search.toLowerCase())
+)
+
+const filteredCaptures = captures.filter((c) => {
+  const urlData = getUrlById(c.url_id)
+  return urlData?.url?.toLowerCase().includes(search.toLowerCase())
+})
+
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
 
@@ -209,7 +218,7 @@ export default function Dashboard() {
             <div style={{ flex: 1 }}>Added</div>
           </div>
 
-          {urls.filter((u) => u.url.toLowerCase().includes(search.toLowerCase())).map((u) => (
+          {filteredUrls.map((u) => (
             <div key={u.id} style={rowCard}>
               <div style={{ flex: 3, wordBreak: "break-all" }}>{u.url}</div>
               <div style={{ flex: 1 }}>{u.schedule_type}</div>
@@ -231,7 +240,7 @@ export default function Dashboard() {
             <div style={{ flex: 1 }}>PDF</div>
           </div>
 
-          {captures.map((c) => {
+          {filteredCaptures.map((c) => {
             if (!c.file_path) return null
 
             const urlData = getUrlById(c.url_id)
