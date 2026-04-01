@@ -210,7 +210,7 @@ if (urlObj.schedule_type === "custom") {
     .update({
       status: "completed",
       last_captured_at: new Date().toISOString(),
-      next_capture_at: null, // 🔥 VERY IMPORTANT
+      next_capture_at: null,
     })
     .eq("id", urlObj.id)
 } else {
@@ -219,9 +219,29 @@ if (urlObj.schedule_type === "custom") {
     .update({
       next_capture_at: nextDate
         ? nextDate.toISOString()
-        : null, // safety
+        : null,
       last_captured_at: new Date().toISOString(),
       status: "active",
     })
     .eq("id", urlObj.id)
 }
+
+} catch (err) {
+  console.error("❌ Capture failed:", err.message)
+
+  await insertCapture({
+    urlObj,
+    file_path: null,
+    status: "failed",
+    error: err.message,
+  })
+}
+
+await page.close()
+} // ✅ closes for-loop
+
+await browser.close()
+console.log("🏁 Worker finished")
+}
+
+run()
