@@ -63,43 +63,49 @@ export default function Dashboard() {
   }
 
   async function addUrl() {
-    if (!user) return
-    if (!url.trim()) return alert("Enter a URL")
+  if (!user) return
+  if (!url.trim()) return alert("Enter a URL")
 
-    let selectedDate = ""
+  let nextCapture = new Date()
 
-    if (schedule === "custom") {
-      if (!customDate) return alert("Select a date")
-      selectedDate = customDate
-    }
+  if (schedule === "custom") {
+    if (!customDate) return alert("Select a date")
 
-    const now = new Date().toISOString()
-
-    const { error } = await supabase.from("urls").insert([
-      {
-        url: url.trim(),
-        user_id: user.id,
-        next_capture_at: now,
-        schedule_type: schedule,
-        schedule_value: selectedDate,
-        status: "active",
-      },
-    ])
-
-    if (error) return alert("Error adding URL")
-
-    await fetch("/api/run-worker", { method: "POST" })
-
-    setIsCapturing(true)
-
-    setTimeout(async () => {
-      await fetchData(user)
-      setIsCapturing(false)
-    }, 8000)
-
-    setUrl("")
-    setCustomDate("")
+    // 🔥 Set to 9AM Alberta
+    nextCapture = new Date(`${customDate}T09:00:00`)
+  } else {
+    // immediate first capture
+    nextCapture = new Date()
   }
+
+  const { error } = await supabase.from("urls").insert([
+    {
+      url: url.trim(),
+      user_id: user.id,
+      next_capture_at: nextCapture.toISOString(),
+      schedule_type: schedule,
+      schedule_value: schedule === "custom" ? customDate : null,
+      status: "active",
+    },
+  ])
+
+  if (error) return alert("Error adding URL")
+
+  // 🔥 ONLY trigger worker immediately for NON-custom
+  if (schedule !== "custom") {
+    await fetch("/api/run-worker", { method: "POST" })
+  }
+
+  setIsCapturing(true)
+
+  setTimeout(async () => {
+    await fetchData(user)
+    setIsCapturing(false)
+  }, 8000)
+
+  setUrl("")
+  setCustomDate("")
+}
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
