@@ -9,7 +9,6 @@ export default function Dashboard() {
 
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [isCapturing, setIsCapturing] = useState(false)
 
   const [url, setUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
@@ -125,9 +124,8 @@ export default function Dashboard() {
     })
   }
 
-  // 🔥 STATUS BADGE
   function StatusBadge({ status }: { status: string }) {
-    const styles: any = {
+    const base = {
       padding: "4px 10px",
       borderRadius: 999,
       fontSize: 12,
@@ -135,49 +133,46 @@ export default function Dashboard() {
       display: "inline-block",
     }
 
-    if (status === "active") {
-      return <span style={{ ...styles, background: "#DCFCE7", color: "#166534" }}>Active</span>
-    }
+    if (status === "active")
+      return <span style={{ ...base, background: "#DCFCE7", color: "#166534" }}>Active</span>
 
-    if (status === "completed") {
-      return <span style={{ ...styles, background: "#E0E7FF", color: "#3730A3" }}>Completed</span>
-    }
+    if (status === "completed")
+      return <span style={{ ...base, background: "#E0E7FF", color: "#3730A3" }}>Completed</span>
 
-    if (status === "failed") {
-      return <span style={{ ...styles, background: "#FEE2E2", color: "#991B1B" }}>Failed</span>
-    }
+    if (status === "failed")
+      return <span style={{ ...base, background: "#FEE2E2", color: "#991B1B" }}>Failed</span>
 
-    return <span style={{ ...styles, background: "#E5E7EB", color: "#374151" }}>{status}</span>
+    return <span style={{ ...base, background: "#E5E7EB", color: "#374151" }}>{status}</span>
   }
 
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#F5F7FB" }}>
-      
-      <div style={{
-        width: 240,
-        background: "#0F172A",
-        color: "#fff",
-        padding: 24
-      }}>
-        <img src="/screenly-logo.png" style={{ width: 160 }} />
-        <div style={{ marginTop: 30, fontWeight: "bold" }}>Dashboard</div>
-      </div>
+    <div style={{ minHeight: "100vh", background: "#ffffff" }}>
 
-      <div style={{ flex: 1, padding: 40 }}>
-        
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+      {/* TOP BAR */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "20px 40px",
+        borderBottom: "1px solid #eee"
+      }}>
+        <img src="/screenly-logo.png" style={{ width: 140 }} />
+
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <div>{user?.email}</div>
           <button onClick={handleLogout} style={buttonDanger}>
             Sign Out
           </button>
         </div>
+      </div>
 
+      {/* CONTENT */}
+      <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
         <h1 style={{ fontSize: 28, marginBottom: 20 }}>Dashboard</h1>
 
-        {isCapturing && <p style={{ color: "#6b7280" }}>Capturing... ⏳</p>}
-
+        {/* ADD URL */}
         <div style={cardStyle}>
           <h3>Add URL</h3>
 
@@ -210,7 +205,7 @@ export default function Dashboard() {
             <div style={{ flex: 2 }}>URL</div>
             <div style={{ flex: 1 }}>Schedule</div>
             <div style={{ flex: 1 }}>Next Capture</div>
-            <div style={{ flex: 1 }}>Status</div> {/* NEW */}
+            <div style={{ flex: 1 }}>Status</div>
             <div style={{ flex: 1 }}>Date Added</div>
           </div>
 
@@ -221,9 +216,7 @@ export default function Dashboard() {
                 <div style={{ flex: 2 }}>{u.url}</div>
 
                 <div style={{ flex: 1 }}>
-                  {u.schedule_type === "custom"
-                    ? `Specific: ${u.schedule_value}`
-                    : u.schedule_type}
+                  {u.schedule_type === "custom" ? `Specific: ${u.schedule_value}` : u.schedule_type}
                 </div>
 
                 <div style={{ flex: 1 }}>
@@ -248,7 +241,7 @@ export default function Dashboard() {
           <div style={headerRow}>
             <div style={{ flex: 2 }}>URL</div>
             <div style={{ flex: 1 }}>Captured At</div>
-            <div style={{ flex: 1 }}>Status</div> {/* NEW */}
+            <div style={{ flex: 1 }}>Status</div>
             <div style={{ flex: 1 }}>PDF</div>
           </div>
 
