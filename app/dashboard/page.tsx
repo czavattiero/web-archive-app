@@ -62,19 +62,25 @@ export default function Dashboard() {
     setCaptures(capturesData || [])
   }
 
-  async function addUrl() {
+async function addUrl() {
   if (!user) return
   if (!url.trim()) return alert("Enter a URL")
 
-  let nextCapture = new Date()
+  let nextCapture: Date
 
   if (schedule === "custom") {
     if (!customDate) return alert("Select a date")
 
-    // 🔥 Set to 9AM Alberta
-    nextCapture = new Date(`${customDate}T09:00:00`)
+    // 🔥 Set to 9AM Alberta (DST-safe)
+    nextCapture = new Date(
+      new Date(customDate).toLocaleString("en-US", {
+        timeZone: "America/Edmonton",
+      })
+    )
+
+    nextCapture.setHours(9, 0, 0, 0)
   } else {
-    // immediate first capture
+    // Immediate capture
     nextCapture = new Date()
   }
 
@@ -82,7 +88,7 @@ export default function Dashboard() {
     {
       url: url.trim(),
       user_id: user.id,
-      next_capture_at: nextCapture.toISOString(),
+      next_capture_at: nextCapture.toISOString(), // ✅ CRITICAL
       schedule_type: schedule,
       schedule_value: schedule === "custom" ? customDate : null,
       status: "active",
@@ -91,17 +97,10 @@ export default function Dashboard() {
 
   if (error) return alert("Error adding URL")
 
-  // 🔥 ONLY trigger worker immediately for NON-custom
+  // Only trigger immediately for non-custom
   if (schedule !== "custom") {
     await fetch("/api/run-worker", { method: "POST" })
   }
-
-  setIsCapturing(true)
-
-  setTimeout(async () => {
-    await fetchData(user)
-    setIsCapturing(false)
-  }, 8000)
 
   setUrl("")
   setCustomDate("")
