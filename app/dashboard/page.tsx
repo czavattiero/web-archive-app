@@ -109,7 +109,6 @@ export default function Dashboard() {
 
   function formatAlbertaTime(dateString: string | null) {
     if (!dateString) return "—"
-
     return new Date(dateString).toLocaleString("en-CA", {
       timeZone: "America/Edmonton",
       year: "numeric",
@@ -126,7 +125,6 @@ export default function Dashboard() {
       borderRadius: 999,
       fontSize: 12,
       fontWeight: 600,
-      display: "inline-block",
     }
 
     if (status === "active")
@@ -138,48 +136,62 @@ export default function Dashboard() {
     if (status === "failed")
       return <span style={{ ...base, background: "#FEE2E2", color: "#991B1B" }}>Failed</span>
 
-    return <span style={{ ...base, background: "#E5E7EB", color: "#374151" }}>{status}</span>
+    return <span style={{ ...base, background: "#eee" }}>{status}</span>
   }
 
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
   return (
-    <div style={{ minHeight: "100vh", background: "#ffffff" }}>
+    <div style={{ background: "#F8FAFC", minHeight: "100vh" }}>
 
-      {/* TOP BAR */}
+      {/* TOP NAV */}
       <div style={{
+        background: "#fff",
+        padding: "16px 30px",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: "20px 40px",
         borderBottom: "1px solid #eee"
       }}>
-        <img src="/screenly-logo.png" style={{ width: 140 }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <img src="/screenly-logo.png" style={{ width: 120 }} />
+          <span style={{ fontWeight: 600 }}>Dashboard</span>
+        </div>
 
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <div style={{ fontSize: 14, color: "#555" }}>{user?.email}</div>
-          <button onClick={handleLogout} style={buttonDanger}>Sign Out</button>
+        <div style={{ display: "flex", gap: 15, alignItems: "center" }}>
+          <span style={{ fontSize: 14 }}>{user.email}</span>
+          <button onClick={handleLogout} style={logoutBtn}>Sign Out</button>
         </div>
       </div>
 
       {/* CONTENT */}
-      <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
-        <h1 style={{ fontSize: 26, marginBottom: 24, fontWeight: 700 }}>Dashboard</h1>
+      <div style={{ padding: 30, maxWidth: 1200, margin: "auto" }}>
 
-        {/* ADD URL */}
-        <div style={cardStyle}>
-          <h3 style={sectionTitle}>Add URL</h3>
+        {/* HEADER */}
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 20
+        }}>
+          <h2 style={{ fontSize: 22 }}>Monitored URLs</h2>
 
+          <button style={primaryBtn} onClick={addUrl}>
+            + Add URL
+          </button>
+        </div>
+
+        {/* INPUT BAR */}
+        <div style={card}>
           <div style={{ display: "flex", gap: 10 }}>
-            {/* 🔥 FULL WIDTH URL INPUT */}
             <input
+              placeholder="Paste URL here..."
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/job-posting"
-              style={{ ...inputStyle, flex: 2 }}
+              style={{ ...input, flex: 2 }}
             />
 
-            <select value={schedule} onChange={(e) => setSchedule(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
+            <select value={schedule} onChange={(e) => setSchedule(e.target.value)} style={input}>
               <option value="weekly">Weekly</option>
               <option value="biweekly">Biweekly</option>
               <option value="29days">Every 29 days</option>
@@ -188,66 +200,40 @@ export default function Dashboard() {
             </select>
 
             {schedule === "custom" && (
-              <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+              <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} style={input} />
             )}
-
-            <button onClick={addUrl} style={buttonPrimary}>Add</button>
           </div>
         </div>
 
-        {/* TRACKED URLS */}
-        <div style={cardStyle}>
-          <h3 style={sectionTitle}>Tracked URLs</h3>
+        {/* TABLE */}
+        <div style={card}>
+          <input
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ ...input, marginBottom: 15 }}
+          />
 
-          <input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} style={searchStyle} />
-
-          <div style={headerRow}>
+          {/* HEADERS */}
+          <div style={tableHeader}>
             <div style={{ flex: 3 }}>URL</div>
             <div style={{ flex: 1 }}>Schedule</div>
-            <div style={{ flex: 1 }}>Next</div>
+            <div style={{ flex: 1 }}>Next Capture</div>
             <div style={{ flex: 1 }}>Status</div>
             <div style={{ flex: 1 }}>Added</div>
           </div>
 
-          {urls.filter((u) => u.url.toLowerCase().includes(search.toLowerCase())).map((u) => (
-            <div key={u.id} style={rowCard}>
-              <div style={{ flex: 3, wordBreak: "break-all" }}>{u.url}</div>
-              <div style={{ flex: 1 }}>{u.schedule_type}</div>
-              <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
-              <div style={{ flex: 1 }}><StatusBadge status={u.status} /></div>
-              <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* CAPTURE HISTORY */}
-        <div style={cardStyle}>
-          <h3 style={sectionTitle}>Capture History</h3>
-
-          <div style={headerRow}>
-            <div style={{ flex: 3 }}>URL</div>
-            <div style={{ flex: 1 }}>Captured</div>
-            <div style={{ flex: 1 }}>Status</div>
-            <div style={{ flex: 1 }}>PDF</div>
-          </div>
-
-          {captures.map((c) => {
-            if (!c.file_path) return null
-
-            const urlData = getUrlById(c.url_id)
-            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
-
-            return (
-              <div key={c.id} style={rowCard}>
-                <div style={{ flex: 3 }}>{urlData?.url}</div>
-                <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
-                <div style={{ flex: 1 }}><StatusBadge status={c.status} /></div>
-                <div style={{ flex: 1 }}>
-                  <a href={publicUrl} target="_blank" style={linkStyle}>Download</a>
-                </div>
+          {urls
+            .filter((u) => u.url.toLowerCase().includes(search.toLowerCase()))
+            .map((u) => (
+              <div key={u.id} style={row}>
+                <div style={{ flex: 3, wordBreak: "break-all" }}>{u.url}</div>
+                <div style={{ flex: 1 }}>{u.schedule_type}</div>
+                <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
+                <div style={{ flex: 1 }}><StatusBadge status={u.status} /></div>
+                <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
               </div>
-            )
-          })}
+            ))}
         </div>
       </div>
     </div>
@@ -256,73 +242,50 @@ export default function Dashboard() {
 
 /* STYLES */
 
-const cardStyle = {
+const card = {
   background: "#fff",
-  padding: 24,
+  padding: 20,
   borderRadius: 14,
-  border: "1px solid #eee",
-  marginTop: 20
+  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+  marginBottom: 20
 }
 
-const sectionTitle = {
-  fontSize: 16,
+const tableHeader = {
+  display: "flex",
   fontWeight: 600,
-  marginBottom: 12
-}
-
-const rowCard = {
-  display: "flex",
-  padding: "12px 14px",
-  marginTop: 8,
-  background: "#fff",
-  borderRadius: 10,
-  border: "1px solid #f1f1f1"
-}
-
-const headerRow = {
-  display: "flex",
-  padding: "8px 14px",
-  marginTop: 10,
+  fontSize: 13,
   color: "#6B7280",
-  fontWeight: 600,
-  fontSize: 12,
+  marginBottom: 10
 }
 
-const inputStyle = {
+const row = {
+  display: "flex",
+  padding: "12px 0",
+  borderTop: "1px solid #f1f1f1"
+}
+
+const input = {
   padding: "10px",
   borderRadius: 8,
   border: "1px solid #ddd",
-  background: "#fff"
+  width: "100%"
 }
 
-const searchStyle = {
-  width: "100%",
-  padding: "10px",
-  marginTop: 10,
-  borderRadius: 8,
-  border: "1px solid #ddd",
-}
-
-const buttonPrimary = {
-  background: "#7C3AED",
+const primaryBtn = {
+  background: "linear-gradient(135deg,#7C3AED,#9333EA)",
   color: "#fff",
+  border: "none",
   padding: "10px 16px",
   borderRadius: 8,
-  border: "none",
-  fontWeight: 600,
-  cursor: "pointer"
+  cursor: "pointer",
+  fontWeight: 600
 }
 
-const buttonDanger = {
+const logoutBtn = {
   background: "#ef4444",
   color: "#fff",
-  padding: "6px 12px",
-  borderRadius: 6,
   border: "none",
+  padding: "6px 10px",
+  borderRadius: 6,
   cursor: "pointer"
-}
-
-const linkStyle = {
-  color: "#7C3AED",
-  fontWeight: 500
 }
