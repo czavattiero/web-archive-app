@@ -37,11 +37,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!user) return
-
-    const interval = setInterval(() => {
-      fetchData(user)
-    }, 5000)
-
+    const interval = setInterval(() => fetchData(user), 5000)
     return () => clearInterval(interval)
   }, [user])
 
@@ -161,25 +157,29 @@ export default function Dashboard() {
         <img src="/screenly-logo.png" style={{ width: 140 }} />
 
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <div>{user?.email}</div>
-          <button onClick={handleLogout} style={buttonDanger}>
-            Sign Out
-          </button>
+          <div style={{ fontSize: 14, color: "#555" }}>{user?.email}</div>
+          <button onClick={handleLogout} style={buttonDanger}>Sign Out</button>
         </div>
       </div>
 
       {/* CONTENT */}
       <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
-        <h1 style={{ fontSize: 28, marginBottom: 20 }}>Dashboard</h1>
+        <h1 style={{ fontSize: 26, marginBottom: 24, fontWeight: 700 }}>Dashboard</h1>
 
         {/* ADD URL */}
         <div style={cardStyle}>
-          <h3>Add URL</h3>
+          <h3 style={sectionTitle}>Add URL</h3>
 
           <div style={{ display: "flex", gap: 10 }}>
-            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" style={inputStyle} />
+            {/* 🔥 FULL WIDTH URL INPUT */}
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://example.com/job-posting"
+              style={{ ...inputStyle, flex: 2 }}
+            />
 
-            <select value={schedule} onChange={(e) => setSchedule(e.target.value)} style={inputStyle}>
+            <select value={schedule} onChange={(e) => setSchedule(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
               <option value="weekly">Weekly</option>
               <option value="biweekly">Biweekly</option>
               <option value="29days">Every 29 days</option>
@@ -188,59 +188,45 @@ export default function Dashboard() {
             </select>
 
             {schedule === "custom" && (
-              <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} style={inputStyle} />
+              <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
             )}
 
-            <button onClick={addUrl} style={buttonPrimary}>Add URL</button>
+            <button onClick={addUrl} style={buttonPrimary}>Add</button>
           </div>
         </div>
 
         {/* TRACKED URLS */}
         <div style={cardStyle}>
-          <h3>Tracked URLs</h3>
+          <h3 style={sectionTitle}>Tracked URLs</h3>
 
           <input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} style={searchStyle} />
 
           <div style={headerRow}>
-            <div style={{ flex: 2 }}>URL</div>
+            <div style={{ flex: 3 }}>URL</div>
             <div style={{ flex: 1 }}>Schedule</div>
-            <div style={{ flex: 1 }}>Next Capture</div>
+            <div style={{ flex: 1 }}>Next</div>
             <div style={{ flex: 1 }}>Status</div>
-            <div style={{ flex: 1 }}>Date Added</div>
+            <div style={{ flex: 1 }}>Added</div>
           </div>
 
-          {urls
-            .filter((u) => u.url.toLowerCase().includes(search.toLowerCase()))
-            .map((u) => (
-              <div key={u.id} style={rowCard}>
-                <div style={{ flex: 2 }}>{u.url}</div>
-
-                <div style={{ flex: 1 }}>
-                  {u.schedule_type === "custom" ? `Specific: ${u.schedule_value}` : u.schedule_type}
-                </div>
-
-                <div style={{ flex: 1 }}>
-                  {formatAlbertaTime(u.next_capture_at)}
-                </div>
-
-                <div style={{ flex: 1 }}>
-                  <StatusBadge status={u.status} />
-                </div>
-
-                <div style={{ flex: 1 }}>
-                  {formatAlbertaTime(u.created_at)}
-                </div>
-              </div>
-            ))}
+          {urls.filter((u) => u.url.toLowerCase().includes(search.toLowerCase())).map((u) => (
+            <div key={u.id} style={rowCard}>
+              <div style={{ flex: 3, wordBreak: "break-all" }}>{u.url}</div>
+              <div style={{ flex: 1 }}>{u.schedule_type}</div>
+              <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
+              <div style={{ flex: 1 }}><StatusBadge status={u.status} /></div>
+              <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
+            </div>
+          ))}
         </div>
 
         {/* CAPTURE HISTORY */}
         <div style={cardStyle}>
-          <h3>Capture History</h3>
+          <h3 style={sectionTitle}>Capture History</h3>
 
           <div style={headerRow}>
-            <div style={{ flex: 2 }}>URL</div>
-            <div style={{ flex: 1 }}>Captured At</div>
+            <div style={{ flex: 3 }}>URL</div>
+            <div style={{ flex: 1 }}>Captured</div>
             <div style={{ flex: 1 }}>Status</div>
             <div style={{ flex: 1 }}>PDF</div>
           </div>
@@ -253,26 +239,16 @@ export default function Dashboard() {
 
             return (
               <div key={c.id} style={rowCard}>
-                <div style={{ flex: 2 }}>{urlData?.url}</div>
-
+                <div style={{ flex: 3 }}>{urlData?.url}</div>
+                <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
+                <div style={{ flex: 1 }}><StatusBadge status={c.status} /></div>
                 <div style={{ flex: 1 }}>
-                  {formatAlbertaTime(c.created_at)}
-                </div>
-
-                <div style={{ flex: 1 }}>
-                  <StatusBadge status={c.status} />
-                </div>
-
-                <div style={{ flex: 1 }}>
-                  <a href={publicUrl} target="_blank" style={linkStyle}>
-                    Download
-                  </a>
+                  <a href={publicUrl} target="_blank" style={linkStyle}>Download</a>
                 </div>
               </div>
             )
           })}
         </div>
-
       </div>
     </div>
   )
@@ -283,50 +259,55 @@ export default function Dashboard() {
 const cardStyle = {
   background: "#fff",
   padding: 24,
-  borderRadius: 16,
-  boxShadow: "0 10px 25px rgba(0,0,0,0.05)",
+  borderRadius: 14,
+  border: "1px solid #eee",
   marginTop: 20
+}
+
+const sectionTitle = {
+  fontSize: 16,
+  fontWeight: 600,
+  marginBottom: 12
 }
 
 const rowCard = {
   display: "flex",
-  padding: "14px 16px",
-  marginTop: 10,
+  padding: "12px 14px",
+  marginTop: 8,
   background: "#fff",
-  borderRadius: 12,
-  boxShadow: "0 4px 10px rgba(0,0,0,0.04)"
+  borderRadius: 10,
+  border: "1px solid #f1f1f1"
 }
 
 const headerRow = {
   display: "flex",
-  padding: "10px 16px",
+  padding: "8px 14px",
   marginTop: 10,
   color: "#6B7280",
   fontWeight: 600,
-  fontSize: 13,
+  fontSize: 12,
 }
 
 const inputStyle = {
-  padding: "12px",
-  borderRadius: 10,
-  border: "1px solid #E5E7EB",
-  background: "#F9FAFB"
+  padding: "10px",
+  borderRadius: 8,
+  border: "1px solid #ddd",
+  background: "#fff"
 }
 
 const searchStyle = {
   width: "100%",
-  padding: "12px",
+  padding: "10px",
   marginTop: 10,
-  borderRadius: 10,
-  border: "1px solid #E5E7EB",
-  background: "#F9FAFB"
+  borderRadius: 8,
+  border: "1px solid #ddd",
 }
 
 const buttonPrimary = {
-  background: "linear-gradient(135deg, #7C3AED, #9333EA)",
+  background: "#7C3AED",
   color: "#fff",
-  padding: "12px 18px",
-  borderRadius: 10,
+  padding: "10px 16px",
+  borderRadius: 8,
   border: "none",
   fontWeight: 600,
   cursor: "pointer"
