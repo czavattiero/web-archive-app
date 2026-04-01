@@ -112,7 +112,6 @@ export default function Dashboard() {
     return urls.find((u) => u.id === id)
   }
 
-  // 🔥 NEW: Alberta formatter
   function formatAlbertaTime(dateString: string | null) {
     if (!dateString) return "—"
 
@@ -126,12 +125,36 @@ export default function Dashboard() {
     })
   }
 
+  // 🔥 STATUS BADGE
+  function StatusBadge({ status }: { status: string }) {
+    const styles: any = {
+      padding: "4px 10px",
+      borderRadius: 999,
+      fontSize: 12,
+      fontWeight: 600,
+      display: "inline-block",
+    }
+
+    if (status === "active") {
+      return <span style={{ ...styles, background: "#DCFCE7", color: "#166534" }}>Active</span>
+    }
+
+    if (status === "completed") {
+      return <span style={{ ...styles, background: "#E0E7FF", color: "#3730A3" }}>Completed</span>
+    }
+
+    if (status === "failed") {
+      return <span style={{ ...styles, background: "#FEE2E2", color: "#991B1B" }}>Failed</span>
+    }
+
+    return <span style={{ ...styles, background: "#E5E7EB", color: "#374151" }}>{status}</span>
+  }
+
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F5F7FB" }}>
       
-      {/* SIDEBAR */}
       <div style={{
         width: 240,
         background: "#0F172A",
@@ -142,7 +165,6 @@ export default function Dashboard() {
         <div style={{ marginTop: 30, fontWeight: "bold" }}>Dashboard</div>
       </div>
 
-      {/* MAIN */}
       <div style={{ flex: 1, padding: 40 }}>
         
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
@@ -154,27 +176,15 @@ export default function Dashboard() {
 
         <h1 style={{ fontSize: 28, marginBottom: 20 }}>Dashboard</h1>
 
-        {isCapturing && (
-          <p style={{ color: "#6b7280" }}>Capturing... ⏳</p>
-        )}
+        {isCapturing && <p style={{ color: "#6b7280" }}>Capturing... ⏳</p>}
 
-        {/* ADD URL */}
         <div style={cardStyle}>
           <h3>Add URL</h3>
 
           <div style={{ display: "flex", gap: 10 }}>
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com"
-              style={inputStyle}
-            />
+            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" style={inputStyle} />
 
-            <select
-              value={schedule}
-              onChange={(e) => setSchedule(e.target.value)}
-              style={inputStyle}
-            >
+            <select value={schedule} onChange={(e) => setSchedule(e.target.value)} style={inputStyle}>
               <option value="weekly">Weekly</option>
               <option value="biweekly">Biweekly</option>
               <option value="29days">Every 29 days</option>
@@ -183,17 +193,10 @@ export default function Dashboard() {
             </select>
 
             {schedule === "custom" && (
-              <input
-                type="date"
-                value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
-                style={inputStyle}
-              />
+              <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} style={inputStyle} />
             )}
 
-            <button onClick={addUrl} style={buttonPrimary}>
-              Add URL
-            </button>
+            <button onClick={addUrl} style={buttonPrimary}>Add URL</button>
           </div>
         </div>
 
@@ -201,24 +204,18 @@ export default function Dashboard() {
         <div style={cardStyle}>
           <h3>Tracked URLs</h3>
 
-          <input
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={searchStyle}
-          />
+          <input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} style={searchStyle} />
 
           <div style={headerRow}>
             <div style={{ flex: 2 }}>URL</div>
             <div style={{ flex: 1 }}>Schedule</div>
-            <div style={{ flex: 1 }}>Next Capture</div> {/* NEW */}
+            <div style={{ flex: 1 }}>Next Capture</div>
+            <div style={{ flex: 1 }}>Status</div> {/* NEW */}
             <div style={{ flex: 1 }}>Date Added</div>
           </div>
 
           {urls
-            .filter((u) =>
-              u.url.toLowerCase().includes(search.toLowerCase())
-            )
+            .filter((u) => u.url.toLowerCase().includes(search.toLowerCase()))
             .map((u) => (
               <div key={u.id} style={rowCard}>
                 <div style={{ flex: 2 }}>{u.url}</div>
@@ -226,24 +223,19 @@ export default function Dashboard() {
                 <div style={{ flex: 1 }}>
                   {u.schedule_type === "custom"
                     ? `Specific: ${u.schedule_value}`
-                    : u.schedule_type === "weekly"
-                    ? "Weekly"
-                    : u.schedule_type === "biweekly"
-                    ? "Biweekly"
-                    : u.schedule_type === "29days"
-                    ? "Every 29 days"
-                    : u.schedule_type === "30days"
-                    ? "Every 30 days"
                     : u.schedule_type}
                 </div>
 
-                {/* 🔥 NEW COLUMN */}
                 <div style={{ flex: 1 }}>
                   {formatAlbertaTime(u.next_capture_at)}
                 </div>
 
                 <div style={{ flex: 1 }}>
-                  {new Date(u.created_at).toLocaleString()}
+                  <StatusBadge status={u.status} />
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  {formatAlbertaTime(u.created_at)}
                 </div>
               </div>
             ))}
@@ -256,6 +248,7 @@ export default function Dashboard() {
           <div style={headerRow}>
             <div style={{ flex: 2 }}>URL</div>
             <div style={{ flex: 1 }}>Captured At</div>
+            <div style={{ flex: 1 }}>Status</div> {/* NEW */}
             <div style={{ flex: 1 }}>PDF</div>
           </div>
 
@@ -271,6 +264,10 @@ export default function Dashboard() {
 
                 <div style={{ flex: 1 }}>
                   {formatAlbertaTime(c.created_at)}
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  <StatusBadge status={c.status} />
                 </div>
 
                 <div style={{ flex: 1 }}>
