@@ -64,11 +64,9 @@ async function insertCapture({ urlObj, file_path, status, error }) {
   }
 }
 
-// ✅ NEW: Safe next-date calculator (NO mutation bugs)
 function getNextCaptureDate(urlObj) {
   const now = new Date()
 
-  // Get Alberta date parts safely
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Edmonton",
     year: "numeric",
@@ -81,15 +79,12 @@ function getNextCaptureDate(urlObj) {
   const month = parts.find(p => p.type === "month").value
   const day = parts.find(p => p.type === "day").value
 
-  // Create Alberta 9:00 AM in UTC
   let next = new Date(`${year}-${month}-${day}T09:00:00-06:00`)
 
-  // If already past today's 9AM → move to tomorrow
   if (now >= next) {
     next.setDate(next.getDate() + 1)
   }
 
-  // Apply schedule
   switch (urlObj.schedule_type) {
     case "weekly":
       next.setDate(next.getDate() + 6)
@@ -108,7 +103,8 @@ function getNextCaptureDate(urlObj) {
       break
 
     case "custom":
-      return null
+      if (!urlObj.schedule_value) return null
+      return new Date(`${urlObj.schedule_value}T09:00:00-06:00`)
 
     default:
       next.setDate(next.getDate() + 6)
@@ -206,42 +202,26 @@ async function run() {
       })
 
       // ✅ FIXED SCHEDULING
-      const nextDate = getNextCaptureDate(urlObj)
+const nextDate = getNextCaptureDate(urlObj)
 
-      if (urlObj.schedule_type === "custom") {
-        await supabase
-          .from("urls")
-          .update({
-            status: "completed",
-            last_captured_at: new Date().toISOString(),
-          })
-          .eq("id", urlObj.id)
-      } else {
-        await supabase
-          .from("urls")
-          .update({
-            next_capture_at: nextDate.toISOString(),
-            last_captured_at: new Date().toISOString(),
-          })
-          .eq("id", urlObj.id)
-      }
-
-    } catch (err) {
-      console.error("❌ Capture failed:", err.message)
-
-      await insertCapture({
-        urlObj,
-        file_path: null,
-        status: "failed",
-        error: err.message,
-      })
-    }
-
-    await page.close()
-  }
-
-  await browser.close()
-  console.log("🏁 Worker finished")
+if (urlObj.schedule_type === "custom") {
+  await supabase
+    .from("urls")
+    .update({
+      status: "completed",
+      last_captured_at: new Date().toISOString(),
+      next_capture_at: null, // 🔥 VERY IMPORTANT
+    })
+    .eq("id", urlObj.id)
+} else {
+  await supabase
+    .from("urls")
+    .update({
+      next_capture_at: nextDate
+        ? nextDate.toISOString()
+        : null, // safety
+      last_captured_at: new Date().toISOString(),
+      status: "active",
+    })
+    .eq("id", urlObj.id)
 }
-
-run()
