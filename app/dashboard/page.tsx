@@ -67,23 +67,11 @@ export default function Dashboard() {
     if (schedule === "custom" && customDate) {
   const [year, month, day] = customDate.split("-").map(Number)
 
-  nextCaptureISO = DateTime.fromObject(
-    {
-      year,
-      month,
-      day,
-      hour: 9,
-      minute: 0,
-      second: 0,
-    },
-    { zone: "America/Edmonton" }
-  )
-    .toUTC()
-    .toISO()
+  nextCaptureISO = DateTime.utc(year, month, day, 15, 0, 0).toISO()
 } else {
   nextCaptureISO = new Date().toISOString()
 }
-
+    
     const { error } = await supabase.from("urls").insert([
       {
         url: url.trim(),
