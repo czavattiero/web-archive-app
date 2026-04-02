@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
+import { DateTime } from "luxon"
 
 export default function Dashboard() {
   const router = useRouter()
@@ -61,35 +62,34 @@ export default function Dashboard() {
     if (!user) return
     if (!url.trim()) return alert("Enter a URL")
 
-    let nextCapture
+    let nextCaptureISO
 
-if (schedule === "custom" && customDate) {
-  const date = new Date(customDate)
-
-  // ✅ Set to 9 AM LOCAL (browser = Alberta for your user)
-  date.setHours(9, 0, 0, 0)
-
-  nextCapture = date
-} else {
-  nextCapture = new Date()
-}
+    if (schedule === "custom" && customDate) {
+      nextCaptureISO = DateTime.fromISO(customDate, { zone: "America/Edmonton" })
+        .set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
+        .toUTC()
+        .toISO()
+    } else {
+      nextCaptureISO = new Date().toISOString()
+    }
 
     const { error } = await supabase.from("urls").insert([
       {
         url: url.trim(),
         user_id: user.id,
-        next_capture_at: nextCapture.toISOString(),
+        next_capture_at: nextCaptureISO,
         schedule_type: schedule,
         schedule_value: schedule === "custom" ? customDate : null,
         status: "active",
       },
     ])
 
-    if (error) return alert("Error adding URL")
-
-    if (schedule !== "custom") {
-      await fetch("/api/run-worker", { method: "POST" })
+    if (error) {
+      console.error(error)
+      return alert(error.message)
     }
+
+    await fetch("/api/run-worker", { method: "POST" })
 
     setUrl("")
     setCustomDate("")
@@ -108,14 +108,9 @@ if (schedule === "custom" && customDate) {
   function formatAlbertaTime(dateString: string | null) {
     if (!dateString) return "—"
 
-    return new Date(dateString).toLocaleString("en-CA", {
-      timeZone: "America/Edmonton",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    })
+    return DateTime.fromISO(dateString)
+      .setZone("America/Edmonton")
+      .toFormat("MMM d, yyyy, h:mm a")
   }
 
   function StatusBadge({ status }: { status: string }) {
@@ -139,6 +134,16 @@ if (schedule === "custom" && customDate) {
     return <span style={{ ...base, background: "#E5E7EB", color: "#374151" }}>{status}</span>
   }
 
+  // ✅ SEARCH FILTER (BOTH TABLES)
+  const filteredUrls = urls.filter((u) =>
+    u.url.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const filteredCaptures = captures.filter((c) => {
+    const urlData = getUrlById(c.url_id)
+    return urlData?.url?.toLowerCase().includes(search.toLowerCase())
+  })
+
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
   return (
@@ -160,7 +165,6 @@ if (schedule === "custom" && customDate) {
         </div>
       </div>
 
-      {/* CONTENT */}
       <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
         <h1 style={{ fontSize: 26, marginBottom: 24, fontWeight: 700 }}>Dashboard</h1>
 
@@ -169,7 +173,6 @@ if (schedule === "custom" && customDate) {
           <h3 style={sectionTitle}>Add URL</h3>
 
           <div style={{ display: "flex", gap: 10 }}>
-            {/* 🔥 FULL WIDTH URL INPUT */}
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
@@ -207,7 +210,7 @@ if (schedule === "custom" && customDate) {
             <div style={{ flex: 1 }}>Added</div>
           </div>
 
-          {urls.filter((u) => u.url.toLowerCase().includes(search.toLowerCase())).map((u) => (
+          {filteredUrls.map((u) => (
             <div key={u.id} style={rowCard}>
               <div style={{ flex: 3, wordBreak: "break-all" }}>{u.url}</div>
               <div style={{ flex: 1 }}>{u.schedule_type}</div>
@@ -229,7 +232,7 @@ if (schedule === "custom" && customDate) {
             <div style={{ flex: 1 }}>PDF</div>
           </div>
 
-          {captures.map((c) => {
+          {filteredCaptures.map((c) => {
             if (!c.file_path) return null
 
             const urlData = getUrlById(c.url_id)
@@ -324,4 +327,3 @@ const linkStyle = {
   color: "#7C3AED",
   fontWeight: 500
 }
-
