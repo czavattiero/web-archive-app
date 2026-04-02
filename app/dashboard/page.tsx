@@ -65,13 +65,24 @@ export default function Dashboard() {
     let nextCaptureISO
 
     if (schedule === "custom" && customDate) {
-      nextCaptureISO = DateTime.fromISO(customDate, { zone: "America/Edmonton" })
-        .set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
-        .toUTC()
-        .toISO()
-    } else {
-      nextCaptureISO = new Date().toISOString()
-    }
+  const [year, month, day] = customDate.split("-").map(Number)
+
+  nextCaptureISO = DateTime.fromObject(
+    {
+      year,
+      month,
+      day,
+      hour: 9,
+      minute: 0,
+      second: 0,
+    },
+    { zone: "America/Edmonton" }
+  )
+    .toUTC()
+    .toISO()
+} else {
+  nextCaptureISO = new Date().toISOString()
+}
 
     const { error } = await supabase.from("urls").insert([
       {
