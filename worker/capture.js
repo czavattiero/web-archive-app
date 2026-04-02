@@ -3,6 +3,7 @@ import path from "path"
 import { fileURLToPath } from "url"
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
+import { DateTime } from "luxon"
 
 // Setup env
 const __filename = fileURLToPath(import.meta.url)
@@ -42,7 +43,7 @@ async function loadPageWithRetry(page, url, retries = 2) {
   return false
 }
 
-// 🔥 Insert capture helper
+// 📥 Insert capture
 async function insertCapture({ urlObj, file_path, status, error }) {
   const payload = {
     url_id: urlObj.id,
@@ -64,53 +65,54 @@ async function insertCapture({ urlObj, file_path, status, error }) {
   }
 }
 
+// 🧠 Scheduling engine (DST-safe)
 function getNextCaptureDate(urlObj) {
-  const now = new Date()
+  const now = DateTime.now().setZone("America/Edmonton")
 
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Edmonton",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  })
+  let next
 
-  const parts = formatter.formatToParts(now)
-  const year = parts.find(p => p.type === "year").value
-  const month = parts.find(p => p.type === "month").value
-  const day = parts.find(p => p.type === "day").value
+  // ✅ CUSTOM (ONE-TIME)
+  if (urlObj.schedule_type === "custom") {
+    if (!urlObj.schedule_value) return null
 
-  let next = new Date(`${year}-${month}-${day}T09:00:00-06:00`)
+    next = DateTime.fromFormat(
+      urlObj.schedule_value,
+      "yyyy-MM-dd",
+      { zone: "America/Edmonton" }
+    ).set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
+
+    return next.toUTC().toJSDate()
+  }
+
+  // ✅ BASE: today at 9 AM Alberta
+  next = now.set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
 
   if (now >= next) {
-    next.setDate(next.getDate() + 1)
+    next = next.plus({ days: 1 })
   }
 
   switch (urlObj.schedule_type) {
     case "weekly":
-      next.setDate(next.getDate() + 6)
+      next = next.plus({ weeks: 1 })
       break
 
     case "biweekly":
-      next.setDate(next.getDate() + 13)
+      next = next.plus({ weeks: 2 })
       break
 
     case "29days":
-      next.setDate(next.getDate() + 28)
+      next = next.plus({ days: 29 })
       break
 
     case "30days":
-      next.setDate(next.getDate() + 29)
+      next = next.plus({ days: 30 })
       break
 
-    case "custom":
-      if (!urlObj.schedule_value) return null
-      return new Date(`${urlObj.schedule_value}T09:00:00-06:00`)
-
     default:
-      next.setDate(next.getDate() + 6)
+      next = next.plus({ weeks: 1 })
   }
 
-  return next
+  return next.toUTC().toJSDate()
 }
 
 // 🚀 MAIN WORKER
@@ -165,9 +167,9 @@ async function run() {
 
       await page.waitForTimeout(3000)
 
-      const timestamp = new Date().toLocaleString("en-CA", {
-        timeZone: "America/Edmonton",
-      })
+      const timestamp = DateTime.now()
+        .setZone("America/Edmonton")
+        .toFormat("MMM d, yyyy, h:mm a")
 
       const filePath = `${urlObj.id}-${Date.now()}.pdf`
 
@@ -201,47 +203,41 @@ async function run() {
         error: null,
       })
 
-      // ✅ FIXED SCHEDULING
-const nextDate = getNextCaptureDate(urlObj)
+      // 🧠 UPDATE SCHEDULING
+      const nextDate = getNextCaptureDate(urlObj)
 
-if (urlObj.schedule_type === "custom") {
-  await supabase
-    .from("urls")
-    .update({
-      status: "completed",
-      last_captured_at: new Date().toISOString(),
-      next_capture_at: null,
-    })
-    .eq("id", urlObj.id)
-} else {
-  await supabase
-    .from("urls")
-    .update({
-      next_capture_at: nextDate
-        ? nextDate.toISOString()
-        : null,
-      last_captured_at: new Date().toISOString(),
-      status: "active",
-    })
-    .eq("id", urlObj.id)
-}
+      const updatePayload = {
+        last_captured_at: new Date().toISOString(),
+      }
 
-} catch (err) {
-  console.error("❌ Capture failed:", err.message)
+      if (nextDate) {
+        updatePayload.next_capture_at = nextDate.toISOString()
+      } else {
+        updatePayload.status = "completed"
+        updatePayload.next_capture_at = null
+      }
 
-  await insertCapture({
-    urlObj,
-    file_path: null,
-    status: "failed",
-    error: err.message,
-  })
-}
+      await supabase
+        .from("urls")
+        .update(updatePayload)
+        .eq("id", urlObj.id)
 
-await page.close()
-} // ✅ closes for-loop
+    } catch (err) {
+      console.error("❌ Capture failed:", err.message)
 
-await browser.close()
-console.log("🏁 Worker finished")
+      await insertCapture({
+        urlObj,
+        file_path: null,
+        status: "failed",
+        error: err.message,
+      })
+    }
+
+    await page.close()
+  }
+
+  await browser.close()
+  console.log("🏁 Worker finished")
 }
 
 run()
