@@ -61,20 +61,18 @@ export default function Dashboard() {
     if (!user) return
     if (!url.trim()) return alert("Enter a URL")
 
-    let nextCapture: Date
+    let nextCapture
 
-    if (schedule === "custom") {
-      if (!customDate) return alert("Select a date")
+if (schedule === "custom" && customDate) {
+  const date = new Date(customDate)
 
-      nextCapture = new Date(
-        new Date(customDate).toLocaleString("en-US", {
-          timeZone: "America/Edmonton",
-        })
-      )
-      nextCapture.setHours(9, 0, 0, 0)
-    } else {
-      nextCapture = new Date()
-    }
+  // ✅ Set to 9 AM LOCAL (browser = Alberta for your user)
+  date.setHours(9, 0, 0, 0)
+
+  nextCapture = date
+} else {
+  nextCapture = new Date()
+}
 
     const { error } = await supabase.from("urls").insert([
       {
