@@ -267,7 +267,7 @@ const title = {
   fontWeight: 700
 }
 
-const urlCell = {
+const urlCell: React.CSSProperties = {
   flex: 3,
   wordBreak: "break-all",
   whiteSpace: "normal",
