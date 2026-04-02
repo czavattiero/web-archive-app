@@ -58,6 +58,7 @@ export default function Dashboard() {
     setCaptures(capturesData || [])
   }
 
+  // ✅ FIXED ADD URL (AUTO TRIGGER WORKER)
   async function addUrl() {
     if (!user) return
     if (!url.trim()) return alert("Enter a URL")
@@ -65,13 +66,14 @@ export default function Dashboard() {
     let nextCaptureISO
 
     if (schedule === "custom" && customDate) {
-  const [year, month, day] = customDate.split("-").map(Number)
+      const [year, month, day] = customDate.split("-").map(Number)
 
-  nextCaptureISO = DateTime.utc(year, month, day, 15, 0, 0).toISO()
-} else {
-  nextCaptureISO = new Date().toISOString()
-}
-    
+      // 9AM Alberta → 15:00 UTC
+      nextCaptureISO = DateTime.utc(year, month, day, 15, 0, 0).toISO()
+    } else {
+      nextCaptureISO = new Date().toISOString()
+    }
+
     const { error } = await supabase.from("urls").insert([
       {
         url: url.trim(),
@@ -88,10 +90,12 @@ export default function Dashboard() {
       return alert(error.message)
     }
 
-    await fetch("/api/run-worker", { method: "POST" })
+    // 🔥 FIX: correct endpoint
+    await fetch("/api/capture", { method: "POST" })
 
     setUrl("")
     setCustomDate("")
+    fetchData(user)
   }
 
   const handleLogout = async () => {
@@ -107,7 +111,7 @@ export default function Dashboard() {
   function formatAlbertaTime(dateString: string | null) {
     if (!dateString) return "—"
 
-    return DateTime.fromISO(dateString)
+    return DateTime.fromISO(dateString, { zone: "utc" })
       .setZone("America/Edmonton")
       .toFormat("MMM d, yyyy, h:mm a")
   }
@@ -133,7 +137,6 @@ export default function Dashboard() {
     return <span style={{ ...base, background: "#E5E7EB", color: "#374151" }}>{status}</span>
   }
 
-  // ✅ SEARCH FILTER (BOTH TABLES)
   const filteredUrls = urls.filter((u) =>
     u.url.toLowerCase().includes(search.toLowerCase())
   )
@@ -149,13 +152,7 @@ export default function Dashboard() {
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
 
       {/* TOP BAR */}
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "20px 40px",
-        borderBottom: "1px solid #eee"
-      }}>
+      <div style={topBar}>
         <img src="/screenly-logo.png" style={{ width: 140 }} />
 
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -165,7 +162,7 @@ export default function Dashboard() {
       </div>
 
       <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
-        <h1 style={{ fontSize: 26, marginBottom: 24, fontWeight: 700 }}>Dashboard</h1>
+        <h1 style={title}>Dashboard</h1>
 
         {/* ADD URL */}
         <div style={cardStyle}>
@@ -211,7 +208,7 @@ export default function Dashboard() {
 
           {filteredUrls.map((u) => (
             <div key={u.id} style={rowCard}>
-              <div style={{ flex: 3, wordBreak: "break-all" }}>{u.url}</div>
+              <div style={urlCell}>{u.url}</div>
               <div style={{ flex: 1 }}>{u.schedule_type}</div>
               <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
               <div style={{ flex: 1 }}><StatusBadge status={u.status} /></div>
@@ -239,7 +236,7 @@ export default function Dashboard() {
 
             return (
               <div key={c.id} style={rowCard}>
-                <div style={{ flex: 3 }}>{urlData?.url}</div>
+                <div style={urlCell}>{urlData?.url}</div>
                 <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
                 <div style={{ flex: 1 }}><StatusBadge status={c.status} /></div>
                 <div style={{ flex: 1 }}>
@@ -255,6 +252,29 @@ export default function Dashboard() {
 }
 
 /* STYLES */
+
+const topBar = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "20px 40px",
+  borderBottom: "1px solid #eee"
+}
+
+const title = {
+  fontSize: 26,
+  marginBottom: 24,
+  fontWeight: 700
+}
+
+const urlCell = {
+  flex: 3,
+  wordBreak: "break-all",
+  whiteSpace: "normal",
+  lineHeight: "1.4",
+  fontSize: 13,
+  color: "#333"
+}
 
 const cardStyle = {
   background: "#fff",
@@ -272,11 +292,12 @@ const sectionTitle = {
 
 const rowCard = {
   display: "flex",
-  padding: "12px 14px",
+  padding: "14px 16px",
   marginTop: 8,
   background: "#fff",
   borderRadius: 10,
-  border: "1px solid #f1f1f1"
+  border: "1px solid #f1f1f1",
+  gap: 12
 }
 
 const headerRow = {
