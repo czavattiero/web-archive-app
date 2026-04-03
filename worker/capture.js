@@ -4,7 +4,6 @@ import { fileURLToPath } from "url"
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
 import { DateTime } from "luxon"
-import pLimit from "p-limit"
 
 // Setup env
 const __filename = fileURLToPath(import.meta.url)
@@ -144,111 +143,93 @@ async function run() {
     viewport: { width: 1280, height: 800 },
   })
 
-  // 🔥 PARALLEL PROCESSING (SAFE)
-  const limit = pLimit(5)
+  // 🔥 SIMPLE PARALLEL (batch of 5)
+  const BATCH_SIZE = 5
 
-  const tasks = urls.map((urlObj) =>
-    limit(async () => {
-      console.log("🔍 Processing:", urlObj.url)
+  for (let i = 0; i < urls.length; i += BATCH_SIZE) {
+    const batch = urls.slice(i, i + BATCH_SIZE)
 
-      const now = DateTime.now().toUTC()
+    await Promise.all(
+      batch.map(async (urlObj) => {
+        console.log("🔍 Processing:", urlObj.url)
 
-      if (!urlObj.next_capture_at) {
-        console.log("⏭ Skipping (no next_capture_at)")
-        return
-      }
+        const now = DateTime.now().toUTC()
 
-      const nextTime = DateTime.fromISO(urlObj.next_capture_at)
+        if (!urlObj.next_capture_at) return
+        if (DateTime.fromISO(urlObj.next_capture_at) > now) return
+        if (!urlObj.id || !urlObj.user_id) return
 
-      if (nextTime > now) {
-        console.log("⏭ Not due yet")
-        return
-      }
+        const page = await context.newPage()
 
-      if (!urlObj.id || !urlObj.user_id) {
-        console.error("❌ Missing id or user_id — skipping")
-        return
-      }
+        try {
+          const loaded = await loadPageWithRetry(page, urlObj.url)
+          if (!loaded) throw new Error("Failed after retries")
 
-      const page = await context.newPage()
+          await page.waitForTimeout(3000)
 
-      try {
-        const loaded = await loadPageWithRetry(page, urlObj.url)
+          const timestamp = DateTime.now()
+            .setZone("America/Edmonton")
+            .toFormat("MMM d, yyyy, h:mm a")
 
-        if (!loaded) throw new Error("Failed after retries")
+          const filePath = `${urlObj.id}-${Date.now()}.pdf`
 
-        await page.waitForTimeout(3000)
-
-        const timestamp = DateTime.now()
-          .setZone("America/Edmonton")
-          .toFormat("MMM d, yyyy, h:mm a")
-
-        const filePath = `${urlObj.id}-${Date.now()}.pdf`
-
-        const pdfBuffer = await page.pdf({
-          format: "A4",
-          displayHeaderFooter: true,
-          headerTemplate: `
-            <div style="width:100%;font-size:11px;padding:8px 12px;text-align:right;background:white;color:black;border-bottom:1px solid #ccc;">
-              Captured: ${timestamp}
-            </div>
-          `,
-          footerTemplate: `<div></div>`,
-          margin: { top: "70px", bottom: "30px" },
-          printBackground: true,
-        })
-
-        const { error: uploadError } = await supabase.storage
-          .from("captures")
-          .upload(filePath, pdfBuffer, {
-            contentType: "application/pdf",
+          const pdfBuffer = await page.pdf({
+            format: "A4",
+            displayHeaderFooter: true,
+            headerTemplate: `
+              <div style="width:100%;font-size:11px;padding:8px 12px;text-align:right;background:white;color:black;border-bottom:1px solid #ccc;">
+                Captured: ${timestamp}
+              </div>
+            `,
+            footerTemplate: `<div></div>`,
+            margin: { top: "70px", bottom: "30px" },
+            printBackground: true,
           })
 
-        if (uploadError) throw new Error(uploadError.message)
+          await supabase.storage
+            .from("captures")
+            .upload(filePath, pdfBuffer, {
+              contentType: "application/pdf",
+            })
 
-        console.log("✅ Upload success:", filePath)
+          await insertCapture({
+            urlObj,
+            file_path: filePath,
+            status: "success",
+            error: null,
+          })
 
-        await insertCapture({
-          urlObj,
-          file_path: filePath,
-          status: "success",
-          error: null,
-        })
+          const nextDate = getNextCaptureDate(urlObj)
 
-        const nextDate = getNextCaptureDate(urlObj)
+          const updatePayload = {
+            last_captured_at: new Date().toISOString(),
+          }
 
-        const updatePayload = {
-          last_captured_at: new Date().toISOString(),
+          if (nextDate) {
+            updatePayload.next_capture_at = nextDate.toISOString()
+          } else {
+            updatePayload.status = "completed"
+            updatePayload.next_capture_at = null
+          }
+
+          await supabase
+            .from("urls")
+            .update(updatePayload)
+            .eq("id", urlObj.id)
+
+        } catch (err) {
+          await insertCapture({
+            urlObj,
+            file_path: null,
+            status: "failed",
+            error: err.message,
+          })
         }
 
-        if (nextDate) {
-          updatePayload.next_capture_at = nextDate.toISOString()
-        } else {
-          updatePayload.status = "completed"
-          updatePayload.next_capture_at = null
-        }
-
-        await supabase
-          .from("urls")
-          .update(updatePayload)
-          .eq("id", urlObj.id)
-
-      } catch (err) {
-        console.error("❌ Capture failed:", err.message)
-
-        await insertCapture({
-          urlObj,
-          file_path: null,
-          status: "failed",
-          error: err.message,
-        })
-      }
-
-      await page.close()
-    })
-  )
-
-  await Promise.all(tasks)
+        await page.close()
+      })
+    )
+  }
 
   await browser.close()
   console.log("🏁 Worker finished")
