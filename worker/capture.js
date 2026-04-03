@@ -36,7 +36,6 @@ async function loadPageWithRetry(page, url, retries = 2) {
       console.error(`❌ Attempt ${i + 1} failed:`, error.message)
 
       if (i === retries) return false
-
       await new Promise((res) => setTimeout(res, 3000))
     }
   }
@@ -71,7 +70,6 @@ function getNextCaptureDate(urlObj) {
 
   let next
 
-  // ✅ CUSTOM (ONE-TIME)
   if (urlObj.schedule_type === "custom") {
     if (!urlObj.schedule_value) return null
 
@@ -84,7 +82,6 @@ function getNextCaptureDate(urlObj) {
     return next.toUTC().toJSDate()
   }
 
-  // ✅ BASE: today at 9 AM Alberta
   next = now.set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
 
   if (now >= next) {
@@ -95,19 +92,15 @@ function getNextCaptureDate(urlObj) {
     case "weekly":
       next = next.plus({ weeks: 1 })
       break
-
     case "biweekly":
       next = next.plus({ weeks: 2 })
       break
-
     case "29days":
       next = next.plus({ days: 29 })
       break
-
     case "30days":
       next = next.plus({ days: 30 })
       break
-
     default:
       next = next.plus({ weeks: 1 })
   }
@@ -119,13 +112,13 @@ function getNextCaptureDate(urlObj) {
 async function run() {
   console.log("🚀 Worker started")
 
-  const now = new Date().toISOString()
+  const nowISO = new Date().toISOString()
 
   const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
     .eq("status", "active")
-    .lte("next_capture_at", now)
+    .lte("next_capture_at", nowISO)
 
   if (error) {
     console.error("❌ Fetch error:", error)
@@ -152,6 +145,21 @@ async function run() {
 
   for (const urlObj of urls) {
     console.log("🔍 Processing:", urlObj.url)
+
+    // 🔥 CRITICAL FIX — ONLY PROCESS IF DUE
+    const now = DateTime.now().toUTC()
+
+    if (!urlObj.next_capture_at) {
+      console.log("⏭ Skipping (no next_capture_at)")
+      continue
+    }
+
+    const nextTime = DateTime.fromISO(urlObj.next_capture_at)
+
+    if (nextTime > now) {
+      console.log("⏭ Not due yet")
+      continue
+    }
 
     if (!urlObj.id || !urlObj.user_id) {
       console.error("❌ Missing id or user_id — skipping")
@@ -203,7 +211,7 @@ async function run() {
         error: null,
       })
 
-      // 🧠 UPDATE SCHEDULING
+      // 🔥 UPDATE NEXT CAPTURE (ALWAYS FUTURE)
       const nextDate = getNextCaptureDate(urlObj)
 
       const updatePayload = {
