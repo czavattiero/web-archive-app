@@ -154,25 +154,39 @@ export default function Dashboard() {
           <div style={{ fontSize: 14, color: "#555" }}>{user?.email}</div>
           <button
   onClick={async () => {
-    const res = await fetch("/api/stripe/portal", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ userId: user.id }),
-    })
+    try {
+      console.log("Calling billing portal...")
 
-    const data = await res.json()
+      const res = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: user.id }),
+      })
 
-    if (data.url) {
-      window.location.href = data.url
-    } else {
-      alert("Error opening billing portal")
+      const data = await res.json()
+
+      console.log("Portal response:", data)
+
+      if (!res.ok) {
+        alert(data.error || "Something went wrong")
+        return
+      }
+
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        alert("No URL returned from Stripe")
+      }
+    } catch (err) {
+      console.error(err)
+      alert("Request failed")
     }
   }}
   style={buttonPrimary}
 >
-  Manage Billing
+  Manage billing
 </button>
           <button onClick={handleLogout} style={buttonDanger}>Sign Out</button>
         </div>
