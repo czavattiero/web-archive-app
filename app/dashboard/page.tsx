@@ -60,54 +60,48 @@ export default function Dashboard() {
 
   // ✅ FIXED ADD URL (AUTO TRIGGER WORKER)
   async function addUrl() {
-    if (!user) return
-    if (!url.trim()) return alert("Enter a URL")
+  if (!user) return
+  if (!url.trim()) return alert("Enter a URL")
 
-    let nextCaptureISO
+  let nextCaptureISO
 
-    if (schedule === "custom" && customDate) {
-      const [year, month, day] = customDate.split("-").map(Number)
+  if (schedule === "custom" && customDate) {
+    const [year, month, day] = customDate.split("-").map(Number)
 
-      // 9AM Alberta → 15:00 UTC
-      nextCaptureISO = DateTime.utc(year, month, day, 15, 0, 0).toISO()
-    } else {
-      if (schedule === "custom" && customDate) {
-  const [year, month, day] = customDate.split("-").map(Number)
-
-  nextCaptureISO = DateTime.utc(year, month, day, 15, 0, 0).toISO()
-} else {
-  // 🔥 set NEXT capture in the future (NOT now)
-  nextCaptureISO = DateTime.now()
-    .setZone("America/Edmonton")
-    .plus({ minutes: 1 }) // small buffer
-    .toUTC()
-    .toISO()
-}
-
-    const { error } = await supabase.from("urls").insert([
-      {
-        url: url.trim(),
-        user_id: user.id,
-        next_capture_at: nextCaptureISO,
-        schedule_type: schedule,
-        schedule_value: schedule === "custom" ? customDate : null,
-        status: "active",
-      },
-    ])
-
-    if (error) {
-      console.error(error)
-      return alert(error.message)
-    }
-
-    // 🔥 FIX: correct endpoint
-    await fetch("/api/capture", { method: "POST" })
-
-    setUrl("")
-    setCustomDate("")
-    fetchData(user)
+    // 9AM Alberta → 15:00 UTC
+    nextCaptureISO = DateTime.utc(year, month, day, 15, 0, 0).toISO()
+  } else {
+    // 🔥 set NEXT capture slightly in future (for immediate worker trigger)
+    nextCaptureISO = DateTime.now()
+      .setZone("America/Edmonton")
+      .plus({ minutes: 1 })
+      .toUTC()
+      .toISO()
   }
 
+  const { error } = await supabase.from("urls").insert([
+    {
+      url: url.trim(),
+      user_id: user.id,
+      next_capture_at: nextCaptureISO,
+      schedule_type: schedule,
+      schedule_value: schedule === "custom" ? customDate : null,
+      status: "active",
+    },
+  ])
+
+  if (error) {
+    console.error(error)
+    return alert(error.message)
+  }
+
+  // trigger worker
+  await fetch("/api/capture", { method: "POST" })
+
+  setUrl("")
+  setCustomDate("")
+  fetchData(user)
+}
   const handleLogout = async () => {
     await supabase.auth.signOut()
     localStorage.clear()
