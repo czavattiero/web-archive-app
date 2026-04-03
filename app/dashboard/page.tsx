@@ -17,7 +17,7 @@ export default function Dashboard() {
 
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
-  const [failedUrls, setFailedUrls] = useState<any[]>([]) // 🔥 NEW
+  const [failedUrls, setFailedUrls] = useState<any[]>([])
   const [search, setSearch] = useState("")
 
   useEffect(() => {
@@ -44,13 +44,11 @@ export default function Dashboard() {
   }, [user])
 
   async function fetchData(currentUser: any) {
-    // ALL URLS
     const { data: urlsData } = await supabase
       .from("urls")
       .select("*")
       .eq("user_id", currentUser.id)
 
-    // FAILED URLS ONLY 🔥
     const { data: failedData } = await supabase
       .from("urls")
       .select("*")
@@ -65,16 +63,14 @@ export default function Dashboard() {
       .order("created_at", { ascending: false })
 
     setUrls(urlsData || [])
-    setFailedUrls(failedData || []) // 🔥 NEW
+    setFailedUrls(failedData || [])
     setCaptures(capturesData || [])
   }
 
   async function retryUrl(id: string) {
     await fetch("/api/retry", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ urlId: id }),
     })
 
@@ -98,10 +94,7 @@ export default function Dashboard() {
       },
     ])
 
-    if (error) {
-      console.error(error)
-      return alert(error.message)
-    }
+    if (error) return alert(error.message)
 
     await fetch("/api/capture", { method: "POST" })
 
@@ -122,7 +115,6 @@ export default function Dashboard() {
 
   function formatAlbertaTime(dateString: string | null) {
     if (!dateString) return "—"
-
     return DateTime.fromISO(dateString, { zone: "utc" })
       .setZone("America/Edmonton")
       .toFormat("MMM d, yyyy, h:mm a")
@@ -175,13 +167,11 @@ export default function Dashboard() {
       <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
         <h1 style={title}>Dashboard</h1>
 
-        {/* ADD URL */}
         <div style={cardStyle}>
           <h3 style={sectionTitle}>Add URL</h3>
 
           <div style={{ display: "flex", gap: 10 }}>
-            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" style={{ ...inputStyle, flex: 2 }} />
-
+            <input value={url} onChange={(e) => setUrl(e.target.value)} style={{ ...inputStyle, flex: 2 }} />
             <select value={schedule} onChange={(e) => setSchedule(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
               <option value="weekly">Weekly</option>
               <option value="biweekly">Biweekly</option>
@@ -189,28 +179,17 @@ export default function Dashboard() {
               <option value="30days">Every 30 days</option>
               <option value="custom">Specific date</option>
             </select>
-
             {schedule === "custom" && (
               <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
             )}
-
             <button onClick={addUrl} style={buttonPrimary}>Add</button>
           </div>
         </div>
 
-        {/* TRACKED URLS */}
         <div style={cardStyle}>
           <h3 style={sectionTitle}>Tracked URLs</h3>
 
-          <input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} style={searchStyle} />
-
-          <div style={headerRow}>
-            <div style={{ flex: 3 }}>URL</div>
-            <div style={{ flex: 1 }}>Schedule</div>
-            <div style={{ flex: 1 }}>Next</div>
-            <div style={{ flex: 1 }}>Status</div>
-            <div style={{ flex: 1 }}>Added</div>
-          </div>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} style={searchStyle} />
 
           {filteredUrls.map((u) => (
             <div key={u.id} style={rowCard}>
@@ -218,64 +197,101 @@ export default function Dashboard() {
               <div style={{ flex: 1 }}>{u.schedule_type}</div>
               <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
               <div style={{ flex: 1 }}><StatusBadge status={u.status} /></div>
-              <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
             </div>
           ))}
         </div>
 
-        {/* 🔥 FAILED CAPTURES */}
         <div style={cardStyle}>
           <h3 style={sectionTitle}>Failed Captures</h3>
 
           {failedUrls.length === 0 ? (
-            <p style={{ color: "#6B7280" }}>No failed captures 🎉</p>
+            <p>No failed captures 🎉</p>
           ) : (
             failedUrls.map((u) => (
               <div key={u.id} style={rowCard}>
                 <div style={urlCell}>{u.url}</div>
-                <div style={{ flex: 1, color: "#991B1B" }}>
-                  Failed ({u.retry_count})
-                </div>
-                <div style={{ flex: 1 }}>
-                  <button onClick={() => retryUrl(u.id)} style={buttonPrimary}>
-                    Retry
-                  </button>
-                </div>
+                <div style={{ flex: 1 }}>Failed ({u.retry_count})</div>
+                <button onClick={() => retryUrl(u.id)} style={buttonPrimary}>
+                  Retry
+                </button>
               </div>
             ))
           )}
         </div>
-
-        {/* CAPTURE HISTORY */}
-        <div style={cardStyle}>
-          <h3 style={sectionTitle}>Capture History</h3>
-
-          <div style={headerRow}>
-            <div style={{ flex: 3 }}>URL</div>
-            <div style={{ flex: 1 }}>Captured</div>
-            <div style={{ flex: 1 }}>Status</div>
-            <div style={{ flex: 1 }}>PDF</div>
-          </div>
-
-          {filteredCaptures.map((c) => {
-            if (!c.file_path) return null
-
-            const urlData = getUrlById(c.url_id)
-            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
-
-            return (
-              <div key={c.id} style={rowCard}>
-                <div style={urlCell}>{urlData?.url}</div>
-                <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
-                <div style={{ flex: 1 }}><StatusBadge status={c.status} /></div>
-                <div style={{ flex: 1 }}>
-                  <a href={publicUrl} target="_blank" style={linkStyle}>Download</a>
-                </div>
-              </div>
-            )
-          })}
-        </div>
       </div>
     </div>
   )
+}
+
+/* 🔥 STYLE BLOCK — ALREADY IN CORRECT PLACE */
+
+const topBar = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "20px 40px",
+  borderBottom: "1px solid #eee"
+}
+
+const title = {
+  fontSize: 26,
+  marginBottom: 24,
+  fontWeight: 700
+}
+
+const urlCell = {
+  flex: 3,
+  wordBreak: "break-all" as const,
+}
+
+const cardStyle = {
+  background: "#fff",
+  padding: 24,
+  borderRadius: 14,
+  border: "1px solid #eee",
+  marginTop: 20
+}
+
+const sectionTitle = {
+  fontSize: 16,
+  fontWeight: 600,
+  marginBottom: 12
+}
+
+const rowCard = {
+  display: "flex",
+  padding: "14px",
+  marginTop: 8,
+  border: "1px solid #eee",
+  borderRadius: 10,
+  gap: 10
+}
+
+const inputStyle = {
+  padding: "10px",
+  borderRadius: 8,
+  border: "1px solid #ddd"
+}
+
+const searchStyle = {
+  width: "100%",
+  padding: "10px",
+  marginTop: 10,
+  border: "1px solid #ddd"
+}
+
+const buttonPrimary = {
+  background: "#7C3AED",
+  color: "#fff",
+  padding: "10px",
+  borderRadius: 8,
+  border: "none"
+}
+
+const buttonDanger = {
+  background: "#ef4444",
+  color: "#fff",
+  padding: "6px 12px",
+  borderRadius: 6,
+  border: "none"
 }
