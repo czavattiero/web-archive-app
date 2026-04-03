@@ -71,8 +71,18 @@ export default function Dashboard() {
       // 9AM Alberta → 15:00 UTC
       nextCaptureISO = DateTime.utc(year, month, day, 15, 0, 0).toISO()
     } else {
-      nextCaptureISO = new Date().toISOString()
-    }
+      if (schedule === "custom" && customDate) {
+  const [year, month, day] = customDate.split("-").map(Number)
+
+  nextCaptureISO = DateTime.utc(year, month, day, 15, 0, 0).toISO()
+} else {
+  // 🔥 set NEXT capture in the future (NOT now)
+  nextCaptureISO = DateTime.now()
+    .setZone("America/Edmonton")
+    .plus({ minutes: 1 }) // small buffer
+    .toUTC()
+    .toISO()
+}
 
     const { error } = await supabase.from("urls").insert([
       {
