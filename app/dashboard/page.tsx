@@ -152,6 +152,28 @@ export default function Dashboard() {
 
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <div style={{ fontSize: 14, color: "#555" }}>{user?.email}</div>
+          <button
+  onClick={async () => {
+    const res = await fetch("/api/stripe/portal", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ userId: user.id }),
+    })
+
+    const data = await res.json()
+
+    if (data.url) {
+      window.location.href = data.url
+    } else {
+      alert("Error opening billing portal")
+    }
+  }}
+  style={buttonPrimary}
+>
+  Manage Billing
+</button>
           <button onClick={handleLogout} style={buttonDanger}>Sign Out</button>
         </div>
       </div>
