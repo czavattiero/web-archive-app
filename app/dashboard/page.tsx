@@ -355,5 +355,5 @@ const buttonDanger = {
 
 const linkStyle = {
   color: "#7C3AED",
-  fontWeight: 500
+  fontWeight: 500,
 }
