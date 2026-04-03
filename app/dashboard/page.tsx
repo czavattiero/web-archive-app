@@ -63,29 +63,19 @@ export default function Dashboard() {
   if (!user) return
   if (!url.trim()) return alert("Enter a URL")
 
-  let nextCaptureISO
-
-  if (schedule === "custom" && customDate) {
-    const [year, month, day] = customDate.split("-").map(Number)
-
-    // 9AM Alberta → 15:00 UTC
-    nextCaptureISO = DateTime.utc(year, month, day, 15, 0, 0).toISO()
-  } else {
-    // 🔥 set NEXT capture slightly in future (for immediate worker trigger)
-    nextCaptureISO = DateTime.now()
-      .setZone("America/Edmonton")
-      .plus({ minutes: 1 })
-      .toUTC()
-      .toISO()
-  }
+  // 🔥 ALWAYS trigger immediate capture
+  const nextCaptureISO = new Date().toISOString()
 
   const { error } = await supabase.from("urls").insert([
     {
       url: url.trim(),
       user_id: user.id,
       next_capture_at: nextCaptureISO,
+
+      // keep schedule for later
       schedule_type: schedule,
       schedule_value: schedule === "custom" ? customDate : null,
+
       status: "active",
     },
   ])
@@ -95,13 +85,14 @@ export default function Dashboard() {
     return alert(error.message)
   }
 
-  // trigger worker
+  // 🔥 trigger worker immediately
   await fetch("/api/capture", { method: "POST" })
 
   setUrl("")
   setCustomDate("")
   fetchData(user)
 }
+  
   const handleLogout = async () => {
     await supabase.auth.signOut()
     localStorage.clear()
