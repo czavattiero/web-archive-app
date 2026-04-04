@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
-// 🔥 Supabase admin client
+// Supabase admin
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -23,7 +23,20 @@ export async function POST(req: Request) {
       throw new Error("Missing price ID")
     }
 
-    // ✅ 1. CREATE OR GET STRIPE CUSTOMER
+    // 🔥 1. GET USER FROM PROFILES (CRITICAL)
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", email)
+      .single()
+
+    if (profileError || !profile) {
+      throw new Error("User profile not found")
+    }
+
+    const userId = profile.id
+
+    // 🔥 2. CREATE OR GET STRIPE CUSTOMER
     const existingCustomers = await stripe.customers.list({
       email,
       limit: 1,
@@ -40,33 +53,35 @@ export async function POST(req: Request) {
       customerId = newCustomer.id
     }
 
-    // ✅ 2. CREATE CHECKOUT SESSION
+    // 🔥 3. CREATE CHECKOUT SESSION (FIXED)
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
+
+      // ✅ USE CUSTOMER ID (NOT EMAIL)
       customer: customerId,
-      payment_method_types: ["card"],
+
+      // 🔥 CRITICAL LINK
+      metadata: {
+        user_id: userId,
+      },
+
       line_items: [
         {
           price: priceId,
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?fromSignup=true`,
-      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/signup`,
+
+      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
+      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/`,
     })
 
-    // ✅ 3. SAVE CUSTOMER ID TO SUPABASE
-    console.log("Saving customer ID:", customerId, "for email:", email)
-
-    const { data: updateData, error: updateError } = await supabase
+    // 🔥 4. SAVE CUSTOMER ID TO PROFILE
+    await supabase
       .from("profiles")
       .update({ stripe_customer_id: customerId })
-      .eq("email", email)
-      .select()
+      .eq("id", userId)
 
-    console.log("Supabase update result:", updateData, updateError)
-
-    // ✅ 4. RETURN CHECKOUT URL
     return NextResponse.json({ url: session.url })
 
   } catch (err: any) {
