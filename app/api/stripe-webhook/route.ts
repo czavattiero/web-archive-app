@@ -25,32 +25,52 @@ export async function POST(req: Request) {
       process.env.STRIPE_WEBHOOK_SECRET!
     )
   } catch (err: any) {
-    console.error("Webhook signature error:", err.message)
+    console.error("❌ Webhook signature error:", err.message)
     return new Response(`Webhook Error: ${err.message}`, { status: 400 })
   }
 
   try {
-    // 🔥 HANDLE CHECKOUT COMPLETED
+    // ===============================
+    // ✅ CHECKOUT COMPLETED
+    // ===============================
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session
 
       const customerId = session.customer as string
       const subscriptionId = session.subscription as string
-      const userId = session.metadata?.user_id
 
-      if (!userId) {
-        throw new Error("Missing user_id in metadata")
+      let userId = session.metadata?.user_id
+
+      // 🔥 FALLBACK (VERY IMPORTANT)
+      if (!userId && customerId) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("stripe_customer_id", customerId)
+          .single()
+
+        userId = profile?.id
       }
 
-      // ✅ Save subscription
-      await supabase.from("subscriptions").insert([
+      if (!userId) {
+        console.error("❌ No user found (metadata + fallback failed)")
+        return NextResponse.json({ received: true })
+      }
+
+      console.log("✅ Linking subscription to user:", userId)
+
+      // ✅ Insert subscription (avoid duplicates)
+      await supabase.from("subscriptions").upsert(
         {
           user_id: userId,
           stripe_customer_id: customerId,
           stripe_subscription_id: subscriptionId,
           status: "active",
         },
-      ])
+        {
+          onConflict: "stripe_subscription_id",
+        }
+      )
 
       // ✅ Update profile
       await supabase
@@ -62,7 +82,9 @@ export async function POST(req: Request) {
         .eq("id", userId)
     }
 
-    // 🔥 HANDLE SUBSCRIPTION UPDATE
+    // ===============================
+    // 🔄 SUBSCRIPTION UPDATED
+    // ===============================
     if (event.type === "customer.subscription.updated") {
       const subscription = event.data.object as Stripe.Subscription
 
@@ -74,11 +96,13 @@ export async function POST(req: Request) {
         .eq("stripe_subscription_id", subscription.id)
     }
 
-    // 🔥 HANDLE SUBSCRIPTION CANCELLED
+    // ===============================
+    // ❌ SUBSCRIPTION CANCELLED
+    // ===============================
     if (event.type === "customer.subscription.deleted") {
       const subscription = event.data.object as Stripe.Subscription
 
-      // ❌ Mark inactive
+      // Update subscription
       await supabase
         .from("subscriptions")
         .update({
@@ -86,7 +110,7 @@ export async function POST(req: Request) {
         })
         .eq("stripe_subscription_id", subscription.id)
 
-      // ❌ Update profile
+      // Update profile
       await supabase
         .from("profiles")
         .update({
@@ -97,7 +121,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ received: true })
   } catch (err) {
-    console.error("Webhook handler error:", err)
+    console.error("❌ Webhook handler error:", err)
     return new Response("Webhook handler failed", { status: 500 })
   }
 }
