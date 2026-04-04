@@ -93,55 +93,84 @@ export async function POST(req: Request) {
     // =====================================================
     // 💰 INVOICE PAYMENT SUCCEEDED (MOST RELIABLE)
     // =====================================================
-    if (event.type === "invoice.payment_succeeded") {
-      const invoice = event.data.object as Stripe.Invoice
+    // ===============================
+// 💰 INVOICE PAYMENT SUCCEEDED
+// ===============================
+if (event.type === "invoice.payment_succeeded") {
+  const invoice = event.data.object as Stripe.Invoice
 
-      const customerId = invoice.customer as string
-      const subscriptionId = invoice.subscription as string
+  const customerId = invoice.customer as string
 
-      console.log("🔥 INVOICE PAYMENT:", {
-        customerId,
-        subscriptionId,
-      })
+  // 🔥 GET CUSTOMER FROM STRIPE
+  const customer = await stripe.customers.retrieve(customerId)
 
-      // 🔥 Resolve user via customerId (most reliable)
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("stripe_customer_id", customerId)
-        .maybeSingle()
+  let email: string | null = null
 
-      const userId = profile?.id
+  if (!("deleted" in customer)) {
+    email = customer.email
+  }
 
-      if (!userId) {
-        console.error("❌ No user found from invoice event")
-        return NextResponse.json({ received: true })
-      }
+  console.log("🔥 INVOICE EVENT:", {
+    customerId,
+    email,
+  })
 
-      console.log("✅ User resolved from invoice:", userId)
+  let userId: string | null = null
 
-      // ✅ Insert / update subscription
-      await supabase.from("subscriptions").upsert(
-        {
-          user_id: userId,
-          stripe_customer_id: customerId,
-          stripe_subscription_id: subscriptionId,
-          status: "active",
-        },
-        {
-          onConflict: "stripe_subscription_id",
-        }
-      )
+  // ✅ TRY MATCH BY CUSTOMER ID
+  const { data: profileByCustomer } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("stripe_customer_id", customerId)
+    .maybeSingle()
 
-      // ✅ Ensure profile is active
-      await supabase
-        .from("profiles")
-        .update({
-          subscribed: true,
-        })
-        .eq("id", userId)
+  if (profileByCustomer) {
+    userId = profileByCustomer.id
+  }
+
+  // 🔥 FALLBACK: MATCH BY EMAIL
+  if (!userId && email) {
+    const { data: profileByEmail } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle()
+
+    userId = profileByEmail?.id
+  }
+
+  if (!userId) {
+    console.error("❌ No user found (customer + email failed)")
+    return NextResponse.json({ received: true })
+  }
+
+  console.log("✅ USER FOUND:", userId)
+
+  const subscriptionId = invoice.subscription as string
+
+  // ✅ INSERT / UPDATE SUBSCRIPTION
+  await supabase.from("subscriptions").upsert(
+    {
+      user_id: userId,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: subscriptionId,
+      status: "active",
+    },
+    {
+      onConflict: "stripe_subscription_id",
     }
+  )
 
+  // ✅ UPDATE PROFILE
+  await supabase
+    .from("profiles")
+    .update({
+      subscribed: true,
+      stripe_customer_id: customerId,
+    })
+    .eq("id", userId)
+}
+    
     // =====================================================
     // 🔄 SUBSCRIPTION UPDATED
     // =====================================================
