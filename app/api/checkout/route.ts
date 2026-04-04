@@ -55,27 +55,28 @@ export async function POST(req: Request) {
 
     // 🔥 3. CREATE CHECKOUT SESSION (FIXED)
     const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
+  mode: "subscription",
 
-      // ✅ USE CUSTOMER ID (NOT EMAIL)
-      customer: customerId,
+  customer: customerId,
 
-      // 🔥 CRITICAL LINK
-      metadata: {
-        user_id: userId,
-      },
+  line_items: [
+    {
+      price: priceId,
+      quantity: 1,
+    },
+  ],
 
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
+  // 🔥 THE REAL FIX
+  subscription_data: {
+    metadata: {
+      user_id: userId,
+    },
+  },
 
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
-      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/`,
-    })
-
+  success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
+  cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/`,
+})
+    
     // 🔥 4. SAVE CUSTOMER ID TO PROFILE
     await supabase
       .from("profiles")
