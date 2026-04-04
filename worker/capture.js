@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
+import crypto from "crypto"
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -9,15 +10,16 @@ const supabase = createClient(
 async function run() {
   console.log("🚀 Worker started")
 
-  // 🔥 1. GET URLS TO CAPTURE
+  // 🔥 1. GET URLS (ACTIVE + FAILED WITH RETRIES)
   const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
-    .eq("status", "active")
+    .or("status.eq.active,status.eq.failed")
+    .lt("retry_count", 3)
     .limit(5)
 
   if (error) {
-    console.error("Error fetching URLs:", error)
+    console.error("❌ Error fetching URLs:", error)
     return
   }
 
@@ -34,10 +36,12 @@ async function run() {
   for (const item of urls) {
     const url = item.url
 
-    console.log("Capturing:", url)
+    console.log("🌐 Capturing:", url)
+
+    let page
 
     try {
-      const page = await browser.newPage()
+      page = await browser.newPage()
 
       await page.setExtraHTTPHeaders({
         "User-Agent":
@@ -54,10 +58,32 @@ async function run() {
         fullPage: true,
       })
 
+      // 🔥 GENERATE HASH (FOR DIFF DETECTION)
+      const hash = crypto
+        .createHash("md5")
+        .update(buffer)
+        .digest("hex")
+
+      // 🔥 GET LAST CAPTURE
+      const { data: lastCapture } = await supabase
+        .from("captures")
+        .select("hash")
+        .eq("url_id", item.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const changed =
+        !lastCapture || lastCapture.hash !== hash
+
+      if (changed) {
+        console.log("🚨 CHANGE DETECTED:", url)
+      }
+
       // 🔥 FILE NAME
       const fileName = `${item.id}-${Date.now()}.png`
 
-      // 🔥 UPLOAD TO SUPABASE STORAGE
+      // 🔥 UPLOAD TO STORAGE
       const { error: uploadError } = await supabase.storage
         .from("captures")
         .upload(fileName, buffer, {
@@ -68,42 +94,47 @@ async function run() {
         throw uploadError
       }
 
-      // 🔥 SAVE RECORD
+      // 🔥 SAVE CAPTURE RECORD
       await supabase.from("captures").insert([
         {
           url_id: item.id,
           file_path: fileName,
+          hash,
           created_at: new Date().toISOString(),
         },
       ])
 
-      // 🔥 UPDATE LAST CAPTURE
+      // 🔥 SUCCESS → RESET RETRIES
       await supabase
         .from("urls")
         .update({
+          status: "active",
+          retry_count: 0,
           last_captured_at: new Date().toISOString(),
         })
         .eq("id", item.id)
 
       console.log("✅ Success:", url)
 
-      await page.close()
     } catch (err) {
       console.error("❌ Failed:", url, err.message)
 
-      // 🔥 OPTIONAL: mark failed
+      // 🔥 INCREMENT RETRY COUNT
       await supabase
         .from("urls")
         .update({
           status: "failed",
+          retry_count: (item.retry_count || 0) + 1,
         })
         .eq("id", item.id)
+    } finally {
+      if (page) await page.close()
     }
   }
 
   await browser.close()
 
-  console.log("✅ Worker finished")
+  console.log("🏁 Worker finished")
 }
 
 run()
