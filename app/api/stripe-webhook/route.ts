@@ -34,53 +34,60 @@ export async function POST(req: Request) {
     // ✅ CHECKOUT COMPLETED
     // ===============================
     if (event.type === "checkout.session.completed") {
-      const session = event.data.object as Stripe.Checkout.Session
+  const session = event.data.object as Stripe.Checkout.Session
 
-      const customerId = session.customer as string
-      const subscriptionId = session.subscription as string
+  const customerId = session.customer as string
+  const subscriptionId = session.subscription as string
 
-      let userId = session.metadata?.user_id
+  let userId = session.metadata?.user_id
 
-      // 🔥 FALLBACK (VERY IMPORTANT)
-      if (!userId && customerId) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("stripe_customer_id", customerId)
-          .single()
+  console.log("🔥 STEP 1 — RAW SESSION:", {
+    customerId,
+    subscriptionId,
+    metadata: session.metadata,
+    email: session.customer_details?.email,
+  })
 
-        userId = profile?.id
-      }
+  // fallback by customer
+  if (!userId && customerId) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("stripe_customer_id", customerId)
+      .maybeSingle()
 
-      if (!userId) {
-        console.error("❌ No user found (metadata + fallback failed)")
-        return NextResponse.json({ received: true })
-      }
+    userId = data?.id
+  }
 
-      console.log("✅ Linking subscription to user:", userId)
+  console.log("🔥 STEP 2 — RESOLVED USER:", userId)
 
-      // ✅ Insert subscription (avoid duplicates)
-      await supabase.from("subscriptions").upsert(
-        {
-          user_id: userId,
-          stripe_customer_id: customerId,
-          stripe_subscription_id: subscriptionId,
-          status: "active",
-        },
-        {
-          onConflict: "stripe_subscription_id",
-        }
-      )
+  if (!userId) {
+    console.error("❌ NO USER FOUND")
+    return NextResponse.json({ received: true })
+  }
 
-      // ✅ Update profile
-      await supabase
-        .from("profiles")
-        .update({
-          subscribed: true,
-          stripe_customer_id: customerId,
-        })
-        .eq("id", userId)
-    }
+  // TRY INSERT
+  const { data: subData, error: subError } = await supabase
+    .from("subscriptions")
+    .insert([
+      {
+        user_id: userId,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscriptionId,
+        status: "active",
+      },
+    ])
+
+  console.log("🔥 STEP 3 — INSERT RESULT:", subData, subError)
+
+  // update profile
+  await supabase
+    .from("profiles")
+    .update({
+      subscribed: true,
+    })
+    .eq("id", userId)
+}
 
     // ===============================
     // 🔄 SUBSCRIPTION UPDATED
