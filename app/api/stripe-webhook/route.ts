@@ -2,10 +2,12 @@ import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
 
+// 🔥 Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
 })
 
+// 🔥 Supabase admin
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -18,6 +20,9 @@ export async function POST(req: Request) {
 
   let event: Stripe.Event
 
+  // ===============================
+  // 🔐 VERIFY SIGNATURE
+  // ===============================
   try {
     event = stripe.webhooks.constructEvent(
       body,
@@ -30,68 +35,116 @@ export async function POST(req: Request) {
   }
 
   try {
-    // ===============================
-    // ✅ CHECKOUT COMPLETED
-    // ===============================
+    // =====================================================
+    // 🟢 CHECKOUT COMPLETED (FIRST TOUCHPOINT)
+    // =====================================================
     if (event.type === "checkout.session.completed") {
-  const session = event.data.object as Stripe.Checkout.Session
+      const session = event.data.object as Stripe.Checkout.Session
 
-  const customerId = session.customer as string
-  const subscriptionId = session.subscription as string
+      const customerId = session.customer as string
+      const subscriptionId = session.subscription as string
+      let userId = session.metadata?.user_id
 
-  let userId = session.metadata?.user_id
+      console.log("🔥 CHECKOUT SESSION:", {
+        customerId,
+        subscriptionId,
+        metadata: session.metadata,
+      })
 
-  console.log("🔥 STEP 1 — RAW SESSION:", {
-    customerId,
-    subscriptionId,
-    metadata: session.metadata,
-    email: session.customer_details?.email,
-  })
+      // 🔥 Fallback: find user by customer
+      if (!userId && customerId) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("stripe_customer_id", customerId)
+          .maybeSingle()
 
-  // fallback by customer
-  if (!userId && customerId) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("stripe_customer_id", customerId)
-      .maybeSingle()
+        userId = data?.id
+      }
 
-    userId = data?.id
-  }
+      if (!userId) {
+        console.error("❌ No user found in checkout event")
+        return NextResponse.json({ received: true })
+      }
 
-  console.log("🔥 STEP 2 — RESOLVED USER:", userId)
+      // ✅ Ensure profile is updated
+      await supabase
+        .from("profiles")
+        .update({
+          stripe_customer_id: customerId,
+          subscribed: true,
+        })
+        .eq("id", userId)
 
-  if (!userId) {
-    console.error("❌ NO USER FOUND")
-    return NextResponse.json({ received: true })
-  }
+      // ✅ Insert subscription
+      await supabase.from("subscriptions").upsert(
+        {
+          user_id: userId,
+          stripe_customer_id: customerId,
+          stripe_subscription_id: subscriptionId,
+          status: "active",
+        },
+        {
+          onConflict: "stripe_subscription_id",
+        }
+      )
+    }
 
-  // TRY INSERT
-  const { data: subData, error: subError } = await supabase
-    .from("subscriptions")
-    .insert([
-      {
-        user_id: userId,
-        stripe_customer_id: customerId,
-        stripe_subscription_id: subscriptionId,
-        status: "active",
-      },
-    ])
+    // =====================================================
+    // 💰 INVOICE PAYMENT SUCCEEDED (MOST RELIABLE)
+    // =====================================================
+    if (event.type === "invoice.payment_succeeded") {
+      const invoice = event.data.object as Stripe.Invoice
 
-  console.log("🔥 STEP 3 — INSERT RESULT:", subData, subError)
+      const customerId = invoice.customer as string
+      const subscriptionId = invoice.subscription as string
 
-  // update profile
-  await supabase
-    .from("profiles")
-    .update({
-      subscribed: true,
-    })
-    .eq("id", userId)
-}
+      console.log("🔥 INVOICE PAYMENT:", {
+        customerId,
+        subscriptionId,
+      })
 
-    // ===============================
+      // 🔥 Resolve user via customerId (most reliable)
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("stripe_customer_id", customerId)
+        .maybeSingle()
+
+      const userId = profile?.id
+
+      if (!userId) {
+        console.error("❌ No user found from invoice event")
+        return NextResponse.json({ received: true })
+      }
+
+      console.log("✅ User resolved from invoice:", userId)
+
+      // ✅ Insert / update subscription
+      await supabase.from("subscriptions").upsert(
+        {
+          user_id: userId,
+          stripe_customer_id: customerId,
+          stripe_subscription_id: subscriptionId,
+          status: "active",
+        },
+        {
+          onConflict: "stripe_subscription_id",
+        }
+      )
+
+      // ✅ Ensure profile is active
+      await supabase
+        .from("profiles")
+        .update({
+          subscribed: true,
+        })
+        .eq("id", userId)
+    }
+
+    // =====================================================
     // 🔄 SUBSCRIPTION UPDATED
-    // ===============================
+    // =====================================================
     if (event.type === "customer.subscription.updated") {
       const subscription = event.data.object as Stripe.Subscription
 
@@ -103,13 +156,15 @@ export async function POST(req: Request) {
         .eq("stripe_subscription_id", subscription.id)
     }
 
-    // ===============================
+    // =====================================================
     // ❌ SUBSCRIPTION CANCELLED
-    // ===============================
+    // =====================================================
     if (event.type === "customer.subscription.deleted") {
       const subscription = event.data.object as Stripe.Subscription
 
-      // Update subscription
+      const customerId = subscription.customer as string
+
+      // ✅ Mark subscription canceled
       await supabase
         .from("subscriptions")
         .update({
@@ -117,13 +172,13 @@ export async function POST(req: Request) {
         })
         .eq("stripe_subscription_id", subscription.id)
 
-      // Update profile
+      // ✅ Update profile
       await supabase
         .from("profiles")
         .update({
           subscribed: false,
         })
-        .eq("stripe_customer_id", subscription.customer as string)
+        .eq("stripe_customer_id", customerId)
     }
 
     return NextResponse.json({ received: true })
