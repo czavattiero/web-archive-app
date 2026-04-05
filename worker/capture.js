@@ -12,11 +12,11 @@ async function run() {
 
   // 🔥 1. GET URLS (ACTIVE + FAILED WITH RETRIES)
   const { data: urls, error } = await supabase
-    .from("urls")
-    .select("*")
-    .or("status.eq.active,status.eq.failed")
-    .lt("retry_count", 3)
-    .limit(5)
+  .from("urls")
+  .select("*")
+  .or("status.eq.active,status.eq.failed,status.is.null")
+  .or("retry_count.is.null,retry_count.lt.3")
+  .limit(5)
 
   if (error) {
     console.error("❌ Error fetching URLs:", error)
@@ -49,9 +49,11 @@ async function run() {
       })
 
       await page.goto(url, {
-        waitUntil: "networkidle",
-        timeout: 60000,
-      })
+  waitUntil: "domcontentloaded",
+  timeout: 90000,
+})
+
+      await page.waitForTimeout(3000)
 
       // 🔥 TAKE SCREENSHOT
       const buffer = await page.screenshot({
