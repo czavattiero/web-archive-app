@@ -50,52 +50,57 @@ export default function Dashboard() {
 
     const { data: capturesData } = await supabase
       .from("captures")
-      .select(`
-        id,
-        file_path,
-        created_at,
-        url_id,
-        urls (url)
-      `)
+      .select("*")
+      .eq("user_id", currentUser.id)
       .order("created_at", { ascending: false })
 
     setUrls(urlsData || [])
     setCaptures(capturesData || [])
   }
 
+  // ✅ FIXED ADD URL (AUTO TRIGGER WORKER)
   async function addUrl() {
-    if (!user) return
-    if (!url.trim()) return alert("Enter a URL")
+  if (!user) return
+  if (!url.trim()) return alert("Enter a URL")
 
-    const nextCaptureISO = new Date().toISOString()
+  // 🔥 ALWAYS trigger immediate capture
+  const nextCaptureISO = new Date().toISOString()
 
-    const { error } = await supabase.from("urls").insert([
-      {
-        url: url.trim(),
-        user_id: user.id,
-        next_capture_at: nextCaptureISO,
-        schedule_type: schedule,
-        schedule_value: schedule === "custom" ? customDate : null,
-        status: "active",
-      },
-    ])
+  const { error } = await supabase.from("urls").insert([
+    {
+      url: url.trim(),
+      user_id: user.id,
+      next_capture_at: nextCaptureISO,
 
-    if (error) {
-      console.error(error)
-      return alert(error.message)
-    }
+      // keep schedule for later
+      schedule_type: schedule,
+      schedule_value: schedule === "custom" ? customDate : null,
 
-    await fetch("/api/capture", { method: "POST" })
+      status: "active",
+    },
+  ])
 
-    setUrl("")
-    setCustomDate("")
-    fetchData(user)
+  if (error) {
+    console.error(error)
+    return alert(error.message)
   }
 
+  // 🔥 trigger worker immediately
+  await fetch("/api/capture", { method: "POST" })
+
+  setUrl("")
+  setCustomDate("")
+  fetchData(user)
+}
+  
   const handleLogout = async () => {
     await supabase.auth.signOut()
     localStorage.clear()
     window.location.href = "/"
+  }
+
+  function getUrlById(id: string) {
+    return urls.find((u) => u.id === id)
   }
 
   function formatAlbertaTime(dateString: string | null) {
@@ -131,9 +136,10 @@ export default function Dashboard() {
     u.url.toLowerCase().includes(search.toLowerCase())
   )
 
-  const filteredCaptures = captures.filter((c) =>
-    c.urls?.url?.toLowerCase().includes(search.toLowerCase())
-  )
+  const filteredCaptures = captures.filter((c) => {
+    const urlData = getUrlById(c.url_id)
+    return urlData?.url?.toLowerCase().includes(search.toLowerCase())
+  })
 
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
@@ -145,27 +151,8 @@ export default function Dashboard() {
         <img src="/screenly-logo.png" style={{ width: 140 }} />
 
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <div style={{ fontSize: 14 }}>{user?.email}</div>
-
-          <button
-            onClick={async () => {
-              const res = await fetch("/api/stripe/portal", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: user.id }),
-              })
-
-              const data = await res.json()
-              if (data.url) window.location.href = data.url
-            }}
-            style={buttonPrimary}
-          >
-            Manage billing
-          </button>
-
-          <button onClick={handleLogout} style={buttonDanger}>
-            Sign Out
-          </button>
+          <div style={{ fontSize: 14, color: "#555" }}>{user?.email}</div>
+          <button onClick={handleLogout} style={buttonDanger}>Sign Out</button>
         </div>
       </div>
 
@@ -180,15 +167,11 @@ export default function Dashboard() {
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com"
+              placeholder="https://example.com/job-posting"
               style={{ ...inputStyle, flex: 2 }}
             />
 
-            <select
-              value={schedule}
-              onChange={(e) => setSchedule(e.target.value)}
-              style={{ ...inputStyle, flex: 1 }}
-            >
+            <select value={schedule} onChange={(e) => setSchedule(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
               <option value="weekly">Weekly</option>
               <option value="biweekly">Biweekly</option>
               <option value="29days">Every 29 days</option>
@@ -197,17 +180,10 @@ export default function Dashboard() {
             </select>
 
             {schedule === "custom" && (
-              <input
-                type="date"
-                value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
-                style={{ ...inputStyle, flex: 1 }}
-              />
+              <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
             )}
 
-            <button onClick={addUrl} style={buttonPrimary}>
-              Add
-            </button>
+            <button onClick={addUrl} style={buttonPrimary}>Add</button>
           </div>
         </div>
 
@@ -215,20 +191,23 @@ export default function Dashboard() {
         <div style={cardStyle}>
           <h3 style={sectionTitle}>Tracked URLs</h3>
 
-          <input
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={searchStyle}
-          />
+          <input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} style={searchStyle} />
+
+          <div style={headerRow}>
+            <div style={{ flex: 3 }}>URL</div>
+            <div style={{ flex: 1 }}>Schedule</div>
+            <div style={{ flex: 1 }}>Next</div>
+            <div style={{ flex: 1 }}>Status</div>
+            <div style={{ flex: 1 }}>Added</div>
+          </div>
 
           {filteredUrls.map((u) => (
             <div key={u.id} style={rowCard}>
               <div style={urlCell}>{u.url}</div>
-              <div>{u.schedule_type}</div>
-              <div>{formatAlbertaTime(u.next_capture_at)}</div>
-              <div><StatusBadge status={u.status} /></div>
-              <div>{formatAlbertaTime(u.created_at)}</div>
+              <div style={{ flex: 1 }}>{u.schedule_type}</div>
+              <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
+              <div style={{ flex: 1 }}><StatusBadge status={u.status} /></div>
+              <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
             </div>
           ))}
         </div>
@@ -237,20 +216,26 @@ export default function Dashboard() {
         <div style={cardStyle}>
           <h3 style={sectionTitle}>Capture History</h3>
 
+          <div style={headerRow}>
+            <div style={{ flex: 3 }}>URL</div>
+            <div style={{ flex: 1 }}>Captured</div>
+            <div style={{ flex: 1 }}>Status</div>
+            <div style={{ flex: 1 }}>PDF</div>
+          </div>
+
           {filteredCaptures.map((c) => {
             if (!c.file_path) return null
 
+            const urlData = getUrlById(c.url_id)
             const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
 
             return (
               <div key={c.id} style={rowCard}>
-                <div style={urlCell}>{c.urls?.url}</div>
-                <div>{formatAlbertaTime(c.created_at)}</div>
-                <div><StatusBadge status="completed" /></div>
-                <div>
-                  <a href={publicUrl} target="_blank" style={linkStyle}>
-                    Download
-                  </a>
+                <div style={urlCell}>{urlData?.url}</div>
+                <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
+                <div style={{ flex: 1 }}><StatusBadge status={c.status} /></div>
+                <div style={{ flex: 1 }}>
+                  <a href={publicUrl} target="_blank" style={linkStyle}>Download</a>
                 </div>
               </div>
             )
@@ -261,16 +246,30 @@ export default function Dashboard() {
   )
 }
 
-/* ✅ STYLES OUTSIDE COMPONENT */
+/* STYLES */
 
 const topBar = {
   display: "flex",
   justifyContent: "space-between",
+  alignItems: "center",
   padding: "20px 40px",
   borderBottom: "1px solid #eee"
 }
 
-const title = { fontSize: 26, fontWeight: 700 }
+const title = {
+  fontSize: 26,
+  marginBottom: 24,
+  fontWeight: 700
+}
+
+const urlCell: React.CSSProperties = {
+  flex: 3,
+  wordBreak: "break-all",
+  whiteSpace: "normal",
+  lineHeight: "1.4",
+  fontSize: 13,
+  color: "#333"
+}
 
 const cardStyle = {
   background: "#fff",
@@ -280,46 +279,67 @@ const cardStyle = {
   marginTop: 20
 }
 
-const sectionTitle = { fontSize: 16, fontWeight: 600 }
+const sectionTitle = {
+  fontSize: 16,
+  fontWeight: 600,
+  marginBottom: 12
+}
 
 const rowCard = {
   display: "flex",
-  padding: 12,
-  borderBottom: "1px solid #eee",
+  padding: "14px 16px",
+  marginTop: 8,
+  background: "#fff",
+  borderRadius: 10,
+  border: "1px solid #f1f1f1",
   gap: 12
 }
 
-const urlCell: React.CSSProperties = {
-  flex: 3,
-  wordBreak: "break-all",
+const headerRow = {
+  display: "flex",
+  padding: "8px 14px",
+  marginTop: 10,
+  color: "#6B7280",
+  fontWeight: 600,
+  fontSize: 12,
 }
 
 const inputStyle = {
-  padding: 10,
+  padding: "10px",
+  borderRadius: 8,
   border: "1px solid #ddd",
-  borderRadius: 8
+  background: "#fff"
 }
 
 const searchStyle = {
   width: "100%",
-  padding: 10,
-  marginBottom: 10
+  padding: "10px",
+  marginTop: 10,
+  borderRadius: 8,
+  border: "1px solid #ddd",
 }
 
 const buttonPrimary = {
   background: "#7C3AED",
   color: "#fff",
   padding: "10px 16px",
-  borderRadius: 8
+  borderRadius: 8,
+  border: "none",
+  fontWeight: 600,
+  cursor: "pointer"
 }
 
 const buttonDanger = {
-  background: "red",
+  background: "#ef4444",
   color: "#fff",
   padding: "6px 12px",
-  borderRadius: 6
+  borderRadius: 6,
+  border: "none",
+  cursor: "pointer"
 }
 
 const linkStyle = {
-  color: "#7C3AED"
+  color: "#7C3AED",
+  fontWeight: 500,
 }
+
