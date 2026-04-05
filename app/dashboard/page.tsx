@@ -267,30 +267,26 @@ export default function Dashboard() {
           </div>
 
           {filteredCaptures.map((c) => {
-            if (!c.file_path) return null
+  if (!c.file_path) return null
 
-            const urlValue = c.urls?.url
-const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
+  const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
 
-const publicUrl = data.publicUrl
-      
-            return (
-              <div key={c.id} style={rowCard}>
-                <div style={urlCell}>{urlValue}</div>
-                <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
-                <div style={{ flex: 1 }}><StatusBadge status="completed" /></div>
-                <div style={{ flex: 1 }}>
-                  <a href={publicUrl} target="_blank" style={linkStyle}>Download</a>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+  return (
+    <div key={c.id} style={rowCard}>
+      <div style={urlCell}>{c.urls?.url}</div>
+      <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
+      <div style={{ flex: 1 }}>
+        <StatusBadge status="completed" />
+      </div>
+      <div style={{ flex: 1 }}>
+        <a href={publicUrl} target="_blank" style={linkStyle}>
+          Download
+        </a>
       </div>
     </div>
   )
-}
-
+})}
+          
 /* STYLES */
 
 const topBar = {
