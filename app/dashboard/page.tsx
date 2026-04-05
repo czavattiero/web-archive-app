@@ -43,10 +43,17 @@ export default function Dashboard() {
   }, [user])
 
   async function fetchData(currentUser: any) {
-    const { data: urlsData } = await supabase
-      .from("urls")
-      .select("*")
-      .eq("user_id", currentUser.id)
+    const { data: urls, error } = await supabase
+  .from("urls")
+  .select("*")
+  .or("status.eq.active,status.eq.failed")
+  .lt("retry_count", 3)
+  .limit(5)
+
+if (error) {
+  console.error("Error fetching URLs:", error)
+  return
+}
 
     const { data: capturesData } = await supabase
       .from("captures")
