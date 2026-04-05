@@ -289,9 +289,9 @@ const rowCard = {
   gap: 12
 }
 
-const urlCell = {
+const urlCell: React.CSSProperties = {
   flex: 3,
-  wordBreak: "break-all"
+  wordBreak: "break-all",
 }
 
 const inputStyle = {
