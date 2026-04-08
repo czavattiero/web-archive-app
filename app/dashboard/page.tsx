@@ -67,6 +67,8 @@ if (error) {
 
   // ✅ FIXED ADD URL (AUTO TRIGGER WORKER)
   async function addUrl() {
+  console.log("🔥 ADD URL CLICKED")
+
   if (!user) return
   if (!url.trim()) return alert("Enter a URL")
 
@@ -86,11 +88,15 @@ if (error) {
     .single()
 
   if (error) {
-    console.error(error)
+    console.error("❌ INSERT ERROR:", error)
     return alert(error.message)
   }
 
-  // 🔥 IMPORTANT: send the URL ID
+  console.log("✅ INSERT DONE:", data.id)
+
+  // 🔥 THIS WAS MISSING / NOT RUNNING
+  console.log("🔥 CALLING API")
+
   await fetch("/api/capture", {
     method: "POST",
     headers: {
@@ -98,6 +104,8 @@ if (error) {
     },
     body: JSON.stringify({ urlId: data.id }),
   })
+
+  console.log("✅ API CALLED")
 
   setUrl("")
   setCustomDate("")

@@ -2,33 +2,37 @@ import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
 
 export async function POST(req: Request) {
-  const { urlId } = await req.json()
+  try {
+    console.log("🔥 API HIT")
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+    const { urlId } = await req.json()
+    console.log("🔥 URL ID:", urlId)
 
-  console.log("🔥 API CAPTURE TRIGGERED:", urlId)
+    const supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
-  // ✅ Get ONLY the new URL
-  const { data: urls, error } = await supabase
-    .from("urls")
-    .select("*")
-    .eq("id", urlId)
+    const { data: urls, error } = await supabase
+      .from("urls")
+      .select("*")
+      .eq("id", urlId)
 
-  if (error || !urls || urls.length === 0) {
-    console.log("No URL found")
-    return Response.json({ success: false })
-  }
+    if (error) {
+      console.error("❌ DB ERROR:", error)
+      throw error
+    }
 
-  const browser = await chromium.launch({ headless: true })
+    if (!urls || urls.length === 0) {
+      throw new Error("No URL found")
+    }
 
-  for (const item of urls) {
-    try {
-      const page = await browser.newPage()
+    const browser = await chromium.launch({ headless: true })
 
+    for (const item of urls) {
       console.log("🌐 Capturing:", item.url)
+
+      const page = await browser.newPage()
 
       await page.goto(item.url, {
         waitUntil: "networkidle",
@@ -56,25 +60,27 @@ export async function POST(req: Request) {
         status: "success",
       })
 
-      // ✅ update timestamps
       await supabase
         .from("urls")
         .update({
           last_captured_at: new Date().toISOString(),
-          next_capture_at: new Date(Date.now() + 7 * 86400000), // weekly fallback
+          next_capture_at: new Date(Date.now() + 7 * 86400000),
         })
         .eq("id", item.id)
 
       await page.close()
-
-      console.log("✅ Capture complete:", item.url)
-
-    } catch (err) {
-      console.error("❌ Capture failed:", err)
     }
+
+    await browser.close()
+
+    return Response.json({ success: true })
+
+  } catch (err: any) {
+    console.error("💥 API ERROR:", err)
+
+    return new Response(
+      JSON.stringify({ error: err.message }),
+      { status: 500 }
+    )
   }
-
-  await browser.close()
-
-  return Response.json({ success: true })
 }
