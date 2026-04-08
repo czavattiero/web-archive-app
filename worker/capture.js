@@ -1,3 +1,5 @@
+console.log("🔥 CORRECT WORKER FILE")
+
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
 import crypto from "crypto"
