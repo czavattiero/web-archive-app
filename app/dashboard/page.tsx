@@ -1,3 +1,5 @@
+console.log("🔥 DASHBOARD FILE UPDATED")
+
 "use client"
 
 import { useEffect, useState } from "react"
@@ -61,7 +63,7 @@ if (error) {
       .eq("user_id", currentUser.id)
       .order("created_at", { ascending: false })
 
-    setUrls(urlsData || [])
+    setUrls(urls || [])
     setCaptures(capturesData || [])
   }
 
