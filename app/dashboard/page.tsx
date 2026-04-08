@@ -70,30 +70,34 @@ if (error) {
   if (!user) return
   if (!url.trim()) return alert("Enter a URL")
 
-  // 🔥 ALWAYS trigger immediate capture
-  const nextCaptureISO = new Date().toISOString()
-
-  const { error } = await supabase.from("urls").insert([
-    {
-      url: url.trim(),
-      user_id: user.id,
-      next_capture_at: nextCaptureISO,
-
-      // keep schedule for later
-      schedule_type: schedule,
-      schedule_value: schedule === "custom" ? customDate : null,
-
-      status: "active",
-    },
-  ])
+  const { data, error } = await supabase
+    .from("urls")
+    .insert([
+      {
+        url: url.trim(),
+        user_id: user.id,
+        next_capture_at: new Date().toISOString(),
+        schedule_type: schedule,
+        schedule_value: schedule === "custom" ? customDate : null,
+        status: "active",
+      },
+    ])
+    .select()
+    .single()
 
   if (error) {
     console.error(error)
     return alert(error.message)
   }
 
-  // 🔥 trigger worker immediately
-  await fetch("/api/capture", { method: "POST" })
+  // 🔥 IMPORTANT: send the URL ID
+  await fetch("/api/capture", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ urlId: data.id }),
+  })
 
   setUrl("")
   setCustomDate("")
