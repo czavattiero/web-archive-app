@@ -97,14 +97,6 @@ if (error) {
   // 🔥 THIS WAS MISSING / NOT RUNNING
   console.log("🔥 CALLING API")
 
-  await fetch("/api/capture", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ urlId: data.id }),
-  })
-
   console.log("✅ API CALLED")
 
   setUrl("")
