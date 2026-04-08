@@ -1,5 +1,3 @@
-console.log("🔥 DASHBOARD FILE UPDATED")
-
 "use client"
 
 import { useEffect, useState } from "react"
