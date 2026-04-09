@@ -191,10 +191,12 @@ async function run() {
     break
 
   case "29days":
+  case "29 days":
     next.setDate(next.getDate() + 29)
     break
 
   case "30days":
+  case "30 days":
     next.setDate(next.getDate() + 30)
     break
 
@@ -208,7 +210,6 @@ async function run() {
   default:
     next.setDate(next.getDate() + 7)
 }
-
       if (urlObj.schedule_type !== "custom") {
         await supabase
           .from("urls")
@@ -238,5 +239,4 @@ async function run() {
 }
 
 run()
-
 
