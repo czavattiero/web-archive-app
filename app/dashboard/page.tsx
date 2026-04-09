@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
+import { DateTime } from "luxon"
 
 export default function Dashboard() {
   const router = useRouter()
@@ -57,44 +58,44 @@ export default function Dashboard() {
     setCaptures(capturesData || [])
   }
 
+  // ✅ FIXED ADD URL (AUTO TRIGGER WORKER)
   async function addUrl() {
     if (!user) return
     if (!url.trim()) return alert("Enter a URL")
 
-    let nextCapture: Date
+    let nextCaptureISO
 
-    if (schedule === "custom") {
-      if (!customDate) return alert("Select a date")
+    if (schedule === "custom" && customDate) {
+      const [year, month, day] = customDate.split("-").map(Number)
 
-      nextCapture = new Date(
-        new Date(customDate).toLocaleString("en-US", {
-          timeZone: "America/Edmonton",
-        })
-      )
-      nextCapture.setHours(9, 0, 0, 0)
+      // 9AM Alberta → 15:00 UTC
+      nextCaptureISO = DateTime.utc(year, month, day, 15, 0, 0).toISO()
     } else {
-      nextCapture = new Date()
+      nextCaptureISO = new Date().toISOString()
     }
 
     const { error } = await supabase.from("urls").insert([
       {
         url: url.trim(),
         user_id: user.id,
-        next_capture_at: nextCapture.toISOString(),
+        next_capture_at: nextCaptureISO,
         schedule_type: schedule,
         schedule_value: schedule === "custom" ? customDate : null,
         status: "active",
       },
     ])
 
-    if (error) return alert("Error adding URL")
-
-    if (schedule !== "custom") {
-      await fetch("/api/run-worker", { method: "POST" })
+    if (error) {
+      console.error(error)
+      return alert(error.message)
     }
+
+    // 🔥 FIX: correct endpoint
+    await fetch("/api/capture", { method: "POST" })
 
     setUrl("")
     setCustomDate("")
+    fetchData(user)
   }
 
   const handleLogout = async () => {
@@ -110,14 +111,9 @@ export default function Dashboard() {
   function formatAlbertaTime(dateString: string | null) {
     if (!dateString) return "—"
 
-    return new Date(dateString).toLocaleString("en-CA", {
-      timeZone: "America/Edmonton",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    })
+    return DateTime.fromISO(dateString, { zone: "utc" })
+      .setZone("America/Edmonton")
+      .toFormat("MMM d, yyyy, h:mm a")
   }
 
   function StatusBadge({ status }: { status: string }) {
@@ -141,19 +137,22 @@ export default function Dashboard() {
     return <span style={{ ...base, background: "#E5E7EB", color: "#374151" }}>{status}</span>
   }
 
+  const filteredUrls = urls.filter((u) =>
+    u.url.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const filteredCaptures = captures.filter((c) => {
+    const urlData = getUrlById(c.url_id)
+    return urlData?.url?.toLowerCase().includes(search.toLowerCase())
+  })
+
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
 
       {/* TOP BAR */}
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "20px 40px",
-        borderBottom: "1px solid #eee"
-      }}>
+      <div style={topBar}>
         <img src="/screenly-logo.png" style={{ width: 140 }} />
 
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -162,16 +161,14 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* CONTENT */}
       <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
-        <h1 style={{ fontSize: 26, marginBottom: 24, fontWeight: 700 }}>Dashboard</h1>
+        <h1 style={title}>Dashboard</h1>
 
         {/* ADD URL */}
         <div style={cardStyle}>
           <h3 style={sectionTitle}>Add URL</h3>
 
           <div style={{ display: "flex", gap: 10 }}>
-            {/* 🔥 FULL WIDTH URL INPUT */}
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
@@ -209,9 +206,9 @@ export default function Dashboard() {
             <div style={{ flex: 1 }}>Added</div>
           </div>
 
-          {urls.filter((u) => u.url.toLowerCase().includes(search.toLowerCase())).map((u) => (
+          {filteredUrls.map((u) => (
             <div key={u.id} style={rowCard}>
-              <div style={{ flex: 3, wordBreak: "break-all" }}>{u.url}</div>
+              <div style={urlCell}>{u.url}</div>
               <div style={{ flex: 1 }}>{u.schedule_type}</div>
               <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
               <div style={{ flex: 1 }}><StatusBadge status={u.status} /></div>
@@ -231,7 +228,7 @@ export default function Dashboard() {
             <div style={{ flex: 1 }}>PDF</div>
           </div>
 
-          {captures.map((c) => {
+          {filteredCaptures.map((c) => {
             if (!c.file_path) return null
 
             const urlData = getUrlById(c.url_id)
@@ -239,7 +236,7 @@ export default function Dashboard() {
 
             return (
               <div key={c.id} style={rowCard}>
-                <div style={{ flex: 3 }}>{urlData?.url}</div>
+                <div style={urlCell}>{urlData?.url}</div>
                 <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
                 <div style={{ flex: 1 }}><StatusBadge status={c.status} /></div>
                 <div style={{ flex: 1 }}>
@@ -255,6 +252,29 @@ export default function Dashboard() {
 }
 
 /* STYLES */
+
+const topBar = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "20px 40px",
+  borderBottom: "1px solid #eee"
+}
+
+const title = {
+  fontSize: 26,
+  marginBottom: 24,
+  fontWeight: 700
+}
+
+const urlCell: React.CSSProperties = {
+  flex: 3,
+  wordBreak: "break-all",
+  whiteSpace: "normal",
+  lineHeight: "1.4",
+  fontSize: 13,
+  color: "#333"
+}
 
 const cardStyle = {
   background: "#fff",
@@ -272,11 +292,12 @@ const sectionTitle = {
 
 const rowCard = {
   display: "flex",
-  padding: "12px 14px",
+  padding: "14px 16px",
   marginTop: 8,
   background: "#fff",
   borderRadius: 10,
-  border: "1px solid #f1f1f1"
+  border: "1px solid #f1f1f1",
+  gap: 12
 }
 
 const headerRow = {
