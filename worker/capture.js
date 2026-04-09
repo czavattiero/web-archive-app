@@ -1,8 +1,6 @@
-console.log("🔥 CORRECT WORKER FILE")
 
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
-import crypto from "crypto"
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -12,13 +10,12 @@ const supabase = createClient(
 async function run() {
   console.log("🚀 Worker started")
 
-  // 🔥 1. GET URLS (ACTIVE + FAILED WITH RETRIES)
+  // ✅ FETCH ALL URLS (no filters for now)
   const { data: urls, error } = await supabase
-  .from("urls")
-  .select("*")
-  .or("status.eq.active,status.eq.failed,status.is.null")
-  .or("retry_count.is.null,retry_count.lt.3")
-  .limit(5)
+    .from("urls")
+    .select("*")
+
+  console.log("🧪 URLS FETCHED:", urls)
 
   if (error) {
     console.error("❌ Error fetching URLs:", error)
@@ -30,14 +27,38 @@ async function run() {
     return
   }
 
-  // 🔥 2. LAUNCH BROWSER
-  const browser = await chromium.launch({
-    headless: true,
-  })
+  const browser = await chromium.launch({ headless: true })
 
   for (const item of urls) {
-    const url = item.url
 
+  console.log("🔍 CHECKING URL:", {
+    id: item.id,
+    last_captured_at: item.last_captured_at,
+    next_capture_at: item.next_capture_at,
+  })
+
+  const now = new Date()
+
+// ✅ New URL → capture immediately
+if (!item.last_captured_at) {
+  console.log("🟢 NEW URL → RUN")
+}
+
+// ✅ Scheduled → ONLY if next_capture_at exists AND is due
+else if (
+  item.next_capture_at &&
+  new Date(item.next_capture_at) <= now
+) {
+  console.log("🟡 SCHEDULED → RUN")
+}
+
+// ❌ Everything else → skip
+else {
+  console.log("⛔ SKIPPED")
+  continue
+}
+    
+    const url = item.url
     console.log("🌐 Capturing:", url)
 
     let page
@@ -45,100 +66,125 @@ async function run() {
     try {
       page = await browser.newPage()
 
-      await page.setExtraHTTPHeaders({
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-      })
-
       await page.goto(url, {
-  waitUntil: "domcontentloaded",
-  timeout: 90000,
-})
+        waitUntil: "domcontentloaded",
+        timeout: 90000,
+      })
 
       await page.waitForTimeout(3000)
 
-      // 🔥 TAKE SCREENSHOT
-      const buffer = await page.screenshot({
-        fullPage: true,
-      })
+      // ✅ PDF
+// ✅ Build Alberta timestamp
+const timestamp = new Date().toLocaleString("en-CA", {
+  timeZone: "America/Edmonton",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+})
 
-      // 🔥 GENERATE HASH (FOR DIFF DETECTION)
-      const hash = crypto
-        .createHash("md5")
-        .update(buffer)
-        .digest("hex")
+// ✅ PDF with HEADER (no overlap ever)
+const buffer = await page.pdf({
+  format: "A4",
+  printBackground: true,
+  displayHeaderFooter: true,
+  margin: {
+    top: "60px",
+    bottom: "40px",
+  },
+  headerTemplate: `
+    <div style="
+      width: 100%;
+      font-size: 10px;
+      padding: 0 20px;
+      display: flex;
+      justify-content: flex-end;
+      color: black;
+    ">
+      Captured ${timestamp}
+    </div>
+  `,
+  footerTemplate: `<div></div>`,
+})
 
-      // 🔥 GET LAST CAPTURE
-      const { data: lastCapture } = await supabase
-        .from("captures")
-        .select("hash")
-        .eq("url_id", item.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      const fileName = `screenshots/${item.id}-${Date.now()}.pdf`
 
-      const changed =
-        !lastCapture || lastCapture.hash !== hash
-
-      if (changed) {
-        console.log("🚨 CHANGE DETECTED:", url)
-      }
-
-      // 🔥 FILE NAME
-      const fileName = `${item.id}-${Date.now()}.png`
-
-      // 🔥 UPLOAD TO STORAGE
       const { error: uploadError } = await supabase.storage
         .from("captures")
         .upload(fileName, buffer, {
-          contentType: "image/png",
+          contentType: "application/pdf",
+          upsert: true,
         })
 
       if (uploadError) {
         throw uploadError
       }
 
-      // 🔥 SAVE CAPTURE RECORD
-      await supabase.from("captures").insert([
-        {
-          url_id: item.id,
-          file_path: fileName,
-          hash,
-          created_at: new Date().toISOString(),
-        },
-      ])
+      const { data, error: insertError } = await supabase
+        .from("captures")
+        .insert([
+          {
+            url_id: item.id,
+            file_path: fileName,
+            user_id: item.user_id,
+            created_at: new Date().toISOString(),
+          },
+        ])
+        .select()
 
-      // 🔥 SUCCESS → RESET RETRIES
-      await supabase
-        .from("urls")
-        .update({
-          status: "active",
-          retry_count: 0,
-          last_captured_at: new Date().toISOString(),
-        })
-        .eq("id", item.id)
+      console.log("📦 INSERT RESULT:", { data, insertError })
+
+      const next = new Date()
+
+if (item.schedule === "weekly") {
+  next.setDate(next.getDate() + 7)
+} 
+else if (item.schedule === "biweekly") {
+  next.setDate(next.getDate() + 14)
+} 
+else if (item.schedule === "29_days") {
+  next.setDate(next.getDate() + 29)
+} 
+else if (item.schedule === "30_days") {
+  next.setDate(next.getDate() + 30)
+} 
+else if (item.schedule === "specific_date") {
+  // use stored date (must exist in DB)
+  next.setTime(new Date(item.specific_date).getTime())
+} 
+else {
+  // fallback safety
+  next.setMinutes(next.getMinutes() + 5)
+}
+
+const { error: updateError } = await supabase
+  .from("urls")
+  .update({
+    last_captured_at: new Date().toISOString(),
+    next_capture_at: next.toISOString(),
+  })
+  .eq("id", item.id)
+
+if (updateError) {
+  console.error("❌ UPDATE FAILED:", updateError)
+} else {
+  console.log("✅ URL UPDATED:", item.id)
+}
 
       console.log("✅ Success:", url)
 
     } catch (err) {
       console.error("❌ Failed:", url, err.message)
-
-      // 🔥 INCREMENT RETRY COUNT
-      await supabase
-        .from("urls")
-        .update({
-          status: "failed",
-          retry_count: (item.retry_count || 0) + 1,
-        })
-        .eq("id", item.id)
     } finally {
       if (page) await page.close()
     }
   }
 
   await browser.close()
-
   console.log("🏁 Worker finished")
 }
 
 run()
+
