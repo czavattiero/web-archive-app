@@ -1,3 +1,6 @@
+
+
+
 "use client"
 
 import { useEffect, useState } from "react"
@@ -9,49 +12,42 @@ export default function Dashboard() {
 
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  
+  const [isCapturing, setIsCapturing] = useState(false)
 
   const [url, setUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
   const [customDate, setCustomDate] = useState("")
 
   const [urls, setUrls] = useState<any[]>([])
+  const [search, setSearch] = useState("")
   const [captures, setCaptures] = useState<any[]>([])
 
-  // ✅ SAFE AUTH + SUBSCRIPTION CHECK
   useEffect(() => {
+    let isMounted = true
+
     async function init() {
       const { data } = await supabase.auth.getUser()
 
-      // ❌ Not logged in → go to signup
+      if (!isMounted) return
+
       if (!data.user) {
-        window.location.href = "/signup"
+        router.replace("/signup")
         return
       }
-      
-      // TEMP: disable subscription check
-// const { data: subscription } = await supabase
-//   .from("subscriptions")
-//   .select("*")
-//   .eq("user_id", data.user.id)
-//   .maybeSingle()
 
-// if (!subscription) {
-//   window.location.href = "/signup"
-//   return
-// }
-
-      // ✅ User is valid
       setUser(data.user)
       setLoading(false)
-
-      // ✅ Load data
       fetchData(data.user)
     }
 
     init()
-  }, [])
 
-  // 🔄 Auto refresh
+    return () => {
+      isMounted = false
+    }
+  }, [router])
+
   useEffect(() => {
     if (!user) return
 
@@ -79,70 +75,79 @@ export default function Dashboard() {
   }
 
   async function addUrl() {
-    if (!user) return
+  if (!user) return
 
-    if (!url.trim()) {
-      alert("Enter a URL")
-      return
-    }
-
-    let selectedDate = ""
-
-    if (schedule === "custom") {
-      if (!customDate) {
-        alert("Select a date")
-        return
-      }
-      selectedDate = customDate
-    }
-
-    const now = new Date().toISOString()
-
-    const { error } = await supabase.from("urls").insert([
-      {
-        url: url.trim(),
-        user_id: user.id,
-        next_capture_at: now, // 🔥 DO NOT CHANGE
-        schedule_type: schedule,
-        schedule_value: selectedDate,
-        status: "active",
-      },
-    ])
-
-    if (error) {
-      alert("Error adding URL")
-      return
-    }
-
-    await fetchData(user)
-
-    // 🔥 trigger worker
-    await fetch("/api/run-worker", { method: "POST" })
-
-    setUrl("")
-    setCustomDate("")
+  if (!url.trim()) {
+    alert("Enter a URL")
+    return
   }
 
-  const handleSignOut = async () => {
+  let selectedDate = ""
+
+  if (schedule === "custom") {
+    if (!customDate) {
+      alert("Select a date")
+      return
+    }
+    selectedDate = customDate
+  }
+
+  const now = new Date().toISOString()
+
+  const { error } = await supabase.from("urls").insert([
+    {
+      url: url.trim(),
+      user_id: user.id,
+      next_capture_at: now,
+      schedule_type: schedule,
+      schedule_value: selectedDate,
+      status: "active",
+    },
+  ])
+
+  if (error) {
+    alert("Error adding URL")
+    return
+  }
+
+  // ✅ 1. Trigger worker FIRST
+  await fetch("/api/run-worker", { method: "POST" })
+
+  // ✅ 2. Show immediate feedback (optional but recommended)
+  setIsCapturing(true)
+
+  // ✅ 3. Wait before refreshing data
+  setTimeout(async () => {
+    await fetchData(user)
+    setIsCapturing(false)
+  }, 8000) // ⏱ adjust if needed
+
+  // ✅ 4. Reset inputs
+  setUrl("")
+  setCustomDate("")
+}
+  
+  const handleLogout = async () => {
     await supabase.auth.signOut()
-    window.location.href = "/signup"
+    localStorage.clear()
+    window.location.href = "/"
   }
 
   function getUrlById(id: string) {
     return urls.find((u) => u.id === id)
   }
 
-  // ✅ CRITICAL LOADING GUARD
   if (loading) {
     return <div style={{ padding: 40 }}>Loading...</div>
   }
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f6f9fc" }}>
+      
       {/* SIDEBAR */}
       <div
         style={{
-          width: 220,
+          width: 240,
           background: "#0a2540",
           color: "#fff",
           padding: 20,
@@ -152,14 +157,18 @@ export default function Dashboard() {
         }}
       >
         <div>
-          <img src="/screenly-logo.png" style={{ height: 32 }} />
+          <img
+            src="/screenly-logo.png"
+            style={{ width: 160, marginBottom: 20 }}
+          />
           <div style={{ marginTop: 20, fontWeight: "bold" }}>Dashboard</div>
         </div>
       </div>
 
       {/* MAIN */}
       <div style={{ flex: 1, padding: 30 }}>
-        {/* 🔥 TOP RIGHT BAR */}
+        
+        {/* TOP BAR */}
         <div
           style={{
             display: "flex",
@@ -171,7 +180,7 @@ export default function Dashboard() {
           <div>{user?.email}</div>
 
           <button
-            onClick={handleSignOut}
+            onClick={handleLogout}
             style={{
               background: "#ef4444",
               color: "#fff",
@@ -186,22 +195,38 @@ export default function Dashboard() {
         </div>
 
         <h1>Dashboard</h1>
+        {isCapturing && (
+  <p style={{ color: "#6b7280", marginBottom: 10 }}>
+    Capturing... ⏳ This may take ~10 seconds
+  </p>
+)}
 
         {/* ADD URL */}
         <div style={{ background: "#fff", padding: 20, borderRadius: 10 }}>
           <h3>Add URL</h3>
 
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <input
+              type="text"
+              placeholder="https://example.com"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com"
-              style={{ flex: 1, padding: 10 }}
+              style={{
+                flex: 1,
+                padding: "12px",
+                borderRadius: 10,
+                border: "1px solid #E5E7EB",
+              }}
             />
 
             <select
               value={schedule}
               onChange={(e) => setSchedule(e.target.value)}
+              style={{
+                padding: "12px",
+                borderRadius: 10,
+                border: "1px solid #E5E7EB",
+              }}
             >
               <option value="weekly">Weekly</option>
               <option value="biweekly">Biweekly</option>
@@ -215,10 +240,28 @@ export default function Dashboard() {
                 type="date"
                 value={customDate}
                 onChange={(e) => setCustomDate(e.target.value)}
+                style={{
+                  padding: "12px",
+                  borderRadius: 10,
+                  border: "1px solid #E5E7EB",
+                }}
               />
             )}
 
-            <button onClick={addUrl}>Add URL</button>
+            <button
+              onClick={addUrl}
+              style={{
+                background: "#6A11CB",
+                color: "white",
+                padding: "12px 18px",
+                borderRadius: 10,
+                border: "none",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Add URL
+            </button>
           </div>
         </div>
 
@@ -226,91 +269,117 @@ export default function Dashboard() {
         <div style={{ marginTop: 20 }}>
           <h3>Tracked URLs</h3>
 
-          <table style={{ width: "100%", marginTop: 10 }}>
-  <thead>
-    <tr>
-      <th style={{ textAlign: "left" }}>URL</th>
-      <th style={{ textAlign: "left" }}>Schedule</th>
-      <th style={{ textAlign: "left" }}>Date Added</th>
-    </tr>
-  </thead>
+          <input
+            type="text"
+            placeholder="🔍 Search your URLs..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              margin: "10px 0 20px 0",
+              borderRadius: 10,
+              border: "1px solid #E5E7EB",
+            }}
+          />
 
-  <tbody>
-    {urls.length === 0 ? (
-      <tr>
-        <td colSpan={3}>No URLs yet</td>
-      </tr>
-    ) : (
-      urls.map((u) => (
-        <tr key={u.id}>
-          <td>{u.url}</td>
+          <table style={{ width: "100%" }}>
+            <thead>
+              <tr>
+                <th align="left">URL</th>
+                <th align="left">Schedule</th>
+                <th align="left">Date Added</th>
+              </tr>
+            </thead>
 
-          <td>
-            {u.schedule_type === "custom"
-              ? `Specific date: ${u.schedule_value}`
-              : u.schedule_type === "weekly"
-              ? "Every week"
-              : u.schedule_type === "biweekly"
-              ? "Every 2 weeks"
-              : u.schedule_type === "29days"
-              ? "Every 29 days"
-              : u.schedule_type === "30days"
-              ? "Every 30 days"
-              : u.schedule_type}
-          </td>
-
-          <td>
-            {new Date(u.created_at).toLocaleString()}
-          </td>
-        </tr>
-      ))
-    )}
-  </tbody>
-</table>
+            <tbody>
+              {urls.length === 0 ? (
+                <tr>
+                  <td colSpan={3}>No URLs yet</td>
+                </tr>
+              ) : (
+                urls
+                  .filter((u) =>
+                    u.url.toLowerCase().includes(search.toLowerCase())
+                  )
+                  .map((u) => (
+                    <tr key={u.id}>
+                      <td>{u.url}</td>
+                      <td>
+                        {u.schedule_type === "custom"
+                          ? `Specific date: ${u.schedule_value}`
+                          : u.schedule_type === "weekly"
+                          ? "Every week"
+                          : u.schedule_type === "biweekly"
+                          ? "Every 2 weeks"
+                          : u.schedule_type === "29days"
+                          ? "Every 29 days"
+                          : u.schedule_type === "30days"
+                          ? "Every 30 days"
+                          : u.schedule_type}
+                      </td>
+                      <td>
+                        {new Date(u.created_at).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))
+              )}
+            </tbody>
+          </table>
         </div>
 
         {/* CAPTURE HISTORY */}
         <div style={{ marginTop: 20 }}>
           <h3>Capture History</h3>
 
-          <table style={{ width: "100%", marginTop: 10 }}>
-  <thead>
-    <tr>
-      <th style={{ textAlign: "left" }}>URL</th>
-      <th style={{ textAlign: "left" }}>Captured At</th>
-      <th style={{ textAlign: "left" }}>PDF</th>
-    </tr>
-  </thead>
+          <table style={{ width: "100%" }}>
+            <thead>
+              <tr>
+                <th align="left">URL</th>
+                <th align="left">Captured At</th>
+                <th align="left">PDF</th>
+              </tr>
+            </thead>
 
-  <tbody>
-    {captures.length === 0 ? (
-      <tr>
-        <td colSpan={3}>No captures yet</td>
-      </tr>
-    ) : (
-      captures.map((c) => {
-        if (!c.file_path) return null
+            <tbody>
+              {captures.length === 0 ? (
+                <tr>
+                  <td colSpan={3}>No captures yet</td>
+                </tr>
+              ) : (
+                captures
+                  .filter((c) => {
+                    const urlData = getUrlById(c.url_id)
+                    return urlData?.url
+                      ?.toLowerCase()
+                      .includes(search.toLowerCase())
+                  })
+                  .map((c) => {
+                    if (!c.file_path) return null
 
-        const urlData = getUrlById(c.url_id)
+                    const urlData = getUrlById(c.url_id)
 
-        const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
+                    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
 
-        return (
-          <tr key={c.id}>
-            <td>{urlData?.url || "Unknown"}</td>
-            <td>{new Date(c.created_at).toLocaleString()}</td>
-            <td>
-              <a href={publicUrl} target="_blank">
-                Download
-              </a>
-            </td>
-          </tr>
-        )
-      })
-    )}
-  </tbody>
-</table>
+                    return (
+                      <tr key={c.id}>
+                        <td>{urlData?.url || "Unknown"}</td>
+                        <td>
+                          {new Date(c.created_at).toLocaleString()}
+                        </td>
+                        <td>
+                          <a href={publicUrl} target="_blank">
+                            Download
+                          </a>
+                        </td>
+                      </tr>
+                    )
+                  })
+              )}
+            </tbody>
+          </table>
         </div>
+
       </div>
     </div>
   )
