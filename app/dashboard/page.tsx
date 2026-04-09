@@ -60,39 +60,44 @@ export default function Dashboard() {
 
   // ✅ FIXED ADD URL (AUTO TRIGGER WORKER)
   async function addUrl() {
-  if (!user) return
-  if (!url.trim()) return alert("Enter a URL")
+    if (!user) return
+    if (!url.trim()) return alert("Enter a URL")
 
-  // 🔥 ALWAYS trigger immediate capture
-  const nextCaptureISO = new Date().toISOString()
+    let nextCaptureISO
 
-  const { error } = await supabase.from("urls").insert([
-    {
-      url: url.trim(),
-      user_id: user.id,
-      next_capture_at: nextCaptureISO,
+    if (schedule === "custom" && customDate) {
+      const [year, month, day] = customDate.split("-").map(Number)
 
-      // keep schedule for later
-      schedule_type: schedule,
-      schedule_value: schedule === "custom" ? customDate : null,
+      // 9AM Alberta → 15:00 UTC
+      nextCaptureISO = DateTime.utc(year, month, day, 15, 0, 0).toISO()
+    } else {
+      nextCaptureISO = new Date().toISOString()
+    }
 
-      status: "active",
-    },
-  ])
+    const { error } = await supabase.from("urls").insert([
+      {
+        url: url.trim(),
+        user_id: user.id,
+        next_capture_at: nextCaptureISO,
+        schedule_type: schedule,
+        schedule_value: schedule === "custom" ? customDate : null,
+        status: "active",
+      },
+    ])
 
-  if (error) {
-    console.error(error)
-    return alert(error.message)
+    if (error) {
+      console.error(error)
+      return alert(error.message)
+    }
+
+    // 🔥 FIX: correct endpoint
+    await fetch("/api/capture", { method: "POST" })
+
+    setUrl("")
+    setCustomDate("")
+    fetchData(user)
   }
 
-  // 🔥 trigger worker immediately
-  await fetch("/api/capture", { method: "POST" })
-
-  setUrl("")
-  setCustomDate("")
-  fetchData(user)
-}
-  
   const handleLogout = async () => {
     await supabase.auth.signOut()
     localStorage.clear()
@@ -340,6 +345,6 @@ const buttonDanger = {
 
 const linkStyle = {
   color: "#7C3AED",
-  fontWeight: 500,
+  fontWeight: 500
 }
 
