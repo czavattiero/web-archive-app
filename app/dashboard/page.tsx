@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
-import { DateTime } from "luxon"
 
 export default function Dashboard() {
   const router = useRouter()
@@ -17,28 +16,49 @@ export default function Dashboard() {
 
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
-  const [search, setSearch] = useState("")
 
+  // ✅ SAFE AUTH + SUBSCRIPTION CHECK
   useEffect(() => {
     async function init() {
       const { data } = await supabase.auth.getUser()
 
+      // ❌ Not logged in → go to signup
       if (!data.user) {
-        router.replace("/signup")
+        window.location.href = "/signup"
         return
       }
+      
+      // TEMP: disable subscription check
+// const { data: subscription } = await supabase
+//   .from("subscriptions")
+//   .select("*")
+//   .eq("user_id", data.user.id)
+//   .maybeSingle()
 
+// if (!subscription) {
+//   window.location.href = "/signup"
+//   return
+// }
+
+      // ✅ User is valid
       setUser(data.user)
       setLoading(false)
+
+      // ✅ Load data
       fetchData(data.user)
     }
 
     init()
-  }, [router])
+  }, [])
 
+  // 🔄 Auto refresh
   useEffect(() => {
     if (!user) return
-    const interval = setInterval(() => fetchData(user), 5000)
+
+    const interval = setInterval(() => {
+      fetchData(user)
+    }, 5000)
+
     return () => clearInterval(interval)
   }, [user])
 
@@ -58,125 +78,131 @@ export default function Dashboard() {
     setCaptures(capturesData || [])
   }
 
-  // ✅ FIXED ADD URL (AUTO TRIGGER WORKER)
   async function addUrl() {
     if (!user) return
-    if (!url.trim()) return alert("Enter a URL")
 
-    let nextCaptureISO
-
-    if (schedule === "custom" && customDate) {
-      const [year, month, day] = customDate.split("-").map(Number)
-
-      // 9AM Alberta → 15:00 UTC
-      nextCaptureISO = DateTime.utc(year, month, day, 15, 0, 0).toISO()
-    } else {
-      nextCaptureISO = new Date().toISOString()
+    if (!url.trim()) {
+      alert("Enter a URL")
+      return
     }
+
+    let selectedDate = ""
+
+    if (schedule === "custom") {
+      if (!customDate) {
+        alert("Select a date")
+        return
+      }
+      selectedDate = customDate
+    }
+
+    const now = new Date().toISOString()
 
     const { error } = await supabase.from("urls").insert([
       {
         url: url.trim(),
         user_id: user.id,
-        next_capture_at: nextCaptureISO,
+        next_capture_at: now, // 🔥 DO NOT CHANGE
         schedule_type: schedule,
-        schedule_value: schedule === "custom" ? customDate : null,
+        schedule_value: selectedDate,
         status: "active",
       },
     ])
 
     if (error) {
-      console.error(error)
-      return alert(error.message)
+      alert("Error adding URL")
+      return
     }
 
-    // 🔥 FIX: correct endpoint
-    await fetch("/api/capture", { method: "POST" })
+    await fetchData(user)
+
+    // 🔥 trigger worker
+    await fetch("/api/run-worker", { method: "POST" })
 
     setUrl("")
     setCustomDate("")
-    fetchData(user)
   }
 
-  const handleLogout = async () => {
+  const handleSignOut = async () => {
     await supabase.auth.signOut()
-    localStorage.clear()
-    window.location.href = "/"
+    window.location.href = "/signup"
   }
 
   function getUrlById(id: string) {
     return urls.find((u) => u.id === id)
   }
 
-  function formatAlbertaTime(dateString: string | null) {
-    if (!dateString) return "—"
-
-    return DateTime.fromISO(dateString, { zone: "utc" })
-      .setZone("America/Edmonton")
-      .toFormat("MMM d, yyyy, h:mm a")
+  // ✅ CRITICAL LOADING GUARD
+  if (loading) {
+    return <div style={{ padding: 40 }}>Loading...</div>
   }
-
-  function StatusBadge({ status }: { status: string }) {
-    const base = {
-      padding: "4px 10px",
-      borderRadius: 999,
-      fontSize: 12,
-      fontWeight: 600,
-      display: "inline-block",
-    }
-
-    if (status === "active")
-      return <span style={{ ...base, background: "#DCFCE7", color: "#166534" }}>Active</span>
-
-    if (status === "completed")
-      return <span style={{ ...base, background: "#E0E7FF", color: "#3730A3" }}>Completed</span>
-
-    if (status === "failed")
-      return <span style={{ ...base, background: "#FEE2E2", color: "#991B1B" }}>Failed</span>
-
-    return <span style={{ ...base, background: "#E5E7EB", color: "#374151" }}>{status}</span>
-  }
-
-  const filteredUrls = urls.filter((u) =>
-    u.url.toLowerCase().includes(search.toLowerCase())
-  )
-
-  const filteredCaptures = captures.filter((c) => {
-    const urlData = getUrlById(c.url_id)
-    return urlData?.url?.toLowerCase().includes(search.toLowerCase())
-  })
-
-  if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
   return (
-    <div style={{ minHeight: "100vh", background: "#ffffff" }}>
-
-      {/* TOP BAR */}
-      <div style={topBar}>
-        <img src="/screenly-logo.png" style={{ width: 140 }} />
-
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <div style={{ fontSize: 14, color: "#555" }}>{user?.email}</div>
-          <button onClick={handleLogout} style={buttonDanger}>Sign Out</button>
+    <div style={{ display: "flex", minHeight: "100vh", background: "#f6f9fc" }}>
+      {/* SIDEBAR */}
+      <div
+        style={{
+          width: 220,
+          background: "#0a2540",
+          color: "#fff",
+          padding: 20,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+        }}
+      >
+        <div>
+          <img src="/screenly-logo.png" style={{ height: 32 }} />
+          <div style={{ marginTop: 20, fontWeight: "bold" }}>Dashboard</div>
         </div>
       </div>
 
-      <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
-        <h1 style={title}>Dashboard</h1>
+      {/* MAIN */}
+      <div style={{ flex: 1, padding: 30 }}>
+        {/* 🔥 TOP RIGHT BAR */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginBottom: 20,
+            gap: 12,
+          }}
+        >
+          <div>{user?.email}</div>
+
+          <button
+            onClick={handleSignOut}
+            style={{
+              background: "#ef4444",
+              color: "#fff",
+              padding: "6px 12px",
+              borderRadius: 6,
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Sign Out
+          </button>
+        </div>
+
+        <h1>Dashboard</h1>
 
         {/* ADD URL */}
-        <div style={cardStyle}>
-          <h3 style={sectionTitle}>Add URL</h3>
+        <div style={{ background: "#fff", padding: 20, borderRadius: 10 }}>
+          <h3>Add URL</h3>
 
           <div style={{ display: "flex", gap: 10 }}>
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/job-posting"
-              style={{ ...inputStyle, flex: 2 }}
+              placeholder="https://example.com"
+              style={{ flex: 1, padding: 10 }}
             />
 
-            <select value={schedule} onChange={(e) => setSchedule(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
+            <select
+              value={schedule}
+              onChange={(e) => setSchedule(e.target.value)}
+            >
               <option value="weekly">Weekly</option>
               <option value="biweekly">Biweekly</option>
               <option value="29days">Every 29 days</option>
@@ -185,166 +211,108 @@ export default function Dashboard() {
             </select>
 
             {schedule === "custom" && (
-              <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+              <input
+                type="date"
+                value={customDate}
+                onChange={(e) => setCustomDate(e.target.value)}
+              />
             )}
 
-            <button onClick={addUrl} style={buttonPrimary}>Add</button>
+            <button onClick={addUrl}>Add URL</button>
           </div>
         </div>
 
         {/* TRACKED URLS */}
-        <div style={cardStyle}>
-          <h3 style={sectionTitle}>Tracked URLs</h3>
+        <div style={{ marginTop: 20 }}>
+          <h3>Tracked URLs</h3>
 
-          <input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} style={searchStyle} />
+          <table style={{ width: "100%", marginTop: 10 }}>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>URL</th>
+      <th style={{ textAlign: "left" }}>Schedule</th>
+      <th style={{ textAlign: "left" }}>Date Added</th>
+    </tr>
+  </thead>
 
-          <div style={headerRow}>
-            <div style={{ flex: 3 }}>URL</div>
-            <div style={{ flex: 1 }}>Schedule</div>
-            <div style={{ flex: 1 }}>Next</div>
-            <div style={{ flex: 1 }}>Status</div>
-            <div style={{ flex: 1 }}>Added</div>
-          </div>
+  <tbody>
+    {urls.length === 0 ? (
+      <tr>
+        <td colSpan={3}>No URLs yet</td>
+      </tr>
+    ) : (
+      urls.map((u) => (
+        <tr key={u.id}>
+          <td>{u.url}</td>
 
-          {filteredUrls.map((u) => (
-            <div key={u.id} style={rowCard}>
-              <div style={urlCell}>{u.url}</div>
-              <div style={{ flex: 1 }}>{u.schedule_type}</div>
-              <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
-              <div style={{ flex: 1 }}><StatusBadge status={u.status} /></div>
-              <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
-            </div>
-          ))}
+          <td>
+            {u.schedule_type === "custom"
+              ? `Specific date: ${u.schedule_value}`
+              : u.schedule_type === "weekly"
+              ? "Every week"
+              : u.schedule_type === "biweekly"
+              ? "Every 2 weeks"
+              : u.schedule_type === "29days"
+              ? "Every 29 days"
+              : u.schedule_type === "30days"
+              ? "Every 30 days"
+              : u.schedule_type}
+          </td>
+
+          <td>
+            {new Date(u.created_at).toLocaleString()}
+          </td>
+        </tr>
+      ))
+    )}
+  </tbody>
+</table>
         </div>
 
         {/* CAPTURE HISTORY */}
-        <div style={cardStyle}>
-          <h3 style={sectionTitle}>Capture History</h3>
+        <div style={{ marginTop: 20 }}>
+          <h3>Capture History</h3>
 
-          <div style={headerRow}>
-            <div style={{ flex: 3 }}>URL</div>
-            <div style={{ flex: 1 }}>Captured</div>
-            <div style={{ flex: 1 }}>Status</div>
-            <div style={{ flex: 1 }}>PDF</div>
-          </div>
+          <table style={{ width: "100%", marginTop: 10 }}>
+  <thead>
+    <tr>
+      <th style={{ textAlign: "left" }}>URL</th>
+      <th style={{ textAlign: "left" }}>Captured At</th>
+      <th style={{ textAlign: "left" }}>PDF</th>
+    </tr>
+  </thead>
 
-          {filteredCaptures.map((c) => {
-            if (!c.file_path) return null
+  <tbody>
+    {captures.length === 0 ? (
+      <tr>
+        <td colSpan={3}>No captures yet</td>
+      </tr>
+    ) : (
+      captures.map((c) => {
+        if (!c.file_path) return null
 
-            const urlData = getUrlById(c.url_id)
-            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
+        const urlData = getUrlById(c.url_id)
 
-            return (
-              <div key={c.id} style={rowCard}>
-                <div style={urlCell}>{urlData?.url}</div>
-                <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
-                <div style={{ flex: 1 }}><StatusBadge status={c.status} /></div>
-                <div style={{ flex: 1 }}>
-                  <a href={publicUrl} target="_blank" style={linkStyle}>Download</a>
-                </div>
-              </div>
-            )
-          })}
+        const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
+
+        return (
+          <tr key={c.id}>
+            <td>{urlData?.url || "Unknown"}</td>
+            <td>{new Date(c.created_at).toLocaleString()}</td>
+            <td>
+              <a href={publicUrl} target="_blank">
+                Download
+              </a>
+            </td>
+          </tr>
+        )
+      })
+    )}
+  </tbody>
+</table>
         </div>
       </div>
     </div>
   )
-}
-
-/* STYLES */
-
-const topBar = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: "20px 40px",
-  borderBottom: "1px solid #eee"
-}
-
-const title = {
-  fontSize: 26,
-  marginBottom: 24,
-  fontWeight: 700
-}
-
-const urlCell: React.CSSProperties = {
-  flex: 3,
-  wordBreak: "break-all",
-  whiteSpace: "normal",
-  lineHeight: "1.4",
-  fontSize: 13,
-  color: "#333"
-}
-
-const cardStyle = {
-  background: "#fff",
-  padding: 24,
-  borderRadius: 14,
-  border: "1px solid #eee",
-  marginTop: 20
-}
-
-const sectionTitle = {
-  fontSize: 16,
-  fontWeight: 600,
-  marginBottom: 12
-}
-
-const rowCard = {
-  display: "flex",
-  padding: "14px 16px",
-  marginTop: 8,
-  background: "#fff",
-  borderRadius: 10,
-  border: "1px solid #f1f1f1",
-  gap: 12
-}
-
-const headerRow = {
-  display: "flex",
-  padding: "8px 14px",
-  marginTop: 10,
-  color: "#6B7280",
-  fontWeight: 600,
-  fontSize: 12,
-}
-
-const inputStyle = {
-  padding: "10px",
-  borderRadius: 8,
-  border: "1px solid #ddd",
-  background: "#fff"
-}
-
-const searchStyle = {
-  width: "100%",
-  padding: "10px",
-  marginTop: 10,
-  borderRadius: 8,
-  border: "1px solid #ddd",
-}
-
-const buttonPrimary = {
-  background: "#7C3AED",
-  color: "#fff",
-  padding: "10px 16px",
-  borderRadius: 8,
-  border: "none",
-  fontWeight: 600,
-  cursor: "pointer"
-}
-
-const buttonDanger = {
-  background: "#ef4444",
-  color: "#fff",
-  padding: "6px 12px",
-  borderRadius: 6,
-  border: "none",
-  cursor: "pointer"
-}
-
-const linkStyle = {
-  color: "#7C3AED",
-  fontWeight: 500
 }
 
