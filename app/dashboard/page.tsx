@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
-import { DateTime } from "luxon"
 
 export default function Dashboard() {
   const router = useRouter()
@@ -43,17 +42,10 @@ export default function Dashboard() {
   }, [user])
 
   async function fetchData(currentUser: any) {
-    const { data: urls, error } = await supabase
-  .from("urls")
-  .select("*")
-  .or("status.eq.active,status.eq.failed")
-  .lt("retry_count", 3)
-  .limit(5)
-
-if (error) {
-  console.error("Error fetching URLs:", error)
-  return
-}
+    const { data: urlsData } = await supabase
+      .from("urls")
+      .select("*")
+      .eq("user_id", currentUser.id)
 
     const { data: capturesData } = await supabase
       .from("captures")
@@ -61,49 +53,50 @@ if (error) {
       .eq("user_id", currentUser.id)
       .order("created_at", { ascending: false })
 
-    setUrls(urls || [])
+    setUrls(urlsData || [])
     setCaptures(capturesData || [])
   }
 
-  // ✅ FIXED ADD URL (AUTO TRIGGER WORKER)
   async function addUrl() {
-  console.log("🔥 ADD URL CLICKED")
+    if (!user) return
+    if (!url.trim()) return alert("Enter a URL")
 
-  if (!user) return
-  if (!url.trim()) return alert("Enter a URL")
+    let nextCapture: Date
 
-  const { data, error } = await supabase
-    .from("urls")
-    .insert([
+    if (schedule === "custom") {
+      if (!customDate) return alert("Select a date")
+
+      nextCapture = new Date(
+        new Date(customDate).toLocaleString("en-US", {
+          timeZone: "America/Edmonton",
+        })
+      )
+      nextCapture.setHours(9, 0, 0, 0)
+    } else {
+      nextCapture = new Date()
+    }
+
+    const { error } = await supabase.from("urls").insert([
       {
         url: url.trim(),
         user_id: user.id,
-        next_capture_at: new Date().toISOString(),
+        next_capture_at: nextCapture.toISOString(),
         schedule_type: schedule,
         schedule_value: schedule === "custom" ? customDate : null,
         status: "active",
       },
     ])
-    .select()
-    .single()
 
-  if (error) {
-    console.error("❌ INSERT ERROR:", error)
-    return alert(error.message)
+    if (error) return alert("Error adding URL")
+
+    if (schedule !== "custom") {
+      await fetch("/api/run-worker", { method: "POST" })
+    }
+
+    setUrl("")
+    setCustomDate("")
   }
 
-  console.log("✅ INSERT DONE:", data.id)
-
-  // 🔥 THIS WAS MISSING / NOT RUNNING
-  console.log("🔥 CALLING API")
-
-  console.log("✅ API CALLED")
-
-  setUrl("")
-  setCustomDate("")
-  fetchData(user)
-}
-  
   const handleLogout = async () => {
     await supabase.auth.signOut()
     localStorage.clear()
@@ -117,9 +110,14 @@ if (error) {
   function formatAlbertaTime(dateString: string | null) {
     if (!dateString) return "—"
 
-    return DateTime.fromISO(dateString, { zone: "utc" })
-      .setZone("America/Edmonton")
-      .toFormat("MMM d, yyyy, h:mm a")
+    return new Date(dateString).toLocaleString("en-CA", {
+      timeZone: "America/Edmonton",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })
   }
 
   function StatusBadge({ status }: { status: string }) {
@@ -143,22 +141,19 @@ if (error) {
     return <span style={{ ...base, background: "#E5E7EB", color: "#374151" }}>{status}</span>
   }
 
-  const filteredUrls = urls.filter((u) =>
-    u.url.toLowerCase().includes(search.toLowerCase())
-  )
-
-  const filteredCaptures = captures.filter((c) => {
-    const urlData = getUrlById(c.url_id)
-    return urlData?.url?.toLowerCase().includes(search.toLowerCase())
-  })
-
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
 
       {/* TOP BAR */}
-      <div style={topBar}>
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "20px 40px",
+        borderBottom: "1px solid #eee"
+      }}>
         <img src="/screenly-logo.png" style={{ width: 140 }} />
 
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -167,14 +162,16 @@ if (error) {
         </div>
       </div>
 
+      {/* CONTENT */}
       <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
-        <h1 style={title}>Dashboard</h1>
+        <h1 style={{ fontSize: 26, marginBottom: 24, fontWeight: 700 }}>Dashboard</h1>
 
         {/* ADD URL */}
         <div style={cardStyle}>
           <h3 style={sectionTitle}>Add URL</h3>
 
           <div style={{ display: "flex", gap: 10 }}>
+            {/* 🔥 FULL WIDTH URL INPUT */}
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
@@ -212,9 +209,9 @@ if (error) {
             <div style={{ flex: 1 }}>Added</div>
           </div>
 
-          {filteredUrls.map((u) => (
+          {urls.filter((u) => u.url.toLowerCase().includes(search.toLowerCase())).map((u) => (
             <div key={u.id} style={rowCard}>
-              <div style={urlCell}>{u.url}</div>
+              <div style={{ flex: 3, wordBreak: "break-all" }}>{u.url}</div>
               <div style={{ flex: 1 }}>{u.schedule_type}</div>
               <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
               <div style={{ flex: 1 }}><StatusBadge status={u.status} /></div>
@@ -234,7 +231,7 @@ if (error) {
             <div style={{ flex: 1 }}>PDF</div>
           </div>
 
-          {filteredCaptures.map((c) => {
+          {captures.map((c) => {
             if (!c.file_path) return null
 
             const urlData = getUrlById(c.url_id)
@@ -242,7 +239,7 @@ if (error) {
 
             return (
               <div key={c.id} style={rowCard}>
-                <div style={urlCell}>{urlData?.url}</div>
+                <div style={{ flex: 3 }}>{urlData?.url}</div>
                 <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
                 <div style={{ flex: 1 }}><StatusBadge status={c.status} /></div>
                 <div style={{ flex: 1 }}>
@@ -258,29 +255,6 @@ if (error) {
 }
 
 /* STYLES */
-
-const topBar = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: "20px 40px",
-  borderBottom: "1px solid #eee"
-}
-
-const title = {
-  fontSize: 26,
-  marginBottom: 24,
-  fontWeight: 700
-}
-
-const urlCell: React.CSSProperties = {
-  flex: 3,
-  wordBreak: "break-all",
-  whiteSpace: "normal",
-  lineHeight: "1.4",
-  fontSize: 13,
-  color: "#333"
-}
 
 const cardStyle = {
   background: "#fff",
@@ -298,12 +272,11 @@ const sectionTitle = {
 
 const rowCard = {
   display: "flex",
-  padding: "14px 16px",
+  padding: "12px 14px",
   marginTop: 8,
   background: "#fff",
   borderRadius: 10,
-  border: "1px solid #f1f1f1",
-  gap: 12
+  border: "1px solid #f1f1f1"
 }
 
 const headerRow = {
@@ -351,6 +324,6 @@ const buttonDanger = {
 
 const linkStyle = {
   color: "#7C3AED",
-  fontWeight: 500,
+  fontWeight: 500
 }
 

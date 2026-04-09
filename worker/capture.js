@@ -1,4 +1,3 @@
-
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
 
@@ -74,40 +73,10 @@ else {
       await page.waitForTimeout(3000)
 
       // ✅ PDF
-// ✅ Build Alberta timestamp
-const timestamp = new Date().toLocaleString("en-CA", {
-  timeZone: "America/Edmonton",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-})
-
-// ✅ PDF with HEADER (no overlap ever)
-const buffer = await page.pdf({
-  format: "A4",
-  printBackground: true,
-  displayHeaderFooter: true,
-  margin: {
-    top: "60px",
-    bottom: "40px",
-  },
-  headerTemplate: `
-    <div style="
-      width: 100%;
-      font-size: 10px;
-      padding: 0 20px;
-      display: flex;
-      justify-content: flex-end;
-      color: black;
-    ">
-      Captured ${timestamp}
-    </div>
-  `,
-  footerTemplate: `<div></div>`,
-})
+      const buffer = await page.pdf({
+        format: "A4",
+        printBackground: true,
+      })
 
       const fileName = `screenshots/${item.id}-${Date.now()}.pdf`
 
@@ -187,4 +156,3 @@ if (updateError) {
 }
 
 run()
-

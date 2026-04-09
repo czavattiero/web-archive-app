@@ -2,7 +2,7 @@ name: Web Archive Capture Worker
 
 on:
   schedule:
-  - cron: "*/1 * * * *"   # every 1 minute ✅
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -29,3 +29,4 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node worker/capture.js
+
