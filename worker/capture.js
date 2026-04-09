@@ -1,4 +1,3 @@
-
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
 
@@ -10,12 +9,13 @@ const supabase = createClient(
 async function run() {
   console.log("🚀 Worker started")
 
-  // ✅ FETCH ALL URLS (no filters for now)
+  // 🔥 1. GET URLS (ACTIVE + FAILED WITH RETRIES)
   const { data: urls, error } = await supabase
-    .from("urls")
-    .select("*")
-
-  console.log("🧪 URLS FETCHED:", urls)
+  .from("urls")
+  .select("*")
+  .or("status.eq.active,status.eq.failed,status.is.null")
+  .or("retry_count.is.null,retry_count.lt.3")
+  .limit(5)
 
   if (error) {
     console.error("❌ Error fetching URLs:", error)
@@ -27,14 +27,14 @@ async function run() {
     return
   }
 
-  const browser = await chromium.launch({ headless: true })
+  // 🔥 2. LAUNCH BROWSER
+  const browser = await chromium.launch({
+    headless: true,
+  })
 
   for (const item of urls) {
-    if (item.last_captured_at) {
-  continue
-}
-    
     const url = item.url
+
     console.log("🌐 Capturing:", url)
 
     let page
@@ -42,49 +42,61 @@ async function run() {
     try {
       page = await browser.newPage()
 
-      await page.goto(url, {
-        waitUntil: "domcontentloaded",
-        timeout: 90000,
+      await page.setExtraHTTPHeaders({
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
       })
+
+      await page.goto(url, {
+  waitUntil: "networkidle",
+  timeout: 90000,
+})
 
       await page.waitForTimeout(3000)
 
-      // ✅ PDF
-      const buffer = await page.pdf({
-        format: "A4",
-        printBackground: true,
-      })
+      // 🔥 TAKE SCREENSHOT
+     const buffer = await page.pdf({
+  format: "A4",
+  printBackground: true,
+})
 
+      // 🔥 FILE NAME
       const fileName = `screenshots/${item.id}-${Date.now()}.pdf`
 
+      // 🔥 UPLOAD TO STORAGE
       const { error: uploadError } = await supabase.storage
         .from("captures")
         .upload(fileName, buffer, {
           contentType: "application/pdf",
-          upsert: true,
         })
 
       if (uploadError) {
         throw uploadError
       }
 
-      const { data, error: insertError } = await supabase
-        .from("captures")
-        .insert([
-          {
-            url_id: item.id,
-            file_path: fileName,
-            user_id: item.user_id,
-            created_at: new Date().toISOString(),
-          },
-        ])
-        .select()
+      // 🔥 SAVE CAPTURE RECORD
+     console.log("🔥 INSERT BLOCK REACHED")
 
-      console.log("📦 INSERT RESULT:", { data, insertError })
+const { data, error } = await supabase
+  .from("captures")
+  .insert([
+    {
+      url_id: item.id,
+      file_path: fileName,
+      user_id: item.user_id,
+      created_at: new Date().toISOString(),
+    },
+  ])
+  .select()
 
+console.log("📦 INSERT RESULT:", { data, error })
+
+      // 🔥 SUCCESS → RESET RETRIES
       await supabase
         .from("urls")
         .update({
+          status: "active",
+          retry_count: 0,
           last_captured_at: new Date().toISOString(),
         })
         .eq("id", item.id)
@@ -93,14 +105,25 @@ async function run() {
 
     } catch (err) {
       console.error("❌ Failed:", url, err.message)
+
+      // 🔥 INCREMENT RETRY COUNT
+      await supabase
+        .from("urls")
+        .update({
+          status: "failed",
+          retry_count: (item.retry_count || 0) + 1,
+        })
+        .eq("id", item.id)
     } finally {
       if (page) await page.close()
     }
   }
 
   await browser.close()
+
   console.log("🏁 Worker finished")
 }
 
 run()
+
 
