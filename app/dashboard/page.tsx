@@ -1,6 +1,3 @@
-
-
-
 "use client"
 
 import { useEffect, useState } from "react"
@@ -12,24 +9,18 @@ export default function Dashboard() {
 
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  
-  const [isCapturing, setIsCapturing] = useState(false)
 
   const [url, setUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
   const [customDate, setCustomDate] = useState("")
 
   const [urls, setUrls] = useState<any[]>([])
-  const [search, setSearch] = useState("")
   const [captures, setCaptures] = useState<any[]>([])
+  const [search, setSearch] = useState("")
 
   useEffect(() => {
-    let isMounted = true
-
     async function init() {
       const { data } = await supabase.auth.getUser()
-
-      if (!isMounted) return
 
       if (!data.user) {
         router.replace("/signup")
@@ -42,19 +33,11 @@ export default function Dashboard() {
     }
 
     init()
-
-    return () => {
-      isMounted = false
-    }
   }, [router])
 
   useEffect(() => {
     if (!user) return
-
-    const interval = setInterval(() => {
-      fetchData(user)
-    }, 5000)
-
+    const interval = setInterval(() => fetchData(user), 5000)
     return () => clearInterval(interval)
   }, [user])
 
@@ -75,58 +58,45 @@ export default function Dashboard() {
   }
 
   async function addUrl() {
-  if (!user) return
+    if (!user) return
+    if (!url.trim()) return alert("Enter a URL")
 
-  if (!url.trim()) {
-    alert("Enter a URL")
-    return
-  }
+    let nextCapture: Date
 
-  let selectedDate = ""
+    if (schedule === "custom") {
+      if (!customDate) return alert("Select a date")
 
-  if (schedule === "custom") {
-    if (!customDate) {
-      alert("Select a date")
-      return
+      nextCapture = new Date(
+        new Date(customDate).toLocaleString("en-US", {
+          timeZone: "America/Edmonton",
+        })
+      )
+      nextCapture.setHours(9, 0, 0, 0)
+    } else {
+      nextCapture = new Date()
     }
-    selectedDate = customDate
+
+    const { error } = await supabase.from("urls").insert([
+      {
+        url: url.trim(),
+        user_id: user.id,
+        next_capture_at: nextCapture.toISOString(),
+        schedule_type: schedule,
+        schedule_value: schedule === "custom" ? customDate : null,
+        status: "active",
+      },
+    ])
+
+    if (error) return alert("Error adding URL")
+
+    if (schedule !== "custom") {
+      await fetch("/api/run-worker", { method: "POST" })
+    }
+
+    setUrl("")
+    setCustomDate("")
   }
 
-  const now = new Date().toISOString()
-
-  const { error } = await supabase.from("urls").insert([
-    {
-      url: url.trim(),
-      user_id: user.id,
-      next_capture_at: now,
-      schedule_type: schedule,
-      schedule_value: selectedDate,
-      status: "active",
-    },
-  ])
-
-  if (error) {
-    alert("Error adding URL")
-    return
-  }
-
-  // ✅ 1. Trigger worker FIRST
-  await fetch("/api/run-worker", { method: "POST" })
-
-  // ✅ 2. Show immediate feedback (optional but recommended)
-  setIsCapturing(true)
-
-  // ✅ 3. Wait before refreshing data
-  setTimeout(async () => {
-    await fetchData(user)
-    setIsCapturing(false)
-  }, 8000) // ⏱ adjust if needed
-
-  // ✅ 4. Reset inputs
-  setUrl("")
-  setCustomDate("")
-}
-  
   const handleLogout = async () => {
     await supabase.auth.signOut()
     localStorage.clear()
@@ -137,97 +107,79 @@ export default function Dashboard() {
     return urls.find((u) => u.id === id)
   }
 
-  if (loading) {
-    return <div style={{ padding: 40 }}>Loading...</div>
+  function formatAlbertaTime(dateString: string | null) {
+    if (!dateString) return "—"
+
+    return new Date(dateString).toLocaleString("en-CA", {
+      timeZone: "America/Edmonton",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })
   }
 
+  function StatusBadge({ status }: { status: string }) {
+    const base = {
+      padding: "4px 10px",
+      borderRadius: 999,
+      fontSize: 12,
+      fontWeight: 600,
+      display: "inline-block",
+    }
+
+    if (status === "active")
+      return <span style={{ ...base, background: "#DCFCE7", color: "#166534" }}>Active</span>
+
+    if (status === "completed")
+      return <span style={{ ...base, background: "#E0E7FF", color: "#3730A3" }}>Completed</span>
+
+    if (status === "failed")
+      return <span style={{ ...base, background: "#FEE2E2", color: "#991B1B" }}>Failed</span>
+
+    return <span style={{ ...base, background: "#E5E7EB", color: "#374151" }}>{status}</span>
+  }
+
+  if (loading) return <div style={{ padding: 40 }}>Loading...</div>
+
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f6f9fc" }}>
-      
-      {/* SIDEBAR */}
-      <div
-        style={{
-          width: 240,
-          background: "#0a2540",
-          color: "#fff",
-          padding: 20,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-        }}
-      >
-        <div>
-          <img
-            src="/screenly-logo.png"
-            style={{ width: 160, marginBottom: 20 }}
-          />
-          <div style={{ marginTop: 20, fontWeight: "bold" }}>Dashboard</div>
+    <div style={{ minHeight: "100vh", background: "#ffffff" }}>
+
+      {/* TOP BAR */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "20px 40px",
+        borderBottom: "1px solid #eee"
+      }}>
+        <img src="/screenly-logo.png" style={{ width: 140 }} />
+
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ fontSize: 14, color: "#555" }}>{user?.email}</div>
+          <button onClick={handleLogout} style={buttonDanger}>Sign Out</button>
         </div>
       </div>
 
-      {/* MAIN */}
-      <div style={{ flex: 1, padding: 30 }}>
-        
-        {/* TOP BAR */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            marginBottom: 20,
-            gap: 12,
-          }}
-        >
-          <div>{user?.email}</div>
-
-          <button
-            onClick={handleLogout}
-            style={{
-              background: "#ef4444",
-              color: "#fff",
-              padding: "6px 12px",
-              borderRadius: 6,
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            Sign Out
-          </button>
-        </div>
-
-        <h1>Dashboard</h1>
-        {isCapturing && (
-  <p style={{ color: "#6b7280", marginBottom: 10 }}>
-    Capturing... ⏳ This may take ~10 seconds
-  </p>
-)}
+      {/* CONTENT */}
+      <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
+        <h1 style={{ fontSize: 26, marginBottom: 24, fontWeight: 700 }}>Dashboard</h1>
 
         {/* ADD URL */}
-        <div style={{ background: "#fff", padding: 20, borderRadius: 10 }}>
-          <h3>Add URL</h3>
+        <div style={cardStyle}>
+          <h3 style={sectionTitle}>Add URL</h3>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 10 }}>
+            {/* 🔥 FULL WIDTH URL INPUT */}
             <input
-              type="text"
-              placeholder="https://example.com"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              style={{
-                flex: 1,
-                padding: "12px",
-                borderRadius: 10,
-                border: "1px solid #E5E7EB",
-              }}
+              placeholder="https://example.com/job-posting"
+              style={{ ...inputStyle, flex: 2 }}
             />
 
-            <select
-              value={schedule}
-              onChange={(e) => setSchedule(e.target.value)}
-              style={{
-                padding: "12px",
-                borderRadius: 10,
-                border: "1px solid #E5E7EB",
-              }}
-            >
+            <select value={schedule} onChange={(e) => setSchedule(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
               <option value="weekly">Weekly</option>
               <option value="biweekly">Biweekly</option>
               <option value="29days">Every 29 days</option>
@@ -236,152 +188,142 @@ export default function Dashboard() {
             </select>
 
             {schedule === "custom" && (
-              <input
-                type="date"
-                value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
-                style={{
-                  padding: "12px",
-                  borderRadius: 10,
-                  border: "1px solid #E5E7EB",
-                }}
-              />
+              <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
             )}
 
-            <button
-              onClick={addUrl}
-              style={{
-                background: "#6A11CB",
-                color: "white",
-                padding: "12px 18px",
-                borderRadius: 10,
-                border: "none",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Add URL
-            </button>
+            <button onClick={addUrl} style={buttonPrimary}>Add</button>
           </div>
         </div>
 
         {/* TRACKED URLS */}
-        <div style={{ marginTop: 20 }}>
-          <h3>Tracked URLs</h3>
+        <div style={cardStyle}>
+          <h3 style={sectionTitle}>Tracked URLs</h3>
 
-          <input
-            type="text"
-            placeholder="🔍 Search your URLs..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "12px 14px",
-              margin: "10px 0 20px 0",
-              borderRadius: 10,
-              border: "1px solid #E5E7EB",
-            }}
-          />
+          <input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} style={searchStyle} />
 
-          <table style={{ width: "100%" }}>
-            <thead>
-              <tr>
-                <th align="left">URL</th>
-                <th align="left">Schedule</th>
-                <th align="left">Date Added</th>
-              </tr>
-            </thead>
+          <div style={headerRow}>
+            <div style={{ flex: 3 }}>URL</div>
+            <div style={{ flex: 1 }}>Schedule</div>
+            <div style={{ flex: 1 }}>Next</div>
+            <div style={{ flex: 1 }}>Status</div>
+            <div style={{ flex: 1 }}>Added</div>
+          </div>
 
-            <tbody>
-              {urls.length === 0 ? (
-                <tr>
-                  <td colSpan={3}>No URLs yet</td>
-                </tr>
-              ) : (
-                urls
-                  .filter((u) =>
-                    u.url.toLowerCase().includes(search.toLowerCase())
-                  )
-                  .map((u) => (
-                    <tr key={u.id}>
-                      <td>{u.url}</td>
-                      <td>
-                        {u.schedule_type === "custom"
-                          ? `Specific date: ${u.schedule_value}`
-                          : u.schedule_type === "weekly"
-                          ? "Every week"
-                          : u.schedule_type === "biweekly"
-                          ? "Every 2 weeks"
-                          : u.schedule_type === "29days"
-                          ? "Every 29 days"
-                          : u.schedule_type === "30days"
-                          ? "Every 30 days"
-                          : u.schedule_type}
-                      </td>
-                      <td>
-                        {new Date(u.created_at).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))
-              )}
-            </tbody>
-          </table>
+          {urls.filter((u) => u.url.toLowerCase().includes(search.toLowerCase())).map((u) => (
+            <div key={u.id} style={rowCard}>
+              <div style={{ flex: 3, wordBreak: "break-all" }}>{u.url}</div>
+              <div style={{ flex: 1 }}>{u.schedule_type}</div>
+              <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
+              <div style={{ flex: 1 }}><StatusBadge status={u.status} /></div>
+              <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
+            </div>
+          ))}
         </div>
 
         {/* CAPTURE HISTORY */}
-        <div style={{ marginTop: 20 }}>
-          <h3>Capture History</h3>
+        <div style={cardStyle}>
+          <h3 style={sectionTitle}>Capture History</h3>
 
-          <table style={{ width: "100%" }}>
-            <thead>
-              <tr>
-                <th align="left">URL</th>
-                <th align="left">Captured At</th>
-                <th align="left">PDF</th>
-              </tr>
-            </thead>
+          <div style={headerRow}>
+            <div style={{ flex: 3 }}>URL</div>
+            <div style={{ flex: 1 }}>Captured</div>
+            <div style={{ flex: 1 }}>Status</div>
+            <div style={{ flex: 1 }}>PDF</div>
+          </div>
 
-            <tbody>
-              {captures.length === 0 ? (
-                <tr>
-                  <td colSpan={3}>No captures yet</td>
-                </tr>
-              ) : (
-                captures
-                  .filter((c) => {
-                    const urlData = getUrlById(c.url_id)
-                    return urlData?.url
-                      ?.toLowerCase()
-                      .includes(search.toLowerCase())
-                  })
-                  .map((c) => {
-                    if (!c.file_path) return null
+          {captures.map((c) => {
+            if (!c.file_path) return null
 
-                    const urlData = getUrlById(c.url_id)
+            const urlData = getUrlById(c.url_id)
+            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
 
-                    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
-
-                    return (
-                      <tr key={c.id}>
-                        <td>{urlData?.url || "Unknown"}</td>
-                        <td>
-                          {new Date(c.created_at).toLocaleString()}
-                        </td>
-                        <td>
-                          <a href={publicUrl} target="_blank">
-                            Download
-                          </a>
-                        </td>
-                      </tr>
-                    )
-                  })
-              )}
-            </tbody>
-          </table>
+            return (
+              <div key={c.id} style={rowCard}>
+                <div style={{ flex: 3 }}>{urlData?.url}</div>
+                <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
+                <div style={{ flex: 1 }}><StatusBadge status={c.status} /></div>
+                <div style={{ flex: 1 }}>
+                  <a href={publicUrl} target="_blank" style={linkStyle}>Download</a>
+                </div>
+              </div>
+            )
+          })}
         </div>
-
       </div>
     </div>
   )
+}
+
+/* STYLES */
+
+const cardStyle = {
+  background: "#fff",
+  padding: 24,
+  borderRadius: 14,
+  border: "1px solid #eee",
+  marginTop: 20
+}
+
+const sectionTitle = {
+  fontSize: 16,
+  fontWeight: 600,
+  marginBottom: 12
+}
+
+const rowCard = {
+  display: "flex",
+  padding: "12px 14px",
+  marginTop: 8,
+  background: "#fff",
+  borderRadius: 10,
+  border: "1px solid #f1f1f1"
+}
+
+const headerRow = {
+  display: "flex",
+  padding: "8px 14px",
+  marginTop: 10,
+  color: "#6B7280",
+  fontWeight: 600,
+  fontSize: 12,
+}
+
+const inputStyle = {
+  padding: "10px",
+  borderRadius: 8,
+  border: "1px solid #ddd",
+  background: "#fff"
+}
+
+const searchStyle = {
+  width: "100%",
+  padding: "10px",
+  marginTop: 10,
+  borderRadius: 8,
+  border: "1px solid #ddd",
+}
+
+const buttonPrimary = {
+  background: "#7C3AED",
+  color: "#fff",
+  padding: "10px 16px",
+  borderRadius: 8,
+  border: "none",
+  fontWeight: 600,
+  cursor: "pointer"
+}
+
+const buttonDanger = {
+  background: "#ef4444",
+  color: "#fff",
+  padding: "6px 12px",
+  borderRadius: 6,
+  border: "none",
+  cursor: "pointer"
+}
+
+const linkStyle = {
+  color: "#7C3AED",
+  fontWeight: 500
 }
 
