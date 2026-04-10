@@ -179,9 +179,9 @@ async function run() {
         error: null,
       })
 
-      let next = new Date()
+let next = new Date(urlObj.next_capture_at || new Date())
 
-      switch (urlObj.schedule_type) {
+switch (urlObj.schedule_type) {
   case "weekly":
     next.setDate(next.getDate() + 7)
     break
