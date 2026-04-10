@@ -201,23 +201,20 @@ switch (urlObj.schedule_type) {
     break
 
   case "custom":
-    await supabase
-      .from("urls")
-      .update({ status: "completed" })
-      .eq("id", urlObj.id)
-    break
+  // After first run, switch to weekly
+  next.setDate(next.getDate() + 7)
+  break
 
   default:
     next.setDate(next.getDate() + 7)
 }
       if (urlObj.schedule_type !== "custom") {
         await supabase
-          .from("urls")
-          .update({
-            next_capture_at: next.toISOString(),
-            last_captured_at: new Date().toISOString(),
-          })
-          .eq("id", urlObj.id)
+  .from("urls")
+  .update({
+    next_capture_at: new Date().toISOString(),
+  })
+  .eq("url", url.trim())
       }
 
     } catch (err) {
