@@ -78,9 +78,15 @@ export default function Dashboard() {
       {
         url: url.trim(),
         user_id: user.id,
-        next_capture_at: nextCaptureISO,
+        next_capture_at:
+  schedule === "custom"
+    ? new Date(customDate + "T12:00:00").toISOString()
+    : new Date().toISOString(),
         schedule_type: schedule,
-        schedule_value: schedule === "custom" ? customDate : null,
+        schedule_value:
+  schedule === "custom"
+    ? new Date(customDate + "T12:00:00").toISOString()
+    : null,
         status: "active",
       },
     ])
