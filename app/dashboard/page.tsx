@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [captures, setCaptures] = useState<any[]>([])
   const [search, setSearch] = useState("")
 
+  // ---------------- INIT ----------------
   useEffect(() => {
     async function init() {
       const { data } = await supabase.auth.getUser()
@@ -36,6 +37,7 @@ export default function Dashboard() {
     init()
   }, [router])
 
+  // 🔄 auto refresh
   useEffect(() => {
     if (!user) return
     const interval = setInterval(() => fetchData(user), 5000)
@@ -58,33 +60,34 @@ export default function Dashboard() {
     setCaptures(capturesData || [])
   }
 
-  // ✅ FIXED ADD URL (AUTO TRIGGER WORKER)
+  // ---------------- ADD URL ----------------
   async function addUrl() {
     if (!user) return
     if (!url.trim()) return alert("Enter a URL")
 
-    let nextCaptureISO
+    let scheduleValueISO: string | null = null
 
-if (schedule === "custom" && customDate) {
-  nextCaptureISO = DateTime.fromISO(customDate, {
-    zone: "America/Edmonton",
-  })
-    .set({ hour: 9, minute: 0, second: 0 }) // 9 AM Alberta
-    .toUTC()
-    .toISO()
-} else {
-  nextCaptureISO = DateTime.now()
-    .setZone("America/Edmonton")
-    .toUTC()
-    .toISO()
-}
+    // Only store custom date as future intent (NOT first run)
+    if (schedule === "custom" && customDate) {
+      scheduleValueISO = DateTime.fromISO(customDate, {
+        zone: "America/Edmonton",
+      })
+        .set({ hour: 9, minute: 0, second: 0 })
+        .toUTC()
+        .toISO()
+    }
 
     const { error } = await supabase.from("urls").insert([
       {
         url: url.trim(),
         user_id: user.id,
-        next_capture_at: nextCaptureISO,
-schedule_value: schedule === "custom" ? nextCaptureISO : null,
+
+        // 🔥 ALWAYS immediate capture
+        next_capture_at: new Date().toISOString(),
+
+        schedule_type: schedule,
+        schedule_value: scheduleValueISO,
+
         status: "active",
       },
     ])
@@ -94,20 +97,16 @@ schedule_value: schedule === "custom" ? nextCaptureISO : null,
       return alert(error.message)
     }
 
-    // 🔥 FIX: correct endpoint
-    await fetch("/api/capture", { method: "POST" })
+    // ❌ REMOVED API CALL (was causing 500 errors)
+    // await fetch("/api/capture")
 
     setUrl("")
     setCustomDate("")
+
     fetchData(user)
   }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    localStorage.clear()
-    window.location.href = "/"
-  }
-
+  // ---------------- HELPERS ----------------
   function getUrlById(id: string) {
     return urls.find((u) => u.id === id)
   }
@@ -161,7 +160,13 @@ schedule_value: schedule === "custom" ? nextCaptureISO : null,
 
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <div style={{ fontSize: 14, color: "#555" }}>{user?.email}</div>
-          <button onClick={handleLogout} style={buttonDanger}>Sign Out</button>
+          <button onClick={async () => {
+            await supabase.auth.signOut()
+            localStorage.clear()
+            window.location.href = "/"
+          }} style={buttonDanger}>
+            Sign Out
+          </button>
         </div>
       </div>
 
@@ -189,7 +194,12 @@ schedule_value: schedule === "custom" ? nextCaptureISO : null,
             </select>
 
             {schedule === "custom" && (
-              <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+              <input
+                type="date"
+                value={customDate}
+                onChange={(e) => setCustomDate(e.target.value)}
+                style={{ ...inputStyle, flex: 1 }}
+              />
             )}
 
             <button onClick={addUrl} style={buttonPrimary}>Add</button>
@@ -200,7 +210,12 @@ schedule_value: schedule === "custom" ? nextCaptureISO : null,
         <div style={cardStyle}>
           <h3 style={sectionTitle}>Tracked URLs</h3>
 
-          <input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} style={searchStyle} />
+          <input
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={searchStyle}
+          />
 
           <div style={headerRow}>
             <div style={{ flex: 3 }}>URL</div>
@@ -254,8 +269,7 @@ schedule_value: schedule === "custom" ? nextCaptureISO : null,
     </div>
   )
 }
-
-/* STYLES */
+// ---------------- STYLES ----------------
 
 const topBar = {
   display: "flex",
@@ -351,4 +365,3 @@ const linkStyle = {
   color: "#7C3AED",
   fontWeight: 500
 }
-
