@@ -73,16 +73,23 @@ export default function Dashboard() {
         .toISO()
     }
 
-    const { error } = await supabase.from("urls").insert([
-      {
-        url: url.trim(),
-        user_id: user.id,
-        next_capture_at: new Date().toISOString(),
-        schedule_type: schedule,
-        schedule_value: scheduleValueISO,
-        status: "active",
-      },
-    ])
+    const now = new Date().toISOString()
+
+const { error } = await supabase.from("urls").insert([
+  {
+    url: url.trim(),
+    user_id: user.id,
+
+    // 🔥 FORCE IMMEDIATE CAPTURE
+    next_capture_at: now,
+    last_captured_at: null,
+
+    schedule_type: schedule,
+    schedule_value: scheduleValueISO,
+
+    status: "active",
+  },
+])
 
     if (error) {
       console.error(error)
