@@ -54,26 +54,29 @@ async function runWorker() {
     return
   }
 
-  console.log(`📦 Found ${urls.length} URLs`)
+  console.log(`📦 Found ${urls.length} URLs`);
 
   for (const item of urls) {
-    console.log("🔎 Checking:", item.url)
+  console.log("🔎 Checking:", item.url)
 
-    const lastCaptured = item.last_captured_at
-      ? new Date(item.last_captured_at)
-      : null
+  // ✅ ADD DEBUG RIGHT HERE
+  console.log("DEBUG URL:", {
+    url: item.url,
+    last_captured_at: item.last_captured_at,
+    next_capture_at: item.next_capture_at,
+  })
 
-    const nextCapture = item.next_capture_at
-      ? new Date(item.next_capture_at)
-      : null
+  const lastCaptured = item.last_captured_at
+    ? new Date(item.last_captured_at)
+    : null
 
-    console.log({
-      lastCaptured,
-      nextCapture,
-      now,
-    })
+  const nextCapture = item.next_capture_at
+    ? new Date(item.next_capture_at)
+    : null
 
-    let shouldCapture = false
+  const now = new Date()
+
+  let shouldCapture = false
 
     // 🚀 NEW URL → capture immediately
     if (!lastCaptured) {
