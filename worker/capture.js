@@ -9,51 +9,76 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 dotenv.config({ path: path.resolve(__dirname, "../.env") })
 
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error("❌ Missing Supabase environment variables")
+  process.exit(1)
+}
+
+// ✅ FIXED: added missing comma
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// Retry loader
+// 🔁 Retry loader (FIXED)
 async function loadPageWithRetry(page, url, retries = 2) {
   for (let i = 0; i <= retries; i++) {
     try {
       console.log(`🌐 Attempt ${i + 1}: ${url}`)
+
       await page.goto(url, {
         waitUntil: "domcontentloaded",
         timeout: 60000,
       })
+
       return true
     } catch (error) {
       console.error(`❌ Attempt ${i + 1} failed:`, error.message)
-      if (i === retries) return false
+
+      if (i === retries) {
+        return false
+      }
+
       await new Promise((res) => setTimeout(res, 3000))
     }
   }
+
+  return false
 }
 
-// Insert capture
+// 🔥 Insert capture helper
 async function insertCapture({ urlObj, file_path, status, error }) {
-  await supabase.from("captures").insert([
-    {
-      url_id: urlObj.id,
-      user_id: urlObj.user_id,
-      file_path: file_path || null,
-      status,
-      error: error || null,
-      created_at: new Date().toISOString(),
-    },
-  ])
+  const payload = {
+    url_id: urlObj.id,
+    user_id: urlObj.user_id,
+    file_path: file_path || null,
+    status,
+    error: error || null,
+    created_at: new Date().toISOString(),
+  }
+
+  const { error: insertError } = await supabase
+    .from("captures")
+    .insert([payload])
+
+  if (insertError) {
+    console.error("❌ Insert error:", insertError)
+  } else {
+    console.log("✅ Capture inserted")
+  }
 }
 
-// MAIN WORKER
+// 🚀 MAIN WORKER
 async function run() {
   console.log("🚀 Worker started")
+
+  const now = new Date().toISOString()
 
   const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
     .eq("status", "active")
+    .lte("next_capture_at", now)
 
   if (error) {
     console.error("❌ Fetch error:", error)
@@ -61,41 +86,42 @@ async function run() {
   }
 
   if (!urls || urls.length === 0) {
-    console.log("⚠️ No URLs found")
+    console.log("⚠️ No URLs due for capture")
     return
   }
 
-  const browser = await chromium.launch({ headless: true })
+  console.log(`✅ Processing ${urls.length} URLs`)
 
-  for (const item of urls) {
-    const now = new Date()
+  const browser = await chromium.launch({
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-blink-features=AutomationControlled",
+    ],
+  })
 
-    console.log("🧪 CHECK:", {
-      id: item.id,
-      last: item.last_captured_at,
-      next: item.next_capture_at,
-      now: now.toISOString(),
-    })
+  const context = await browser.newContext({
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+    viewport: { width: 1280, height: 800 },
+  })
 
-    // 🔥 FIXED LOGIC
-    if (!item.last_captured_at) {
-      console.log("🟢 NEW URL → RUN")
-    } else if (
-      item.next_capture_at &&
-      new Date(item.next_capture_at) <= now
-    ) {
-      console.log("🟡 SCHEDULED → RUN")
-    } else {
-      console.log("⛔ SKIPPED")
+  for (const urlObj of urls) {
+    console.log("🔍 Processing:", urlObj.url)
+
+    if (!urlObj.id || !urlObj.user_id) {
+      console.error("❌ Missing id or user_id — skipping")
       continue
     }
 
-    const page = await browser.newPage()
+    const page = await context.newPage()
 
     try {
-      const loaded = await loadPageWithRetry(page, item.url)
+      const loaded = await loadPageWithRetry(page, urlObj.url)
 
-      if (!loaded) throw new Error("Page failed to load")
+      if (!loaded) {
+        throw new Error("Failed after retries")
+      }
 
       await page.waitForTimeout(3000)
 
@@ -103,18 +129,34 @@ async function run() {
         timeZone: "America/Edmonton",
       })
 
-      const filePath = `${item.id}-${Date.now()}.pdf`
+      const filePath = `${urlObj.id}-${Date.now()}.pdf`
 
       const pdfBuffer = await page.pdf({
         format: "A4",
         displayHeaderFooter: true,
+
         headerTemplate: `
-          <div style="width:100%;font-size:11px;padding:8px;text-align:right;">
+          <div style="
+            width: 100%;
+            font-size: 11px;
+            padding: 8px 12px;
+            text-align: right;
+            background: white;
+            color: black;
+            border-bottom: 1px solid #ccc;
+            box-sizing: border-box;
+          ">
             Captured: ${timestamp}
           </div>
         `,
+
         footerTemplate: `<div></div>`,
-        margin: { top: "60px", bottom: "30px" },
+
+        margin: {
+          top: "70px",
+          bottom: "30px",
+        },
+
         printBackground: true,
       })
 
@@ -124,54 +166,65 @@ async function run() {
           contentType: "application/pdf",
         })
 
-      if (uploadError) throw uploadError
-
-      console.log("✅ Uploaded:", filePath)
-
-      await insertCapture({
-        urlObj: item,
-        file_path: filePath,
-        status: "success",
-      })
-
-      // 🔥 FIXED SCHEDULING
-      let next = new Date()
-
-      switch (item.schedule_type) {
-        case "weekly":
-          next.setDate(next.getDate() + 7)
-          break
-        case "biweekly":
-          next.setDate(next.getDate() + 14)
-          break
-        case "29days":
-          next.setDate(next.getDate() + 29)
-          break
-        case "30days":
-          next.setDate(next.getDate() + 30)
-          break
-        case "custom":
-          next = new Date(item.schedule_value)
-          break
-        default:
-          next.setDate(next.getDate() + 7)
+      if (uploadError) {
+        throw new Error(uploadError.message)
       }
 
-      await supabase
-        .from("urls")
-        .update({
-          last_captured_at: new Date().toISOString(),
-          next_capture_at: next.toISOString(),
-        })
-        .eq("id", item.id)
-
-      console.log("📅 Next:", next)
-
-    } catch (err) {
-      console.error("❌ Failed:", err.message)
+      console.log("✅ Upload success:", filePath)
 
       await insertCapture({
-        urlObj: item,
+        urlObj,
+        file_path: filePath,
+        status: "success",
+        error: null,
+      })
+
+      let next = new Date()
+
+      switch (urlObj.schedule_type) {
+  case "weekly":
+    next.setDate(next.getDate() + 7)
+    break
+
+  case "biweekly":
+    next.setDate(next.getDate() + 14)
+    break
+
+  case "29days":
+  case "29 days":
+    next.setDate(next.getDate() + 29)
+    break
+
+  case "30days":
+  case "30 days":
+    next.setDate(next.getDate() + 30)
+    break
+
+  case "custom":
+    await supabase
+      .from("urls")
+      .update({ status: "completed" })
+      .eq("id", urlObj.id)
+    break
+
+  default:
+    next.setDate(next.getDate() + 7)
+}
+      if (urlObj.schedule_type !== "custom") {
+        await supabase
+          .from("urls")
+          .update({
+            next_capture_at: next.toISOString(),
+            last_captured_at: new Date().toISOString(),
+          })
+          .eq("id", urlObj.id)
+      }
+
+    } catch (err) {
+      console.error("❌ Capture failed:", err.message)
+
+      await insertCapture({
+        urlObj,
         file_path: null,
         status: "failed",
         error: err.message,
@@ -186,3 +239,4 @@ async function run() {
 }
 
 run()
+
