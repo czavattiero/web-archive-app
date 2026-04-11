@@ -62,40 +62,45 @@ export default function Dashboard() {
 
   // ---------------- ADD URL ----------------
   async function addUrl() {
-    if (!user) return
-    if (!url.trim()) return alert("Enter a URL")
+  if (!user) return
+  if (!url.trim()) return alert("Enter a URL")
 
-    let scheduleValueISO: string | null = null
+  let scheduleValueISO = null
 
-    // Only store custom date as future intent (NOT first run)
-    if (schedule === "custom" && customDate) {
-      scheduleValueISO = DateTime.fromISO(customDate, {
-        zone: "America/Edmonton",
-      })
-        .set({ hour: 9, minute: 0, second: 0 })
-        .toUTC()
-        .toISO()
-    }
+  if (schedule === "custom" && customDate) {
+    scheduleValueISO = DateTime.fromISO(customDate, {
+      zone: "America/Edmonton",
+    })
+      .set({ hour: 9, minute: 0, second: 0 })
+      .toUTC()
+      .toISO()
+  }
 
-    const { error } = await supabase.from("urls").insert([
-      {
-        url: url.trim(),
-        user_id: user.id,
+  const { error } = await supabase.from("urls").insert([
+    {
+      url: url.trim(),
+      user_id: user.id,
+      next_capture_at: new Date().toISOString(),
+      schedule_type: schedule,
+      schedule_value: scheduleValueISO,
+      status: "active",
+    },
+  ])
 
-        // 🔥 ALWAYS immediate capture
-        next_capture_at: new Date().toISOString(),
+  if (error) {
+    console.error(error)
+    return alert(error.message)
+  }
 
-        schedule_type: schedule,
-        schedule_value: scheduleValueISO,
+  // 🔥 trigger worker
+  await fetch("/api/capture", {
+    method: "POST",
+  })
 
-        status: "active",
-      },
-    ])
-
-    if (error) {
-      console.error(error)
-      return alert(error.message)
-    }
+  setUrl("")
+  setCustomDate("")
+  fetchData(user)
+}
 
     // ❌ REMOVED API CALL (was causing 500 errors)
     // await fetch("/api/capture")
