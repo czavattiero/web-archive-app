@@ -99,19 +99,37 @@ async function runWorker() {
     try {
       // 🌐 Launch browser
       const browser = await chromium.launch()
-      const page = await browser.newPage()
+const page = await browser.newPage()
 
-      console.log("🌍 Opening page...")
-      await page.goto(item.url, {
-        waitUntil: "networkidle",
-        timeout: 60000,
-      })
+console.log("🌍 Opening page...")
 
-      console.log("📄 Generating PDF...")
+try {
+  await page.goto(item.url, {
+    waitUntil: "domcontentloaded",
+    timeout: 30000,
+  })
+} catch (err) {
+  console.error("❌ Page load failed:", err)
 
-      const pdfBuffer = await page.pdf({
-        format: "A4",
-      })
+  await supabase.from("captures").insert({
+    url_id: item.id,
+    user_id: item.user_id,
+    status: "failed",
+    error: "Page load failed",
+  })
+
+  await browser.close()
+  continue
+}
+
+// ✅ ADD IT RIGHT HERE
+await page.waitForTimeout(3000)
+
+console.log("📄 Generating PDF...")
+
+const pdfBuffer = await page.pdf({
+  format: "A4",
+})
 
       await browser.close()
 
