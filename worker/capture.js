@@ -182,11 +182,15 @@ async function runWorker() {
 
       console.log("📁 Uploading:", fileName)
 
-      const { error: uploadError } = await supabase.storage
-        .from("captures")
-        .upload(fileName, pdfBuffer, {
-          contentType: "application/pdf",
-        })
+      const { data: uploadData, error: uploadError } = await supabase.storage
+  .from("captures")
+  .upload(fileName, pdfBuffer, {
+    contentType: "application/pdf",
+    upsert: true,
+  })
+
+console.log("UPLOAD RESULT:", uploadData)
+console.log("UPLOAD ERROR:", uploadError)
 
       if (uploadError) {
         console.error("❌ Upload error:", uploadError)
