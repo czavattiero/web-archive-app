@@ -79,10 +79,9 @@ export default function Dashboard() {
     url: url.trim(),
     user_id: user.id,
 
-    // 🚀 FORCE IMMEDIATE CAPTURE
-    next_capture_at: new Date().toISOString(),
+    // ✅ USE CORRECT VALUE
+    next_capture_at: nextCaptureISO,
 
-    // 🚀 REQUIRED
     last_captured_at: null,
 
     schedule_type: schedule,
