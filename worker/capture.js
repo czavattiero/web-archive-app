@@ -55,7 +55,7 @@ async function runWorker() {
 
   // 🔥 LAUNCH BROWSER ONCE (IMPORTANT)
   const browser = await chromium.launch({
-    headless: false,
+    headless: "new",
     args: [
       "--no-sandbox",
       "--disable-blink-features=AutomationControlled",
