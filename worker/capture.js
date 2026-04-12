@@ -178,7 +178,7 @@ async function runWorker() {
         printBackground: true,
       })
 
-      const fileName = `captures/${item.id}_${Date.now()}.pdf`
+      const fileName = `${item.id}_${Date.now()}.pdf`
 
       console.log("📁 Uploading:", fileName)
 
