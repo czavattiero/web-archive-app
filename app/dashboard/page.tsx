@@ -235,7 +235,7 @@ export default function Dashboard() {
           </div>
 
           {filteredCaptures.map((c) => {
-            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${c.file_path}`
+            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
 
             const urlData = getUrlById(c.url_id)
 
