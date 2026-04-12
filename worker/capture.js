@@ -53,7 +53,7 @@ async function runWorker() {
 
   console.log(`📦 Found ${urls.length} URLs`)
 
-  // 🔥 LAUNCH BROWSER ONCE (IMPORTANT)
+  // 🔥 Launch browser once
   const browser = await chromium.launch({
     headless: true,
     args: [
@@ -77,12 +77,6 @@ async function runWorker() {
   for (const item of urls) {
     console.log("🔎 Checking:", item.url)
 
-    console.log("DEBUG URL:", {
-      url: item.url,
-      last_captured_at: item.last_captured_at,
-      next_capture_at: item.next_capture_at,
-    })
-
     const lastCaptured = item.last_captured_at
       ? new Date(item.last_captured_at)
       : null
@@ -95,14 +89,10 @@ async function runWorker() {
 
     let shouldCapture = false
 
-    // 🚀 NEW URL
     if (!lastCaptured) {
       shouldCapture = true
       console.log("🔥 NEW URL → capturing now")
-    }
-
-    // ⏰ Scheduled
-    else if (nextCapture && nextCapture <= now) {
+    } else if (nextCapture && nextCapture <= now) {
       shouldCapture = true
       console.log("⏰ SCHEDULED → capturing now")
     }
@@ -115,7 +105,7 @@ async function runWorker() {
     const page = await context.newPage()
 
     try {
-      // 🔥 STEALTH PATCH
+      // 🔥 Stealth patch
       await page.addInitScript(() => {
         Object.defineProperty(navigator, "webdriver", {
           get: () => false,
@@ -153,13 +143,34 @@ async function runWorker() {
         continue
       }
 
-      // ⏳ Let page fully render
+      // ⏳ Wait for rendering
       await page.waitForTimeout(3000)
+
+      // ✅ CORRECT TIMESTAMP PLACEMENT
+      const timestamp = new Date().toLocaleString("en-CA", {
+        timeZone: "America/Edmonton",
+      })
 
       console.log("📄 Generating PDF...")
 
       const pdfBuffer = await page.pdf({
         format: "A4",
+        displayHeaderFooter: true,
+
+        headerTemplate: `
+          <div style="width:100%; font-size:11px; padding:8px 12px; text-align:right; background:white; color:black; border-bottom:1px solid #ccc;">
+            Captured: ${timestamp}
+          </div>
+        `,
+
+        footerTemplate: `<div></div>`,
+
+        margin: {
+          top: "70px",
+          bottom: "30px",
+        },
+
+        printBackground: true,
       })
 
       const fileName = `captures/${item.id}_${Date.now()}.pdf`
@@ -190,11 +201,8 @@ async function runWorker() {
         .from("captures")
         .getPublicUrl(fileName)
 
-      const publicUrl = data.publicUrl
+      console.log("✅ Uploaded:", data.publicUrl)
 
-      console.log("✅ Uploaded:", publicUrl)
-
-      // ✅ Insert capture
       await supabase.from("captures").insert({
         url_id: item.id,
         file_path: fileName,
@@ -202,7 +210,6 @@ async function runWorker() {
         status: "success",
       })
 
-      // 🔄 Update URL schedule
       const next = calculateNextCapture(item.schedule_type)
 
       await supabase
