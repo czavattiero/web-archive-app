@@ -213,11 +213,11 @@ console.log("UPLOAD ERROR:", uploadError)
       console.log("✅ Uploaded:", data.publicUrl)
 
       await supabase.from("captures").insert({
-        url_id: item.id,
-        file_path: fileName,
-        user_id: item.user_id,
-        status: "success",
-      })
+  url_id: item.id,
+  file_path: uploadData.path, // ✅ FIX
+  user_id: item.user_id,
+  status: "success",
+})
 
   let updateData = {
   last_captured_at: new Date().toISOString(),
