@@ -235,21 +235,25 @@ export default function Dashboard() {
           </div>
 
           {filteredCaptures.map((c) => {
-            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
+  const urlData = getUrlById(c.url_id)
 
-            const urlData = getUrlById(c.url_id)
+  const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
 
-            return (
-              <div key={c.id} style={rowCard}>
-                <div style={urlCell}>{urlData?.url}</div>
-                <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
-                <div style={{ flex: 1 }}><StatusBadge status={c.status} /></div>
-                <div style={{ flex: 1 }}>
-                  <a href={publicUrl} target="_blank" style={linkStyle}>Download</a>
-                </div>
-              </div>
-            )
-          })}
+  // ✅ LOGS GO HERE (BEFORE RETURN)
+  console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
+  console.log("FINAL URL:", publicUrl)
+
+  return (
+    <div key={c.id} style={rowCard}>
+      <div style={urlCell}>{urlData?.url}</div>
+      <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
+      <div style={{ flex: 1 }}><StatusBadge status={c.status} /></div>
+      <div style={{ flex: 1 }}>
+        <a href={publicUrl} target="_blank" style={linkStyle}>Download</a>
+      </div>
+    </div>
+  )
+})}
         </div>
       </div>
     </div>
