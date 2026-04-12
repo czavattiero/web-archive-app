@@ -210,15 +210,19 @@ async function runWorker() {
         status: "success",
       })
 
-      const next = calculateNextCapture(item.schedule_type)
+      let updateData = {
+  last_captured_at: new Date().toISOString(),
+}
 
-      await supabase
-        .from("urls")
-        .update({
-          last_captured_at: new Date().toISOString(),
-          next_capture_at: next,
-        })
-        .eq("id", item.id)
+// ❗ ONLY update next_capture_at for NON-CUSTOM
+if (item.schedule_type !== "custom") {
+  updateData.next_capture_at = calculateNextCapture(item.schedule_type)
+}
+
+await supabase
+  .from("urls")
+  .update(updateData)
+  .eq("id", item.id)
 
       console.log("✅ URL updated")
 
