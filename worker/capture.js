@@ -90,12 +90,17 @@ async function runWorker() {
     let shouldCapture = false
 
     if (!lastCaptured) {
-      shouldCapture = true
-      console.log("🔥 NEW URL → capturing now")
-    } else if (nextCapture && nextCapture <= now) {
-      shouldCapture = true
-      console.log("⏰ SCHEDULED → capturing now")
-    }
+  shouldCapture = true
+  console.log("🔥 NEW URL → capturing now")
+
+} else if (
+  nextCapture &&
+  nextCapture <= now &&
+  (!lastCaptured || lastCaptured < nextCapture)
+) {
+  shouldCapture = true
+  console.log("⏰ SCHEDULED → capturing now")
+}
 
     if (!shouldCapture) {
       console.log("⛔ Skipping:", item.url)
@@ -210,12 +215,11 @@ async function runWorker() {
         status: "success",
       })
 
-      let updateData = {
+  let updateData = {
   last_captured_at: new Date().toISOString(),
 }
 
 if (item.schedule_type === "custom") {
-  // ✅ STOP future captures
   updateData.status = "completed"
 } else {
   updateData.next_capture_at = calculateNextCapture(item.schedule_type)
