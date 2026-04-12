@@ -32,13 +32,10 @@ function calculateNextCapture(scheduleType) {
   }
 }
 
-// ✅ Main Worker
+// 🚀 MAIN WORKER
 async function runWorker() {
   console.log("🚀 Worker started")
 
-  const now = new Date()
-
-  // ❗ IMPORTANT: FETCH ALL URLS (NO FILTER)
   const { data: urls, error } = await supabase
     .from("urls")
     .select("*")
@@ -54,89 +51,121 @@ async function runWorker() {
     return
   }
 
-  console.log(`📦 Found ${urls.length} URLs`);
+  console.log(`📦 Found ${urls.length} URLs`)
 
-  for (const item of urls) {
-  console.log("🔎 Checking:", item.url)
-
-  // ✅ ADD DEBUG RIGHT HERE
-  console.log("DEBUG URL:", {
-    url: item.url,
-    last_captured_at: item.last_captured_at,
-    next_capture_at: item.next_capture_at,
+  // 🔥 LAUNCH BROWSER ONCE (IMPORTANT)
+  const browser = await chromium.launch({
+    headless: false,
+    args: [
+      "--no-sandbox",
+      "--disable-blink-features=AutomationControlled",
+      "--disable-infobars",
+      "--window-size=1280,800",
+    ],
   })
 
-  const lastCaptured = item.last_captured_at
-    ? new Date(item.last_captured_at)
-    : null
+  const context = await browser.newContext({
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+    viewport: { width: 1280, height: 800 },
+    locale: "en-US",
+    extraHTTPHeaders: {
+      "accept-language": "en-US,en;q=0.9",
+    },
+  })
 
-  const nextCapture = item.next_capture_at
-    ? new Date(item.next_capture_at)
-    : null
+  for (const item of urls) {
+    console.log("🔎 Checking:", item.url)
 
-  const now = new Date()
+    console.log("DEBUG URL:", {
+      url: item.url,
+      last_captured_at: item.last_captured_at,
+      next_capture_at: item.next_capture_at,
+    })
 
-  let shouldCapture = false
+    const lastCaptured = item.last_captured_at
+      ? new Date(item.last_captured_at)
+      : null
 
-    // 🚀 NEW URL → capture immediately
+    const nextCapture = item.next_capture_at
+      ? new Date(item.next_capture_at)
+      : null
+
+    const now = new Date()
+
+    let shouldCapture = false
+
+    // 🚀 NEW URL
     if (!lastCaptured) {
       shouldCapture = true
       console.log("🔥 NEW URL → capturing now")
     }
 
-    // ⏰ Scheduled capture
+    // ⏰ Scheduled
     else if (nextCapture && nextCapture <= now) {
       shouldCapture = true
       console.log("⏰ SCHEDULED → capturing now")
     }
 
-    // ⛔ Skip
     if (!shouldCapture) {
       console.log("⛔ Skipping:", item.url)
       continue
     }
 
+    const page = await context.newPage()
+
     try {
-      // 🌐 Launch browser
-      const browser = await chromium.launch()
-const page = await browser.newPage()
+      // 🔥 STEALTH PATCH
+      await page.addInitScript(() => {
+        Object.defineProperty(navigator, "webdriver", {
+          get: () => false,
+        })
 
-console.log("🌍 Opening page...")
+        window.chrome = { runtime: {} }
 
-try {
-  await page.goto(item.url, {
-    waitUntil: "domcontentloaded",
-    timeout: 30000,
-  })
-} catch (err) {
-  console.error("❌ Page load failed:", err)
+        Object.defineProperty(navigator, "plugins", {
+          get: () => [1, 2, 3],
+        })
 
-  await supabase.from("captures").insert({
-    url_id: item.id,
-    user_id: item.user_id,
-    status: "failed",
-    error: "Page load failed",
-  })
+        Object.defineProperty(navigator, "languages", {
+          get: () => ["en-US", "en"],
+        })
+      })
 
-  await browser.close()
-  continue
-}
+      console.log("🌍 Opening page...")
 
-// ✅ ADD IT RIGHT HERE
-await page.waitForTimeout(3000)
+      try {
+        await page.goto(item.url, {
+          waitUntil: "domcontentloaded",
+          timeout: 30000,
+        })
+      } catch (err) {
+        console.error("❌ Page load failed:", err)
 
-console.log("📄 Generating PDF...")
+        await supabase.from("captures").insert({
+          url_id: item.id,
+          user_id: item.user_id,
+          status: "failed",
+          error: "Page load failed",
+        })
 
-const pdfBuffer = await page.pdf({
-  format: "A4",
-})
+        await page.close()
+        continue
+      }
 
-      await browser.close()
+      // ⏳ Let page fully render
+      await page.waitForTimeout(3000)
 
-      // 📁 File name
+      console.log("📄 Generating PDF...")
+
+      const pdfBuffer = await page.pdf({
+        format: "A4",
+      })
+
       const fileName = `captures/${item.id}_${Date.now()}.pdf`
 
-      // ☁️ Upload to Supabase Storage
+      console.log("📁 Uploading:", fileName)
+
       const { error: uploadError } = await supabase.storage
         .from("captures")
         .upload(fileName, pdfBuffer, {
@@ -145,54 +174,62 @@ const pdfBuffer = await page.pdf({
 
       if (uploadError) {
         console.error("❌ Upload error:", uploadError)
+
+        await supabase.from("captures").insert({
+          url_id: item.id,
+          user_id: item.user_id,
+          status: "failed",
+          error: uploadError.message,
+        })
+
+        await page.close()
         continue
       }
 
-      // 🔗 Get public URL
-      const { data: publicUrlData } = supabase.storage
+      const { data } = supabase.storage
         .from("captures")
         .getPublicUrl(fileName)
 
-      const publicUrl = publicUrlData.publicUrl
+      const publicUrl = data.publicUrl
 
       console.log("✅ Uploaded:", publicUrl)
 
-      // 🧾 Insert into captures table
-      const { error: insertError } = await supabase
-        .from("captures")
-        .insert({
-          url_id: item.id,
-  file_path: publicUrl, // ✅ MATCH YOUR DB
-  user_id: item.user_id, // ✅ IMPORTANT (you have this column)
-  status: "success",
-})
+      // ✅ Insert capture
+      await supabase.from("captures").insert({
+        url_id: item.id,
+        file_path: fileName,
+        user_id: item.user_id,
+        status: "success",
+      })
 
-      if (insertError) {
-        console.error("❌ Insert error:", insertError)
-        continue
-      }
-
-      // 🔄 Update URL record
+      // 🔄 Update URL schedule
       const next = calculateNextCapture(item.schedule_type)
 
-      const { error: updateError } = await supabase
+      await supabase
         .from("urls")
         .update({
-          last_captured_at: now.toISOString(),
+          last_captured_at: new Date().toISOString(),
           next_capture_at: next,
         })
         .eq("id", item.id)
 
-      if (updateError) {
-        console.error("❌ Update error:", updateError)
-      } else {
-        console.log("✅ URL updated")
-      }
+      console.log("✅ URL updated")
 
     } catch (err) {
       console.error("❌ Capture failed:", err)
+
+      await supabase.from("captures").insert({
+        url_id: item.id,
+        user_id: item.user_id,
+        status: "failed",
+        error: err.message,
+      })
     }
+
+    await page.close()
   }
+
+  await browser.close()
 
   console.log("🎉 Worker finished")
 }

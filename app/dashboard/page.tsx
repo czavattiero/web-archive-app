@@ -236,10 +236,9 @@ export default function Dashboard() {
           </div>
 
           {filteredCaptures.map((c) => {
-            if (!c.file_path) return null
+            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${c.file_path}`
 
             const urlData = getUrlById(c.url_id)
-            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
 
             return (
               <div key={c.id} style={rowCard}>
