@@ -214,8 +214,10 @@ async function runWorker() {
   last_captured_at: new Date().toISOString(),
 }
 
-// ❗ ONLY update next_capture_at for NON-CUSTOM
-if (item.schedule_type !== "custom") {
+if (item.schedule_type === "custom") {
+  // ✅ STOP future captures
+  updateData.status = "completed"
+} else {
   updateData.next_capture_at = calculateNextCapture(item.schedule_type)
 }
 
