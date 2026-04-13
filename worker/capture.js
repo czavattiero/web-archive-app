@@ -224,9 +224,24 @@ console.log("UPLOAD ERROR:", uploadError)
 }
 
 if (item.schedule_type === "custom") {
-  updateData.status = "completed"
+  const nextCapture = item.next_capture_at
+    ? new Date(item.next_capture_at)
+    : null
+
+  const now = new Date()
+
+  if (nextCapture && now >= nextCapture) {
+    // ✅ Scheduled run completed
+    updateData.status = "completed"
+  } else {
+    // ✅ Still waiting for scheduled date
+    updateData.status = "active"
+  }
+
 } else {
+  // recurring schedules
   updateData.next_capture_at = calculateNextCapture(item.schedule_type)
+  updateData.status = "active"
 }
 
 await supabase
