@@ -32,6 +32,51 @@ function calculateNextCapture(scheduleType) {
   }
 }
 
+async function captureWithRetry(page, url, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    console.log(`🌐 Attempt ${attempt}: Opening ${url}`)
+
+    try {
+      await page.goto(url, {
+        waitUntil: "domcontentloaded",
+        timeout: 30000,
+      })
+
+      await page.waitForTimeout(5000)
+
+      const content = await page.content()
+
+      if (
+        content.includes("security verification") ||
+        content.includes("Checking your browser") ||
+        content.includes("Access denied")
+      ) {
+        console.log(`⚠️ Block detected (attempt ${attempt})`)
+
+        if (attempt < maxRetries) {
+          console.log("🔁 Retrying...")
+          await page.waitForTimeout(5000)
+          continue
+        } else {
+          throw new Error("Blocked by Cloudflare after retries")
+        }
+      }
+
+      console.log("✅ Page loaded successfully")
+      return true
+
+    } catch (err) {
+      console.log(`❌ Attempt ${attempt} failed`)
+
+      if (attempt === maxRetries) {
+        throw err
+      }
+
+      await page.waitForTimeout(5000)
+    }
+  }
+}
+
 // 🚀 MAIN WORKER
 async function runWorker() {
   console.log("🚀 Worker started")
@@ -130,10 +175,8 @@ async function runWorker() {
       console.log("🌍 Opening page...")
 
       try {
-        await page.goto(item.url, {
-          waitUntil: "domcontentloaded",
-          timeout: 30000,
-        })
+        await captureWithRetry(page, item.url)
+        
       } catch (err) {
         console.error("❌ Page load failed:", err)
 
