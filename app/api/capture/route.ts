@@ -4,19 +4,19 @@ export async function POST(request: Request) {
   try {
     console.log("🚀 /api/capture endpoint called")
 
-    // Get the request body with proper typing
-    let body: { immediate?: boolean } = {}
+    let body: { immediate?: boolean; url_id?: string } = {}
     try {
       body = await request.json()
     } catch (e) {
-      // Empty body is OK for immediate capture
       console.log("No body provided, using defaults")
     }
 
     const immediate = body.immediate === true
+    const urlId = body.url_id
 
     console.log("📤 Triggering GitHub workflow...")
     console.log("Mode:", immediate ? "IMMEDIATE" : "SCHEDULED")
+    console.log("URL ID:", urlId || "all")
     console.log("GITHUB_TOKEN available:", !!process.env.GITHUB_TOKEN)
 
     if (!process.env.GITHUB_TOKEN) {
@@ -36,6 +36,7 @@ export async function POST(request: Request) {
           ref: "main",
           inputs: {
             immediate: immediate ? "true" : "false",
+            url_id: urlId || "all",
           },
         }),
       }

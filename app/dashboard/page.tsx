@@ -74,7 +74,6 @@ export default function Dashboard() {
   let nextCaptureISO
 
   if (schedule === "custom" && customDate) {
-    // Custom date: Set to 9 AM Alberta time on that date
     const [year, month, day] = customDate.split("-").map(Number)
     const albertaDate = new Date(
       new Date(year, month - 1, day).toLocaleString("en-US", {
@@ -82,12 +81,10 @@ export default function Dashboard() {
       })
     )
     albertaDate.setHours(9, 0, 0, 0)
-    // Convert back to UTC
     nextCaptureISO = new Date(
       albertaDate.toLocaleString("en-US", { timeZone: "UTC" })
     ).toISOString()
   } else {
-    // For weekly, biweekly, 29 days, 30 days: calculate based on schedule type
     const now = new Date()
     const albertaNow = new Date(
       now.toLocaleString("en-US", { timeZone: "America/Edmonton" })
@@ -95,17 +92,14 @@ export default function Dashboard() {
 
     const nextCapture = new Date(albertaNow)
 
-    // Calculate days to add based on schedule type
-    let daysToAdd = 7 // default: weekly
+    let daysToAdd = 7
     if (schedule === "biweekly") daysToAdd = 14
     if (schedule === "29days") daysToAdd = 29
     if (schedule === "30days") daysToAdd = 30
 
-    // Always set next capture to 9 AM on the scheduled day
     nextCapture.setDate(nextCapture.getDate() + daysToAdd)
     nextCapture.setHours(9, 0, 0, 0)
 
-    // Convert back to UTC
     nextCaptureISO = new Date(
       nextCapture.toLocaleString("en-US", { timeZone: "UTC" })
     ).toISOString()
@@ -113,17 +107,21 @@ export default function Dashboard() {
 
   console.log("📅 Next capture scheduled for:", nextCaptureISO)
 
-  const { error: insertError } = await supabase.from("urls").insert([
-    {
-      url: url.trim(),
-      user_id: user.id,
-      next_capture_at: nextCaptureISO,
-      last_captured_at: null,
-      schedule_type: schedule,
-      schedule_value: schedule === "custom" ? customDate : null,
-      status: "active",
-    },
-  ])
+  // Insert the URL and get its ID
+  const { data: insertedData, error: insertError } = await supabase
+    .from("urls")
+    .insert([
+      {
+        url: url.trim(),
+        user_id: user.id,
+        next_capture_at: nextCaptureISO,
+        last_captured_at: null,
+        schedule_type: schedule,
+        schedule_value: schedule === "custom" ? customDate : null,
+        status: "active",
+      },
+    ])
+    .select()
 
   if (insertError) {
     console.error("❌ Database error:", insertError)
@@ -131,17 +129,18 @@ export default function Dashboard() {
     return
   }
 
-  console.log("✅ URL added to database")
+  const newUrlId = insertedData?.[0]?.id
+  console.log("✅ URL added to database with ID:", newUrlId)
 
   // 🔥 TRIGGER IMMEDIATE CAPTURE FOR NEW URL
   try {
-    console.log("📤 Calling /api/capture for immediate capture...")
+    console.log("📤 Calling /api/capture for immediate capture with URL ID:", newUrlId)
     const captureResponse = await fetch("/api/capture", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ immediate: true }),
+      body: JSON.stringify({ immediate: true, url_id: newUrlId }),
     })
 
     const captureData = await captureResponse.json()
