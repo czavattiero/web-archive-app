@@ -75,48 +75,29 @@ export default function Dashboard() {
     }
 
     const { error } = await supabase.from("urls").insert([
-      {
-        url: url.trim(),
-        user_id: user.id,
+  {
+    url: url.trim(),
+    user_id: user.id,
 
-        // ✅ USE CORRECT VALUE
-        next_capture_at: nextCaptureISO,
+    // ✅ USE CORRECT VALUE
+    next_capture_at: nextCaptureISO,
 
-        last_captured_at: null,
+    last_captured_at: null,
 
-        schedule_type: schedule,
-        schedule_value: schedule === "custom" ? customDate : null,
+    schedule_type: schedule,
+    schedule_value: schedule === "custom" ? customDate : null,
 
-        status: "active",
-      },
-    ])
+    status: "active",
+  },
+])
 
     if (error) {
       console.error(error)
       return alert(error.message)
     }
 
-    // 🔥 TRIGGER WORKFLOW WITH ERROR HANDLING
-    try {
-      console.log("📤 Calling /api/capture to trigger workflow...")
-      const response = await fetch("/api/capture", { 
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-      
-      const data = await response.json()
-      console.log("✅ Workflow trigger response:", data)
-
-      if (!response.ok) {
-        console.error("❌ Failed to trigger workflow:", data.error)
-        alert(`Workflow trigger failed: ${data.error}`)
-      }
-    } catch (err: any) {
-      console.error("❌ Error triggering workflow:", err)
-      alert(`Failed to trigger workflow: ${err.message}`)
-    }
+    // 🔥 FIX: correct endpoint
+    await fetch("/api/capture", { method: "POST" })
 
     setUrl("")
     setCustomDate("")
@@ -254,25 +235,25 @@ export default function Dashboard() {
           </div>
 
           {filteredCaptures.map((c) => {
-            const urlData = getUrlById(c.url_id)
+  const urlData = getUrlById(c.url_id)
 
-            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
+  const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
 
-            // ✅ LOGS GO HERE (BEFORE RETURN)
-            console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
-            console.log("FINAL URL:", publicUrl)
+  // ✅ LOGS GO HERE (BEFORE RETURN)
+  console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
+  console.log("FINAL URL:", publicUrl)
 
-            return (
-              <div key={c.id} style={rowCard}>
-                <div style={urlCell}>{urlData?.url}</div>
-                <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
-                <div style={{ flex: 1 }}><StatusBadge status={c.status} /></div>
-                <div style={{ flex: 1 }}>
-                  <a href={publicUrl} target="_blank" style={linkStyle}>Download</a>
-                </div>
-              </div>
-            )
-          })}
+  return (
+    <div key={c.id} style={rowCard}>
+      <div style={urlCell}>{urlData?.url}</div>
+      <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
+      <div style={{ flex: 1 }}><StatusBadge status={c.status} /></div>
+      <div style={{ flex: 1 }}>
+        <a href={publicUrl} target="_blank" style={linkStyle}>Download</a>
+      </div>
+    </div>
+  )
+})}
         </div>
       </div>
     </div>
@@ -375,3 +356,4 @@ const linkStyle = {
   color: "#7C3AED",
   fontWeight: 500
 }
+
