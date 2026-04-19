@@ -142,7 +142,11 @@ if (!lastCaptured) {
   shouldCapture = true
   console.log("🔥 NEW URL → capturing now")
 
-} else if (nextCapture && nextCapture <= now) {
+} else if (
+  nextCapture &&
+  now >= nextCapture &&
+  (!lastCaptured || lastCaptured < nextCapture)
+) {
   shouldCapture = true
   console.log("⏰ SCHEDULED → capturing now")
 }
