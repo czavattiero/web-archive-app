@@ -142,11 +142,16 @@ if (!lastCaptured) {
   shouldCapture = true
   console.log("🔥 NEW URL → capturing now")
 
+const toleranceMs = 10 * 60 * 1000 // 10 minutes
+
 } else if (
   nextCapture &&
-  now >= nextCapture &&
+  now >= new Date(nextCapture.getTime() - toleranceMs) &&
   (!lastCaptured || lastCaptured < nextCapture)
 ) {
+  shouldCapture = true
+  console.log("⏰ SCHEDULED (with buffer) → capturing now")
+} {
   shouldCapture = true
   console.log("⏰ SCHEDULED → capturing now")
 }
