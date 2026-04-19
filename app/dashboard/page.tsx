@@ -60,49 +60,96 @@ export default function Dashboard() {
 
   // ✅ FIXED ADD URL (AUTO TRIGGER WORKER)
   async function addUrl() {
-    if (!user) return
-    if (!url.trim()) return alert("Enter a URL")
+  if (!user) return
+  if (!url.trim()) return alert("Enter a URL")
 
-    let nextCaptureISO
+  const albertaTime = new Date().toLocaleString("en-CA", {
+    timeZone: "America/Edmonton",
+  })
+  console.log("Current Alberta time:", albertaTime)
 
-    if (schedule === "custom" && customDate) {
-      const [year, month, day] = customDate.split("-").map(Number)
+  // Calculate next capture at 9 AM Alberta time based on schedule
+  let nextCaptureISO
 
-      // 9AM Alberta → 15:00 UTC
-      nextCaptureISO = DateTime.utc(year, month, day, 15, 0, 0).toISO()
+  if (schedule === "custom" && customDate) {
+    // Custom date: Set to 9 AM Alberta time on that date
+    const [year, month, day] = customDate.split("-").map(Number)
+    const albertaDate = new Date(
+      new Date(year, month - 1, day).toLocaleString("en-US", {
+        timeZone: "America/Edmonton",
+      })
+    )
+    albertaDate.setHours(9, 0, 0, 0)
+    // Convert back to UTC
+    nextCaptureISO = new Date(
+      albertaDate.toLocaleString("en-US", { timeZone: "UTC" })
+    ).toISOString()
+  } else {
+    // For weekly, biweekly, 29 days, 30 days: set to 9 AM tomorrow (or today if before 9 AM)
+    const now = new Date()
+    const albertaNow = new Date(
+      now.toLocaleString("en-US", { timeZone: "America/Edmonton" })
+    )
+    
+    const nextCapture = new Date(albertaNow)
+    const hoursUntil9AM = 9 - albertaNow.getHours()
+    
+    if (hoursUntil9AM > 0) {
+      // Before 9 AM today
+      nextCapture.setHours(9, 0, 0, 0)
     } else {
-      nextCaptureISO = new Date().toISOString()
+      // After 9 AM today, set for tomorrow 9 AM
+      nextCapture.setDate(nextCapture.getDate() + 1)
+      nextCapture.setHours(9, 0, 0, 0)
     }
-
-    const { error } = await supabase.from("urls").insert([
-  {
-    url: url.trim(),
-    user_id: user.id,
-
-    // ✅ USE CORRECT VALUE
-    next_capture_at: nextCaptureISO,
-
-    last_captured_at: null,
-
-    schedule_type: schedule,
-    schedule_value: schedule === "custom" ? customDate : null,
-
-    status: "active",
-  },
-])
-
-    if (error) {
-      console.error(error)
-      return alert(error.message)
-    }
-
-    // 🔥 FIX: correct endpoint
-    await fetch("/api/capture", { method: "POST" })
-
-    setUrl("")
-    setCustomDate("")
-    fetchData(user)
+    
+    nextCaptureISO = new Date(
+      nextCapture.toLocaleString("en-US", { timeZone: "UTC" })
+    ).toISOString()
   }
+
+  const { error } = await supabase.from("urls").insert([
+    {
+      url: url.trim(),
+      user_id: user.id,
+      next_capture_at: nextCaptureISO,
+      last_captured_at: null,
+      schedule_type: schedule,
+      schedule_value: schedule === "custom" ? customDate : null,
+      status: "active",
+    },
+  ])
+
+  if (error) {
+    console.error(error)
+    return alert(error.message)
+  }
+
+  // 🔥 TRIGGER IMMEDIATE CAPTURE FOR NEW URL
+  try {
+    console.log("📤 Calling /api/capture for immediate capture...")
+    const response = await fetch("/api/capture", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url_id: null, immediate: true }),
+    })
+
+    const data = await response.json()
+    console.log("✅ Capture trigger response:", data)
+
+    if (!response.ok) {
+      console.error("❌ Failed to trigger capture:", data.error)
+      alert(`Capture trigger failed: ${data.error}`)
+    }
+  } catch (err: any) {
+    console.error("❌ Error triggering capture:", err)
+    alert(`Failed to trigger capture: ${err.message}`)
+  }
+
+  setUrl("")
+  setCustomDate("")
+  fetchData(user)
+}
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
