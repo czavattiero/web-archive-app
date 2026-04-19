@@ -10,7 +10,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// ✅ Calculate next capture at 9 AM Alberta time
 function calculateNextCapture(scheduleType) {
   const now = DateTime.now().setZone("America/Edmonton")
   let next = now.plus({ days: 1 }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
@@ -81,40 +80,85 @@ async function captureWithRetry(page, url, maxRetries = 3) {
 async function runWorker() {
   console.log("🚀 Worker started")
 
-  const immediateCapture = process.env.IMMEDIATE_CAPTURE === "true"
-  const captureUrlId = process.env.CAPTURE_URL_ID || "all"
+  const captureMode = process.env.CAPTURE_MODE || "SCHEDULED"
 
-  console.log("Mode:", immediateCapture ? "IMMEDIATE (new URL)" : "SCHEDULED")
-  console.log("URL ID:", captureUrlId)
+  console.log("Capture mode:", captureMode)
 
   const albertaTime = DateTime.now().setZone("America/Edmonton")
   const timestamp = albertaTime.toFormat("MMM d, yyyy, h:mm a")
   console.log("Current Alberta time:", timestamp)
 
-  let query = supabase
-    .from("urls")
-    .select("*")
-    .eq("status", "active")
+  let urlsToCapture = []
 
-  // For immediate captures with a specific URL ID, capture only that URL
-  if (immediateCapture && captureUrlId !== "all") {
-    console.log("Filtering to capture only URL ID:", captureUrlId)
-    query = query.eq("id", captureUrlId)
+  if (captureMode === "IMMEDIATE") {
+    // Get all pending items from capture queue
+    console.log("📋 Fetching capture queue (pending)...")
+    const { data: queueItems, error: queueError } = await supabase
+      .from("capture_queue")
+      .select("*, urls(*)")
+      .eq("status", "pending")
+
+    if (queueError) {
+      console.error("❌ Error fetching queue:", queueError)
+      return
+    }
+
+    if (!queueItems || queueItems.length === 0) {
+      console.log("⚠️ No pending items in capture queue")
+      return
+    }
+
+    console.log(`📦 Found ${queueItems.length} pending items to capture immediately`)
+
+    urlsToCapture = queueItems.map(item => ({
+      ...item.urls,
+      queue_id: item.id,
+      is_immediate: true,
+    }))
+
+  } else {
+    // SCHEDULED mode: get all active URLs that are due
+    console.log("📋 Fetching active URLs due for capture...")
+    
+    const { data: urls, error } = await supabase
+      .from("urls")
+      .select("*")
+      .eq("status", "active")
+
+    if (error) {
+      console.error("❌ Error fetching URLs:", error)
+      return
+    }
+
+    if (!urls || urls.length === 0) {
+      console.log("⚠️ No active URLs found")
+      return
+    }
+
+    // Filter to only URLs that are due for capture
+    const toleranceMs = 10 * 60 * 1000 // 10 minute tolerance
+    const now = new Date()
+
+    urlsToCapture = urls.filter(item => {
+      const nextCapture = item.next_capture_at ? new Date(item.next_capture_at) : null
+      if (!nextCapture) return false
+      
+      const isDue = now >= new Date(nextCapture.getTime() - toleranceMs)
+      if (isDue) {
+        console.log(`✅ ${item.url} is due (next: ${item.next_capture_at})`)
+      } else {
+        console.log(`⏭️ ${item.url} not due yet (next: ${item.next_capture_at})`)
+      }
+      return isDue
+    })
+
+    console.log(`📦 Found ${urlsToCapture.length} URLs due for capture`)
+
+    if (urlsToCapture.length === 0) {
+      console.log("⛔ No URLs due for capture at this time")
+      return
+    }
   }
-
-  const { data: urls, error } = await query
-
-  if (error) {
-    console.error("❌ Error fetching URLs:", error)
-    return
-  }
-
-  if (!urls || urls.length === 0) {
-    console.log("⚠️ No URLs found to capture")
-    return
-  }
-
-  console.log(`📦 Found ${urls.length} URL(s) to capture`)
 
   // 🔥 Launch browser once
   const browser = await chromium.launch({
@@ -137,43 +181,16 @@ async function runWorker() {
     },
   })
 
-  for (const item of urls) {
-    console.log("🔎 Checking:", item.url)
+  // Process each URL
+  for (const item of urlsToCapture) {
+    console.log("🔎 Capturing:", item.url)
 
-    const lastCaptured = item.last_captured_at
-      ? new Date(item.last_captured_at)
-      : null
-
-    const nextCapture = item.next_capture_at
-      ? new Date(item.next_capture_at)
-      : null
-
-    const now = new Date()
-
-    let shouldCapture = false
-
-    const toleranceMs = 10 * 60 * 1000 // 10 minutes
-
-    if (immediateCapture) {
-      // Immediate capture mode: capture this URL now
-      shouldCapture = true
-      console.log("🔥 IMMEDIATE CAPTURE → capturing now")
-    } else if (!lastCaptured) {
-      // No previous capture: capture now
-      shouldCapture = true
-      console.log("🔥 NEW URL → capturing now")
-    } else if (
-      nextCapture &&
-      now >= new Date(nextCapture.getTime() - toleranceMs)
-    ) {
-      // Scheduled capture time has arrived (with 10 min tolerance)
-      shouldCapture = true
-      console.log("⏰ SCHEDULED (with buffer) → capturing now")
-    }
-
-    if (!shouldCapture) {
-      console.log("⛔ Skipping:", item.url)
-      continue
+    // Update queue status to processing (if from immediate queue)
+    if (item.queue_id) {
+      await supabase
+        .from("capture_queue")
+        .update({ status: "processing" })
+        .eq("id", item.queue_id)
     }
 
     const page = await context.newPage()
@@ -184,13 +201,10 @@ async function runWorker() {
         Object.defineProperty(navigator, "webdriver", {
           get: () => false,
         })
-
         window.chrome = { runtime: {} }
-
         Object.defineProperty(navigator, "plugins", {
           get: () => [1, 2, 3],
         })
-
         Object.defineProperty(navigator, "languages", {
           get: () => ["en-US", "en"],
         })
@@ -210,6 +224,13 @@ async function runWorker() {
           error: "Page load failed: " + err.message,
         })
 
+        if (item.queue_id) {
+          await supabase
+            .from("capture_queue")
+            .update({ status: "failed" })
+            .eq("id", item.queue_id)
+        }
+
         await page.close()
         continue
       }
@@ -226,20 +247,16 @@ async function runWorker() {
       const pdfBuffer = await page.pdf({
         format: "A4",
         displayHeaderFooter: true,
-
         headerTemplate: `
           <div style="width:100%; font-size:11px; padding:8px 12px; text-align:right; background:white; color:black; border-bottom:1px solid #ccc;">
             Captured: ${captureTimestamp}
           </div>
         `,
-
         footerTemplate: `<div></div>`,
-
         margin: {
           top: "70px",
           bottom: "30px",
         },
-
         printBackground: true,
       })
 
@@ -264,12 +281,20 @@ async function runWorker() {
           error: "Upload failed: " + uploadError.message,
         })
 
+        if (item.queue_id) {
+          await supabase
+            .from("capture_queue")
+            .update({ status: "failed" })
+            .eq("id", item.queue_id)
+        }
+
         await page.close()
         continue
       }
 
       console.log("✅ Uploaded:", fileName)
 
+      // Insert capture record
       await supabase.from("captures").insert({
         url_id: item.id,
         file_path: uploadData.path,
@@ -277,23 +302,34 @@ async function runWorker() {
         status: "success",
       })
 
+      // Update URL with new capture time and next schedule
       let updateData = {
         last_captured_at: new Date().toISOString(),
+        status: "active",
       }
 
-      // Update next capture time based on schedule type (only for scheduled captures)
-      if (!immediateCapture) {
+      // Only update next_capture_at for scheduled captures
+      if (!item.is_immediate) {
+        updateData.next_capture_at = calculateNextCapture(item.schedule_type)
+      } else {
+        // For immediate captures, set next capture based on schedule
         updateData.next_capture_at = calculateNextCapture(item.schedule_type)
       }
-
-      updateData.status = "active"
 
       await supabase
         .from("urls")
         .update(updateData)
         .eq("id", item.id)
 
-      console.log("✅ URL updated")
+      // Mark queue item as processed (not completed - this prevents re-triggering)
+      if (item.queue_id) {
+        await supabase
+          .from("capture_queue")
+          .update({ status: "processed" })
+          .eq("id", item.queue_id)
+      }
+
+      console.log("✅ URL updated - next capture:", updateData.next_capture_at)
 
     } catch (err) {
       console.error("❌ Capture failed:", err.message)
@@ -304,6 +340,13 @@ async function runWorker() {
         status: "failed",
         error: err.message,
       })
+
+      if (item.queue_id) {
+        await supabase
+          .from("capture_queue")
+          .update({ status: "failed" })
+          .eq("id", item.queue_id)
+      }
     }
 
     await page.close()
