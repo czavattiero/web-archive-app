@@ -3,9 +3,9 @@ import { NextResponse } from "next/server"
 export async function POST(request: Request) {
   try {
     console.log("🚀 /api/capture endpoint called")
-    
-    // Get the request body
-    let body = {}
+
+    // Get the request body with proper typing
+    let body: { immediate?: boolean } = {}
     try {
       body = await request.json()
     } catch (e) {

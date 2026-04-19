@@ -63,6 +63,8 @@ export default function Dashboard() {
   if (!user) return
   if (!url.trim()) return alert("Enter a URL")
 
+  console.log("🚀 Adding new URL:", url)
+
   const albertaTime = new Date().toLocaleString("en-CA", {
     timeZone: "America/Edmonton",
   })
@@ -90,26 +92,28 @@ export default function Dashboard() {
     const albertaNow = new Date(
       now.toLocaleString("en-US", { timeZone: "America/Edmonton" })
     )
-    
+
     const nextCapture = new Date(albertaNow)
-    
+
     // Calculate days to add based on schedule type
     let daysToAdd = 7 // default: weekly
     if (schedule === "biweekly") daysToAdd = 14
     if (schedule === "29days") daysToAdd = 29
     if (schedule === "30days") daysToAdd = 30
-    
+
     // Always set next capture to 9 AM on the scheduled day
     nextCapture.setDate(nextCapture.getDate() + daysToAdd)
     nextCapture.setHours(9, 0, 0, 0)
-    
+
     // Convert back to UTC
     nextCaptureISO = new Date(
       nextCapture.toLocaleString("en-US", { timeZone: "UTC" })
     ).toISOString()
   }
 
-  const { error } = await supabase.from("urls").insert([
+  console.log("📅 Next capture scheduled for:", nextCaptureISO)
+
+  const { error: insertError } = await supabase.from("urls").insert([
     {
       url: url.trim(),
       user_id: user.id,
@@ -121,39 +125,43 @@ export default function Dashboard() {
     },
   ])
 
-  if (error) {
-    console.error(error)
-    return alert(error.message)
+  if (insertError) {
+    console.error("❌ Database error:", insertError)
+    alert("Failed to add URL: " + insertError.message)
+    return
   }
+
+  console.log("✅ URL added to database")
 
   // 🔥 TRIGGER IMMEDIATE CAPTURE FOR NEW URL
-      // 🔥 TRIGGER IMMEDIATE CAPTURE FOR NEW URL
-    try {
-      console.log("📤 Calling /api/capture for immediate capture...")
-      const response = await fetch("/api/capture", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ immediate: true }),
-      })
+  try {
+    console.log("📤 Calling /api/capture for immediate capture...")
+    const captureResponse = await fetch("/api/capture", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ immediate: true }),
+    })
 
-      const data = await response.json()
-      console.log("✅ Capture trigger response:", data)
+    const captureData = await captureResponse.json()
+    console.log("✅ Capture API response:", captureData)
 
-      if (!response.ok) {
-        console.error("❌ Failed to trigger capture:", data.error)
-        alert(`Capture failed: ${data.error}`)
-      } else {
-        alert("✅ URL added and capture initiated!")
-      }
-    } catch (err: any) {
-      console.error("❌ Error triggering capture:", err)
-      alert(`Capture error: ${err.message}`)
+    if (!captureResponse.ok) {
+      console.error("❌ Capture API error:", captureData)
+      alert("Workflow trigger failed: " + (captureData.error || "Unknown error"))
+    } else {
+      alert("✅ URL added and capture workflow initiated!")
     }
-
-    setUrl("")
-    setCustomDate("")
-    fetchData(user)
+  } catch (err: any) {
+    console.error("❌ Error calling capture API:", err)
+    alert("Failed to trigger capture: " + err.message)
   }
+
+  setUrl("")
+  setCustomDate("")
+  await fetchData(user)
+}
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
