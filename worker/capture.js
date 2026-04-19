@@ -134,19 +134,18 @@ async function runWorker() {
 
     let shouldCapture = false
 
-    const toleranceMs = 10 * 60 * 1000 // 10 minutes
-
     if (!lastCaptured) {
-      shouldCapture = true
-      console.log("🔥 NEW URL → capturing now")
-    } else if (
-      nextCapture &&
-      now >= new Date(nextCapture.getTime() - toleranceMs) &&
-      (!lastCaptured || lastCaptured < nextCapture)
-    ) {
-      shouldCapture = true
-      console.log("⏰ SCHEDULED (with buffer) → capturing now")
-    }
+  shouldCapture = true
+  console.log("🔥 NEW URL → capturing now")
+
+} else if (
+  nextCapture &&
+  nextCapture <= now &&
+  (!lastCaptured || lastCaptured < nextCapture)
+) {
+  shouldCapture = true
+  console.log("⏰ SCHEDULED → capturing now")
+}
 
     if (!shouldCapture) {
       console.log("⛔ Skipping:", item.url)
@@ -177,7 +176,7 @@ async function runWorker() {
 
       try {
         await captureWithRetry(page, item.url)
-
+        
       } catch (err) {
         console.error("❌ Page load failed:", err)
 
@@ -227,14 +226,14 @@ async function runWorker() {
       console.log("📁 Uploading:", fileName)
 
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("captures")
-        .upload(fileName, pdfBuffer, {
-          contentType: "application/pdf",
-          upsert: true,
-        })
+  .from("captures")
+  .upload(fileName, pdfBuffer, {
+    contentType: "application/pdf",
+    upsert: true,
+  })
 
-      console.log("UPLOAD RESULT:", uploadData)
-      console.log("UPLOAD ERROR:", uploadError)
+console.log("UPLOAD RESULT:", uploadData)
+console.log("UPLOAD ERROR:", uploadError)
 
       if (uploadError) {
         console.error("❌ Upload error:", uploadError)
@@ -257,41 +256,41 @@ async function runWorker() {
       console.log("✅ Uploaded:", data.publicUrl)
 
       await supabase.from("captures").insert({
-        url_id: item.id,
-        file_path: uploadData.path,
-        user_id: item.user_id,
-        status: "success",
-      })
+  url_id: item.id,
+  file_path: uploadData.path, // ✅ FIX
+  user_id: item.user_id,
+  status: "success",
+})
 
-      let updateData = {
-        last_captured_at: new Date().toISOString(),
-      }
+  let updateData = {
+  last_captured_at: new Date().toISOString(),
+}
 
-      if (item.schedule_type === "custom") {
-        const nextCapture = item.next_capture_at
-          ? new Date(item.next_capture_at)
-          : null
+if (item.schedule_type === "custom") {
+  const nextCapture = item.next_capture_at
+    ? new Date(item.next_capture_at)
+    : null
 
-        const now = new Date()
+  const now = new Date()
 
-        if (nextCapture && now >= nextCapture) {
-          // ✅ Scheduled run completed
-          updateData.status = "completed"
-        } else {
-          // ✅ Still waiting for scheduled date
-          updateData.status = "active"
-        }
+  if (nextCapture && now >= nextCapture) {
+    // ✅ Scheduled run completed
+    updateData.status = "completed"
+  } else {
+    // ✅ Still waiting for scheduled date
+    updateData.status = "active"
+  }
 
-      } else {
-        // recurring schedules
-        updateData.next_capture_at = calculateNextCapture(item.schedule_type)
-        updateData.status = "active"
-      }
+} else {
+  // recurring schedules
+  updateData.next_capture_at = calculateNextCapture(item.schedule_type)
+  updateData.status = "active"
+}
 
-      await supabase
-        .from("urls")
-        .update(updateData)
-        .eq("id", item.id)
+await supabase
+  .from("urls")
+  .update(updateData)
+  .eq("id", item.id)
 
       console.log("✅ URL updated")
 
@@ -315,3 +314,4 @@ async function runWorker() {
 }
 
 runWorker()
+
