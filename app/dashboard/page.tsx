@@ -127,30 +127,33 @@ export default function Dashboard() {
   }
 
   // 🔥 TRIGGER IMMEDIATE CAPTURE FOR NEW URL
-  try {
-    console.log("📤 Calling /api/capture for immediate capture...")
-    const response = await fetch("/api/capture", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ immediate: true }),
-    })
+      // 🔥 TRIGGER IMMEDIATE CAPTURE FOR NEW URL
+    try {
+      console.log("📤 Calling /api/capture for immediate capture...")
+      const response = await fetch("/api/capture", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ immediate: true }),
+      })
 
-    const data = await response.json()
-    console.log("✅ Capture trigger response:", data)
+      const data = await response.json()
+      console.log("✅ Capture trigger response:", data)
 
-    if (!response.ok) {
-      console.error("❌ Failed to trigger capture:", data.error)
-      alert(`Capture trigger failed: ${data.error}`)
+      if (!response.ok) {
+        console.error("❌ Failed to trigger capture:", data.error)
+        alert(`Capture failed: ${data.error}`)
+      } else {
+        alert("✅ URL added and capture initiated!")
+      }
+    } catch (err: any) {
+      console.error("❌ Error triggering capture:", err)
+      alert(`Capture error: ${err.message}`)
     }
-  } catch (err: any) {
-    console.error("❌ Error triggering capture:", err)
-    alert(`Failed to trigger capture: ${err.message}`)
-  }
 
-  setUrl("")
-  setCustomDate("")
-  fetchData(user)
-}
+    setUrl("")
+    setCustomDate("")
+    fetchData(user)
+  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
