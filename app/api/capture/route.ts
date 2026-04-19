@@ -1,24 +1,36 @@
-// Importing the necessary modules
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server"
 
-// Route handler for capturing content
-export async function POST(request: Request) {
-    const { url, headers } = await request.json();
-    console.log('Captured URL:', url);
+export async function POST() {
+  try {
+    console.log("🚀 Triggering GitHub workflow...")
+    console.log("GITHUB_TOKEN available:", !!process.env.GITHUB_TOKEN)
 
-    // Setting up options for the fetch request
-    const fetchOptions = {
-        method: 'GET',
+    const res = await fetch(
+      "https://api.github.com/repos/czavattiero/web-archive-app/actions/workflows/capture.yml/dispatches",
+      {
+        method: "POST",
         headers: {
-            'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`, // Updated to use GITHUB_TOKEN
-            'Accept': 'application/vnd.github.v3+json'
-        }
-    };
+          Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+          Accept: "application/vnd.github+json",
+        },
+        body: JSON.stringify({
+          ref: "main",
+        }),
+      }
+    )
 
-    // Fetch content from the provided URL
-    const response = await fetch(url, fetchOptions);
-    const data = await response.json();
+    console.log("GitHub response status:", res.status)
 
-    // Responding with the captured data
-    return NextResponse.json(data);
+    if (!res.ok) {
+      const errorText = await res.text()
+      console.error("❌ Failed to trigger workflow:", res.status, errorText)
+      throw new Error(`Failed to trigger workflow: ${res.status} ${errorText}`)
+    }
+
+    console.log("✅ Workflow triggered successfully")
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    console.error("❌ API ERROR:", err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
 }
