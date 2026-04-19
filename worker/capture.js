@@ -97,7 +97,7 @@ async function runWorker() {
       .from("urls")
       .select("*")
       .eq("status", "active")
-      .is("last_captured_at", null)  // NULL = never been captured
+      .is("last_captured_at", null)
 
     if (error) {
       console.error("❌ Error fetching URLs:", error)
@@ -110,6 +110,18 @@ async function runWorker() {
     }
 
     console.log(`📦 Found ${urls.length} URL(s) needing immediate capture`)
+    
+    // 🔒 LOCK: Mark all URLs as being processed to prevent duplicate captures
+    for (const url of urls) {
+      console.log(`🔒 Locking URL: ${url.id}`)
+      await supabase
+        .from("urls")
+        .update({
+          last_captured_at: new Date(Date.now() - 1000).toISOString(), // Set to 1 second ago as a "lock"
+        })
+        .eq("id", url.id)
+    }
+
     urlsToCapture = urls
 
   } else {
@@ -131,7 +143,7 @@ async function runWorker() {
       return
     }
 
-    const toleranceMs = 10 * 60 * 1000 // 10 minute tolerance
+    const toleranceMs = 10 * 60 * 1000
     const now = new Date()
 
     urlsToCapture = urls.filter(item => {
