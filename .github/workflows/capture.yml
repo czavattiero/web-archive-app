@@ -2,8 +2,13 @@ name: Web Archive Capture Worker
 
 on:
   schedule:
-  - cron: "*/1 * * * *"
+    - cron: "0 14 * * *"  # 2 PM UTC = 9 AM Alberta time (during daylight saving)
   workflow_dispatch:
+    inputs:
+      immediate:
+        description: 'Immediate capture (new URL) or scheduled'
+        required: false
+        default: "false"
 
 jobs:
   capture:
@@ -28,5 +33,5 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          IMMEDIATE_CAPTURE: ${{ github.event.inputs.immediate }}
         run: node worker/capture.js
-
