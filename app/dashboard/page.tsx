@@ -107,7 +107,7 @@ async function addUrl() {
 
     console.log("📅 Next capture scheduled for:", nextCaptureISO)
 
-    // Step 1: Insert the URL
+    // Insert the URL with last_captured_at = NULL (marks it as "needs immediate capture")
     const { data: insertedData, error: insertError } = await supabase
       .from("urls")
       .insert([
@@ -115,7 +115,7 @@ async function addUrl() {
           url: url.trim(),
           user_id: user.id,
           next_capture_at: nextCaptureISO,
-          last_captured_at: null,
+          last_captured_at: null,  // NULL = needs immediate capture
           schedule_type: schedule,
           schedule_value: schedule === "custom" ? customDate : null,
           status: "active",
@@ -132,26 +132,7 @@ async function addUrl() {
     const newUrlId = insertedData?.[0]?.id
     console.log("✅ URL added to database with ID:", newUrlId)
 
-    // Step 2: Add to capture queue
-    const { error: queueError } = await supabase
-      .from("capture_queue")
-      .insert([
-        {
-          url_id: newUrlId,
-          user_id: user.id,
-          status: "pending",
-        },
-      ])
-
-    if (queueError) {
-      console.error("❌ Queue error:", queueError)
-      alert("Failed to queue capture: " + queueError.message)
-      return
-    }
-
-    console.log("✅ Added to capture queue")
-
-    // Step 3: Trigger workflow
+    // Trigger workflow to capture new URLs
     try {
       console.log("📤 Triggering capture workflow...")
       const response = await fetch("/api/capture", {

@@ -81,7 +81,6 @@ async function runWorker() {
   console.log("🚀 Worker started")
 
   const captureMode = process.env.CAPTURE_MODE || "SCHEDULED"
-
   console.log("Capture mode:", captureMode)
 
   const albertaTime = DateTime.now().setZone("America/Edmonton")
@@ -91,40 +90,31 @@ async function runWorker() {
   let urlsToCapture = []
 
   if (captureMode === "IMMEDIATE") {
-    // Get all pending items from capture queue
-    console.log("📋 Fetching capture queue (pending items)...")
+    // Get all URLs that have NEVER been captured (last_captured_at = NULL)
+    console.log("📋 Fetching URLs that need immediate capture...")
     
-    const { data: queueItems, error: queueError } = await supabase
-      .from("capture_queue")
-      .select("url_id, urls(*), id, user_id")
-      .eq("status", "pending")
+    const { data: urls, error } = await supabase
+      .from("urls")
+      .select("*")
+      .eq("status", "active")
+      .is("last_captured_at", null)  // NULL = never been captured
 
-    if (queueError) {
-      console.error("❌ Error fetching queue:", queueError)
-      console.error("❌ Queue query failed - aborting worker")
+    if (error) {
+      console.error("❌ Error fetching URLs:", error)
       return
     }
 
-    if (!queueItems || queueItems.length === 0) {
-      console.log("⚠️ No pending items in queue - nothing to capture")
+    if (!urls || urls.length === 0) {
+      console.log("⚠️ No URLs needing immediate capture")
       return
     }
 
-    console.log(`📦 Found ${queueItems.length} pending queue items`)
-
-    // Map queue items to URL objects
-    urlsToCapture = queueItems.map(item => {
-      console.log(`  - Queue item: ${item.id}, URL ID: ${item.url_id}`)
-      return {
-        ...item.urls,
-        queue_id: item.id,
-        is_immediate: true,
-      }
-    })
+    console.log(`📦 Found ${urls.length} URL(s) needing immediate capture`)
+    urlsToCapture = urls
 
   } else {
-    // SCHEDULED mode
-    console.log("📋 Fetching active URLs due for scheduled capture...")
+    // SCHEDULED mode: capture URLs where next_capture_at has arrived
+    console.log("📋 Fetching URLs due for scheduled capture...")
     
     const { data: urls, error } = await supabase
       .from("urls")
@@ -141,9 +131,7 @@ async function runWorker() {
       return
     }
 
-    console.log(`📋 Checking ${urls.length} URLs for due dates...`)
-
-    const toleranceMs = 10 * 60 * 1000
+    const toleranceMs = 10 * 60 * 1000 // 10 minute tolerance
     const now = new Date()
 
     urlsToCapture = urls.filter(item => {
@@ -165,9 +153,6 @@ async function runWorker() {
   }
 
   console.log(`\n🚀 Starting capture of ${urlsToCapture.length} URL(s)...\n`)
-
-  // ... rest of browser/capture code stays the same ...
-}
 
   // 🔥 Launch browser once
   const browser = await chromium.launch({
@@ -193,14 +178,6 @@ async function runWorker() {
   // Process each URL
   for (const item of urlsToCapture) {
     console.log("🔎 Capturing:", item.url)
-
-    // Update queue status to processing (if from immediate queue)
-    if (item.queue_id) {
-      await supabase
-        .from("capture_queue")
-        .update({ status: "processing" })
-        .eq("id", item.queue_id)
-    }
 
     const page = await context.newPage()
 
@@ -232,13 +209,6 @@ async function runWorker() {
           status: "failed",
           error: "Page load failed: " + err.message,
         })
-
-        if (item.queue_id) {
-          await supabase
-            .from("capture_queue")
-            .update({ status: "failed" })
-            .eq("id", item.queue_id)
-        }
 
         await page.close()
         continue
@@ -290,13 +260,6 @@ async function runWorker() {
           error: "Upload failed: " + uploadError.message,
         })
 
-        if (item.queue_id) {
-          await supabase
-            .from("capture_queue")
-            .update({ status: "failed" })
-            .eq("id", item.queue_id)
-        }
-
         await page.close()
         continue
       }
@@ -311,32 +274,17 @@ async function runWorker() {
         status: "success",
       })
 
-      // Update URL with new capture time and next schedule
-      let updateData = {
+      // Update URL: set last_captured_at and next_capture_at
+      const updateData = {
         last_captured_at: new Date().toISOString(),
+        next_capture_at: calculateNextCapture(item.schedule_type),
         status: "active",
-      }
-
-      // Only update next_capture_at for scheduled captures
-      if (!item.is_immediate) {
-        updateData.next_capture_at = calculateNextCapture(item.schedule_type)
-      } else {
-        // For immediate captures, set next capture based on schedule
-        updateData.next_capture_at = calculateNextCapture(item.schedule_type)
       }
 
       await supabase
         .from("urls")
         .update(updateData)
         .eq("id", item.id)
-
-      // Mark queue item as processed (not completed - this prevents re-triggering)
-      if (item.queue_id) {
-        await supabase
-          .from("capture_queue")
-          .update({ status: "processed" })
-          .eq("id", item.queue_id)
-      }
 
       console.log("✅ URL updated - next capture:", updateData.next_capture_at)
 
@@ -349,13 +297,6 @@ async function runWorker() {
         status: "failed",
         error: err.message,
       })
-
-      if (item.queue_id) {
-        await supabase
-          .from("capture_queue")
-          .update({ status: "failed" })
-          .eq("id", item.queue_id)
-      }
     }
 
     await page.close()
