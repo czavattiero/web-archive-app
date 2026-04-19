@@ -134,15 +134,15 @@ async function runWorker() {
 
     let shouldCapture = false
 
-    if (!lastCaptured) {
+if (!lastCaptured) {
   shouldCapture = true
   console.log("🔥 NEW URL → capturing now")
 
-} else if (
-  nextCapture &&
-  nextCapture <= now &&
-  (!lastCaptured || lastCaptured < nextCapture)
-) {
+if (!lastCaptured) {
+  shouldCapture = true
+  console.log("🔥 NEW URL → capturing now")
+
+} else if (nextCapture && nextCapture <= now) {
   shouldCapture = true
   console.log("⏰ SCHEDULED → capturing now")
 }
@@ -176,7 +176,7 @@ async function runWorker() {
 
       try {
         await captureWithRetry(page, item.url)
-        
+
       } catch (err) {
         console.error("❌ Page load failed:", err)
 
@@ -313,4 +313,4 @@ await supabase
   console.log("🎉 Worker finished")
 }
 
-runWorker()
+runWorker()}
