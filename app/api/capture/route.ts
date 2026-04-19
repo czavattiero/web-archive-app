@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server"
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const body = await request.json()
+    const immediate = body.immediate || false
+
     console.log("🚀 Triggering GitHub workflow...")
+    console.log("Mode:", immediate ? "IMMEDIATE (new URL)" : "SCHEDULED")
     console.log("GITHUB_TOKEN available:", !!process.env.GITHUB_TOKEN)
 
     const res = await fetch(
@@ -15,6 +19,9 @@ export async function POST() {
         },
         body: JSON.stringify({
           ref: "main",
+          inputs: {
+            immediate: immediate ? "true" : "false",
+          },
         }),
       }
     )
