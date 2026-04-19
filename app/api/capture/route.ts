@@ -3,12 +3,10 @@ import { NextResponse } from "next/server"
 export async function POST(request: Request) {
   try {
     console.log("🚀 /api/capture endpoint called")
-
-    console.log("📤 Triggering GitHub workflow (IMMEDIATE mode)...")
     console.log("GITHUB_TOKEN available:", !!process.env.GITHUB_TOKEN)
 
     if (!process.env.GITHUB_TOKEN) {
-      throw new Error("GITHUB_TOKEN not set in environment variables")
+      throw new Error("GITHUB_TOKEN environment variable not set")
     }
 
     const res = await fetch(
@@ -29,21 +27,18 @@ export async function POST(request: Request) {
       }
     )
 
-    console.log("✅ GitHub API response status:", res.status)
+    console.log("GitHub API response status:", res.status)
 
     if (!res.ok) {
       const errorText = await res.text()
-      console.error("❌ GitHub API error:", res.status, errorText)
-      return NextResponse.json(
-        { success: false, error: `GitHub API error: ${res.status} ${errorText}` },
-        { status: 500 }
-      )
+      console.error("GitHub API error:", res.status, errorText)
+      throw new Error(`GitHub API error: ${res.status} ${errorText}`)
     }
 
-    console.log("✅ Workflow triggered successfully")
-    return NextResponse.json({ success: true, message: "Workflow triggered" })
+    console.log("✅ Workflow dispatch succeeded")
+    return NextResponse.json({ success: true })
   } catch (err: any) {
-    console.error("❌ API ERROR:", err.message)
+    console.error("❌ /api/capture error:", err.message)
     return NextResponse.json(
       { success: false, error: err.message },
       { status: 500 }

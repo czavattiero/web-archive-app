@@ -59,107 +59,135 @@ export default function Dashboard() {
   }
 
   // ✅ FIXED ADD URL (AUTO TRIGGER WORKER)
-  async function addUrl() {
+async function addUrl() {
   if (!user) return
   if (!url.trim()) return alert("Enter a URL")
 
-  console.log("🚀 Adding new URL:", url)
-
-  const albertaTime = new Date().toLocaleString("en-CA", {
-    timeZone: "America/Edmonton",
-  })
-  console.log("Current Alberta time:", albertaTime)
-
-  // Calculate next capture at 9 AM Alberta time based on schedule
-  let nextCaptureISO
-
-  if (schedule === "custom" && customDate) {
-    const [year, month, day] = customDate.split("-").map(Number)
-    const albertaDate = new Date(
-      new Date(year, month - 1, day).toLocaleString("en-US", {
-        timeZone: "America/Edmonton",
-      })
-    )
-    albertaDate.setHours(9, 0, 0, 0)
-    nextCaptureISO = new Date(
-      albertaDate.toLocaleString("en-US", { timeZone: "UTC" })
-    ).toISOString()
-  } else {
-    const now = new Date()
-    const albertaNow = new Date(
-      now.toLocaleString("en-US", { timeZone: "America/Edmonton" })
-    )
-
-    const nextCapture = new Date(albertaNow)
-
-    let daysToAdd = 7
-    if (schedule === "biweekly") daysToAdd = 14
-    if (schedule === "29days") daysToAdd = 29
-    if (schedule === "30days") daysToAdd = 30
-
-    nextCapture.setDate(nextCapture.getDate() + daysToAdd)
-    nextCapture.setHours(9, 0, 0, 0)
-
-    nextCaptureISO = new Date(
-      nextCapture.toLocaleString("en-US", { timeZone: "UTC" })
-    ).toISOString()
-  }
-
-  console.log("📅 Next capture scheduled for:", nextCaptureISO)
-
-  // Insert the URL and get its ID
-  const { data: insertedData, error: insertError } = await supabase
-    .from("urls")
-    .insert([
-      {
-        url: url.trim(),
-        user_id: user.id,
-        next_capture_at: nextCaptureISO,
-        last_captured_at: null,
-        schedule_type: schedule,
-        schedule_value: schedule === "custom" ? customDate : null,
-        status: "active",
-      },
-    ])
-    .select()
-
-  if (insertError) {
-    console.error("❌ Database error:", insertError)
-    alert("Failed to add URL: " + insertError.message)
-    return
-  }
-
-  const newUrlId = insertedData?.[0]?.id
-  console.log("✅ URL added to database with ID:", newUrlId)
-
-  // 🔥 TRIGGER IMMEDIATE CAPTURE FOR NEW URL
   try {
-    console.log("📤 Calling /api/capture for immediate capture with URL ID:", newUrlId)
-    const captureResponse = await fetch("/api/capture", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ immediate: true, url_id: newUrlId }),
+    console.log("🚀 Adding new URL:", url)
+
+    const albertaTime = new Date().toLocaleString("en-CA", {
+      timeZone: "America/Edmonton",
     })
+    console.log("Current Alberta time:", albertaTime)
 
-    const captureData = await captureResponse.json()
-    console.log("✅ Capture API response:", captureData)
+    let nextCaptureISO
 
-    if (!captureResponse.ok) {
-      console.error("❌ Capture API error:", captureData)
-      alert("Workflow trigger failed: " + (captureData.error || "Unknown error"))
+    if (schedule === "custom" && customDate) {
+      const [year, month, day] = customDate.split("-").map(Number)
+      const albertaDate = new Date(
+        new Date(year, month - 1, day).toLocaleString("en-US", {
+          timeZone: "America/Edmonton",
+        })
+      )
+      albertaDate.setHours(9, 0, 0, 0)
+      nextCaptureISO = new Date(
+        albertaDate.toLocaleString("en-US", { timeZone: "UTC" })
+      ).toISOString()
     } else {
-      alert("✅ URL added and capture workflow initiated!")
-    }
-  } catch (err: any) {
-    console.error("❌ Error calling capture API:", err)
-    alert("Failed to trigger capture: " + err.message)
-  }
+      const now = new Date()
+      const albertaNow = new Date(
+        now.toLocaleString("en-US", { timeZone: "America/Edmonton" })
+      )
 
-  setUrl("")
-  setCustomDate("")
-  await fetchData(user)
+      const nextCapture = new Date(albertaNow)
+
+      let daysToAdd = 7
+      if (schedule === "biweekly") daysToAdd = 14
+      if (schedule === "29days") daysToAdd = 29
+      if (schedule === "30days") daysToAdd = 30
+
+      nextCapture.setDate(nextCapture.getDate() + daysToAdd)
+      nextCapture.setHours(9, 0, 0, 0)
+
+      nextCaptureISO = new Date(
+        nextCapture.toLocaleString("en-US", { timeZone: "UTC" })
+      ).toISOString()
+    }
+
+    console.log("📅 Next capture scheduled for:", nextCaptureISO)
+
+    // Step 1: Insert the URL
+    const { data: insertedData, error: insertError } = await supabase
+      .from("urls")
+      .insert([
+        {
+          url: url.trim(),
+          user_id: user.id,
+          next_capture_at: nextCaptureISO,
+          last_captured_at: null,
+          schedule_type: schedule,
+          schedule_value: schedule === "custom" ? customDate : null,
+          status: "active",
+        },
+      ])
+      .select()
+
+    if (insertError) {
+      console.error("❌ Database error:", insertError)
+      alert("Failed to add URL: " + insertError.message)
+      return
+    }
+
+    const newUrlId = insertedData?.[0]?.id
+    console.log("✅ URL added to database with ID:", newUrlId)
+
+    // Step 2: Add to capture queue
+    const { error: queueError } = await supabase
+      .from("capture_queue")
+      .insert([
+        {
+          url_id: newUrlId,
+          user_id: user.id,
+          status: "pending",
+        },
+      ])
+
+    if (queueError) {
+      console.error("❌ Queue error:", queueError)
+      alert("Failed to queue capture: " + queueError.message)
+      return
+    }
+
+    console.log("✅ Added to capture queue")
+
+    // Step 3: Trigger workflow
+    try {
+      console.log("📤 Triggering capture workflow...")
+      const response = await fetch("/api/capture", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      })
+
+      const responseText = await response.text()
+      console.log("📬 API response status:", response.status)
+      console.log("📬 API response body:", responseText)
+
+      if (!response.ok) {
+        console.error("❌ API error:", response.status, responseText)
+        alert(`Workflow trigger failed: ${response.status}`)
+        return
+      }
+
+      console.log("✅ Workflow triggered successfully")
+      alert("✅ URL added and queued for immediate capture!")
+    } catch (err: any) {
+      console.error("❌ Fetch error:", err.message)
+      alert("Failed to trigger workflow: " + err.message)
+      return
+    }
+
+    // Clear form and refresh
+    setUrl("")
+    setCustomDate("")
+    await fetchData(user)
+  } catch (err: any) {
+    console.error("❌ Unexpected error:", err)
+    alert("Error: " + err.message)
+  }
 }
 
   const handleLogout = async () => {

@@ -92,33 +92,39 @@ async function runWorker() {
 
   if (captureMode === "IMMEDIATE") {
     // Get all pending items from capture queue
-    console.log("📋 Fetching capture queue (pending)...")
+    console.log("📋 Fetching capture queue (pending items)...")
+    
     const { data: queueItems, error: queueError } = await supabase
       .from("capture_queue")
-      .select("*, urls(*)")
+      .select("url_id, urls(*), id, user_id")
       .eq("status", "pending")
 
     if (queueError) {
       console.error("❌ Error fetching queue:", queueError)
+      console.error("❌ Queue query failed - aborting worker")
       return
     }
 
     if (!queueItems || queueItems.length === 0) {
-      console.log("⚠️ No pending items in capture queue")
+      console.log("⚠️ No pending items in queue - nothing to capture")
       return
     }
 
-    console.log(`📦 Found ${queueItems.length} pending items to capture immediately`)
+    console.log(`📦 Found ${queueItems.length} pending queue items`)
 
-    urlsToCapture = queueItems.map(item => ({
-      ...item.urls,
-      queue_id: item.id,
-      is_immediate: true,
-    }))
+    // Map queue items to URL objects
+    urlsToCapture = queueItems.map(item => {
+      console.log(`  - Queue item: ${item.id}, URL ID: ${item.url_id}`)
+      return {
+        ...item.urls,
+        queue_id: item.id,
+        is_immediate: true,
+      }
+    })
 
   } else {
-    // SCHEDULED mode: get all active URLs that are due
-    console.log("📋 Fetching active URLs due for capture...")
+    // SCHEDULED mode
+    console.log("📋 Fetching active URLs due for scheduled capture...")
     
     const { data: urls, error } = await supabase
       .from("urls")
@@ -135,30 +141,33 @@ async function runWorker() {
       return
     }
 
-    // Filter to only URLs that are due for capture
-    const toleranceMs = 10 * 60 * 1000 // 10 minute tolerance
+    console.log(`📋 Checking ${urls.length} URLs for due dates...`)
+
+    const toleranceMs = 10 * 60 * 1000
     const now = new Date()
 
     urlsToCapture = urls.filter(item => {
       const nextCapture = item.next_capture_at ? new Date(item.next_capture_at) : null
-      if (!nextCapture) return false
-      
-      const isDue = now >= new Date(nextCapture.getTime() - toleranceMs)
-      if (isDue) {
-        console.log(`✅ ${item.url} is due (next: ${item.next_capture_at})`)
-      } else {
-        console.log(`⏭️ ${item.url} not due yet (next: ${item.next_capture_at})`)
+      if (!nextCapture) {
+        console.log(`  ⏭️ ${item.url} - no next_capture_at`)
+        return false
       }
+
+      const isDue = now >= new Date(nextCapture.getTime() - toleranceMs)
+      console.log(`  ${isDue ? "✅" : "⏭️"} ${item.url} - due: ${nextCapture.toISOString()}`)
       return isDue
     })
 
-    console.log(`📦 Found ${urlsToCapture.length} URLs due for capture`)
-
     if (urlsToCapture.length === 0) {
-      console.log("⛔ No URLs due for capture at this time")
+      console.log("⛔ No URLs are due for capture")
       return
     }
   }
+
+  console.log(`\n🚀 Starting capture of ${urlsToCapture.length} URL(s)...\n`)
+
+  // ... rest of browser/capture code stays the same ...
+}
 
   // 🔥 Launch browser once
   const browser = await chromium.launch({
