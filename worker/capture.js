@@ -153,6 +153,9 @@ const toleranceMs = 10 * 60 * 1000 // 10 minutes
   console.log("⏰ SCHEDULED (with buffer) → capturing now")
 } {
   shouldCapture = true
+  console.log("⏰ SCHEDULED (with buffer) → capturing now")
+} {
+  shouldCapture = true
   console.log("⏰ SCHEDULED → capturing now")
 }
 
