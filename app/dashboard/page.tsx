@@ -10,6 +10,7 @@ export default function Dashboard() {
 
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [billingLoading, setBillingLoading] = useState(false)
 
   const [url, setUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
@@ -58,118 +59,144 @@ export default function Dashboard() {
     setCaptures(capturesData || [])
   }
 
-  // ✅ FIXED ADD URL (AUTO TRIGGER WORKER)
-async function addUrl() {
-  if (!user) return
-  if (!url.trim()) return alert("Enter a URL")
-
-  try {
-    console.log("🚀 Adding new URL:", url)
-
-    const albertaTime = new Date().toLocaleString("en-CA", {
-      timeZone: "America/Edmonton",
-    })
-    console.log("Current Alberta time:", albertaTime)
-
-    let nextCaptureISO
-
-    if (schedule === "custom" && customDate) {
-      const [year, month, day] = customDate.split("-").map(Number)
-      const albertaDate = new Date(
-        new Date(year, month - 1, day).toLocaleString("en-US", {
-          timeZone: "America/Edmonton",
-        })
-      )
-      albertaDate.setHours(9, 0, 0, 0)
-      nextCaptureISO = new Date(
-        albertaDate.toLocaleString("en-US", { timeZone: "UTC" })
-      ).toISOString()
-    } else {
-      const now = new Date()
-      const albertaNow = new Date(
-        now.toLocaleString("en-US", { timeZone: "America/Edmonton" })
-      )
-
-      const nextCapture = new Date(albertaNow)
-
-      let daysToAdd = 7
-      if (schedule === "biweekly") daysToAdd = 14
-      if (schedule === "29days") daysToAdd = 29
-      if (schedule === "30days") daysToAdd = 30
-
-      nextCapture.setDate(nextCapture.getDate() + daysToAdd)
-      nextCapture.setHours(9, 0, 0, 0)
-
-      nextCaptureISO = new Date(
-        nextCapture.toLocaleString("en-US", { timeZone: "UTC" })
-      ).toISOString()
-    }
-
-    console.log("📅 Next capture scheduled for:", nextCaptureISO)
-
-    // Insert the URL with last_captured_at = NULL (marks it as "needs immediate capture")
-    const { data: insertedData, error: insertError } = await supabase
-      .from("urls")
-      .insert([
-        {
-          url: url.trim(),
-          user_id: user.id,
-          next_capture_at: nextCaptureISO,
-          last_captured_at: null,  // NULL = needs immediate capture
-          schedule_type: schedule,
-          schedule_value: schedule === "custom" ? customDate : null,
-          status: "active",
-        },
-      ])
-      .select()
-
-    if (insertError) {
-      console.error("❌ Database error:", insertError)
-      alert("Failed to add URL: " + insertError.message)
-      return
-    }
-
-    const newUrlId = insertedData?.[0]?.id
-    console.log("✅ URL added to database with ID:", newUrlId)
-
-    // Trigger workflow to capture new URLs
+  async function handleManageBilling() {
+    setBillingLoading(true)
     try {
-      console.log("📤 Triggering capture workflow...")
-      const response = await fetch("/api/capture", {
+      const response = await fetch("/api/stripe/portal", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ userId: user?.id }),
       })
 
-      const responseText = await response.text()
-      console.log("📬 API response status:", response.status)
-      console.log("📬 API response body:", responseText)
+      const data = await response.json()
 
-      if (!response.ok) {
-        console.error("❌ API error:", response.status, responseText)
-        alert(`Workflow trigger failed: ${response.status}`)
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        alert("Failed to open billing portal")
+      }
+    } catch (err: any) {
+      console.error("Error:", err)
+      alert("Error opening billing portal: " + err.message)
+    } finally {
+      setBillingLoading(false)
+    }
+  }
+
+  // ✅ FIXED ADD URL (AUTO TRIGGER WORKER)
+  async function addUrl() {
+    if (!user) return
+    if (!url.trim()) return alert("Enter a URL")
+
+    try {
+      console.log("🚀 Adding new URL:", url)
+
+      const albertaTime = new Date().toLocaleString("en-CA", {
+        timeZone: "America/Edmonton",
+      })
+      console.log("Current Alberta time:", albertaTime)
+
+      let nextCaptureISO
+
+      if (schedule === "custom" && customDate) {
+        const [year, month, day] = customDate.split("-").map(Number)
+        const albertaDate = new Date(
+          new Date(year, month - 1, day).toLocaleString("en-US", {
+            timeZone: "America/Edmonton",
+          })
+        )
+        albertaDate.setHours(9, 0, 0, 0)
+        nextCaptureISO = new Date(
+          albertaDate.toLocaleString("en-US", { timeZone: "UTC" })
+        ).toISOString()
+      } else {
+        const now = new Date()
+        const albertaNow = new Date(
+          now.toLocaleString("en-US", { timeZone: "America/Edmonton" })
+        )
+
+        const nextCapture = new Date(albertaNow)
+
+        let daysToAdd = 7
+        if (schedule === "biweekly") daysToAdd = 14
+        if (schedule === "29days") daysToAdd = 29
+        if (schedule === "30days") daysToAdd = 30
+
+        nextCapture.setDate(nextCapture.getDate() + daysToAdd)
+        nextCapture.setHours(9, 0, 0, 0)
+
+        nextCaptureISO = new Date(
+          nextCapture.toLocaleString("en-US", { timeZone: "UTC" })
+        ).toISOString()
+      }
+
+      console.log("📅 Next capture scheduled for:", nextCaptureISO)
+
+      // Insert the URL with last_captured_at = NULL (marks it as "needs immediate capture")
+      const { data: insertedData, error: insertError } = await supabase
+        .from("urls")
+        .insert([
+          {
+            url: url.trim(),
+            user_id: user.id,
+            next_capture_at: nextCaptureISO,
+            last_captured_at: null, // NULL = needs immediate capture
+            schedule_type: schedule,
+            schedule_value: schedule === "custom" ? customDate : null,
+            status: "active",
+          },
+        ])
+        .select()
+
+      if (insertError) {
+        console.error("❌ Database error:", insertError)
+        alert("Failed to add URL: " + insertError.message)
         return
       }
 
-      console.log("✅ Workflow triggered successfully")
-      alert("✅ URL added and queued for immediate capture!")
-    } catch (err: any) {
-      console.error("❌ Fetch error:", err.message)
-      alert("Failed to trigger workflow: " + err.message)
-      return
-    }
+      const newUrlId = insertedData?.[0]?.id
+      console.log("✅ URL added to database with ID:", newUrlId)
 
-    // Clear form and refresh
-    setUrl("")
-    setCustomDate("")
-    await fetchData(user)
-  } catch (err: any) {
-    console.error("❌ Unexpected error:", err)
-    alert("Error: " + err.message)
+      // Trigger workflow to capture new URLs
+      try {
+        console.log("📤 Triggering capture workflow...")
+        const response = await fetch("/api/capture", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({}),
+        })
+
+        const responseText = await response.text()
+        console.log("📬 API response status:", response.status)
+        console.log("📬 API response body:", responseText)
+
+        if (!response.ok) {
+          console.error("❌ API error:", response.status, responseText)
+          alert(`Workflow trigger failed: ${response.status}`)
+          return
+        }
+
+        console.log("✅ Workflow triggered successfully")
+        alert("✅ URL added and queued for immediate capture!")
+      } catch (err: any) {
+        console.error("❌ Fetch error:", err.message)
+        alert("Failed to trigger workflow: " + err.message)
+        return
+      }
+
+      // Clear form and refresh
+      setUrl("")
+      setCustomDate("")
+      await fetchData(user)
+    } catch (err: any) {
+      console.error("❌ Unexpected error:", err)
+      alert("Error: " + err.message)
+    }
   }
-}
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -195,7 +222,7 @@ async function addUrl() {
       borderRadius: 999,
       fontSize: 12,
       fontWeight: 600,
-      display: "inline-block",
+      display: "inline-block" as const,
     }
 
     if (status === "active")
@@ -223,14 +250,22 @@ async function addUrl() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#ffffff" }}>
-
       {/* TOP BAR */}
       <div style={topBar}>
         <img src="/screenly-logo.png" style={{ width: 140 }} />
 
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <div style={{ fontSize: 14, color: "#555" }}>{user?.email}</div>
-          <button onClick={handleLogout} style={buttonDanger}>Sign Out</button>
+          <button 
+            onClick={handleManageBilling} 
+            disabled={billingLoading} 
+            style={billingLoading ? { ...buttonSecondary, opacity: 0.7 } : buttonSecondary}
+          >
+            {billingLoading ? "Loading..." : "Manage Billing"}
+          </button>
+          <button onClick={handleLogout} style={buttonDanger}>
+            Sign Out
+          </button>
         </div>
       </div>
 
@@ -249,7 +284,11 @@ async function addUrl() {
               style={{ ...inputStyle, flex: 2 }}
             />
 
-            <select value={schedule} onChange={(e) => setSchedule(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
+            <select 
+              value={schedule} 
+              onChange={(e) => setSchedule(e.target.value)} 
+              style={{ ...inputStyle, flex: 1 }}
+            >
               <option value="weekly">Weekly</option>
               <option value="biweekly">Biweekly</option>
               <option value="29days">Every 29 days</option>
@@ -258,10 +297,17 @@ async function addUrl() {
             </select>
 
             {schedule === "custom" && (
-              <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
+              <input 
+                type="date" 
+                value={customDate} 
+                onChange={(e) => setCustomDate(e.target.value)} 
+                style={{ ...inputStyle, flex: 1 }} 
+              />
             )}
 
-            <button onClick={addUrl} style={buttonPrimary}>Add</button>
+            <button onClick={addUrl} style={buttonPrimary}>
+              Add
+            </button>
           </div>
         </div>
 
@@ -269,7 +315,12 @@ async function addUrl() {
         <div style={cardStyle}>
           <h3 style={sectionTitle}>Tracked URLs</h3>
 
-          <input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} style={searchStyle} />
+          <input 
+            placeholder="Search..." 
+            value={search} 
+            onChange={(e) => setSearch(e.target.value)} 
+            style={searchStyle} 
+          />
 
           <div style={headerRow}>
             <div style={{ flex: 3 }}>URL</div>
@@ -284,7 +335,9 @@ async function addUrl() {
               <div style={urlCell}>{u.url}</div>
               <div style={{ flex: 1 }}>{u.schedule_type}</div>
               <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
-              <div style={{ flex: 1 }}><StatusBadge status={u.status} /></div>
+              <div style={{ flex: 1 }}>
+                <StatusBadge status={u.status} />
+              </div>
               <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
             </div>
           ))}
@@ -302,25 +355,28 @@ async function addUrl() {
           </div>
 
           {filteredCaptures.map((c) => {
-  const urlData = getUrlById(c.url_id)
+            const urlData = getUrlById(c.url_id)
 
-  const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
+            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
 
-  // ✅ LOGS GO HERE (BEFORE RETURN)
-  console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
-  console.log("FINAL URL:", publicUrl)
+            console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
+            console.log("FINAL URL:", publicUrl)
 
-  return (
-    <div key={c.id} style={rowCard}>
-      <div style={urlCell}>{urlData?.url}</div>
-      <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
-      <div style={{ flex: 1 }}><StatusBadge status={c.status} /></div>
-      <div style={{ flex: 1 }}>
-        <a href={publicUrl} target="_blank" style={linkStyle}>Download</a>
-      </div>
-    </div>
-  )
-})}
+            return (
+              <div key={c.id} style={rowCard}>
+                <div style={urlCell}>{urlData?.url}</div>
+                <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
+                <div style={{ flex: 1 }}>
+                  <StatusBadge status={c.status} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={linkStyle}>
+                    Download
+                  </a>
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>
@@ -330,17 +386,17 @@ async function addUrl() {
 /* STYLES */
 
 const topBar = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
+  display: "flex" as const,
+  justifyContent: "space-between" as const,
+  alignItems: "center" as const,
   padding: "20px 40px",
-  borderBottom: "1px solid #eee"
+  borderBottom: "1px solid #eee",
 }
 
 const title = {
   fontSize: 26,
   marginBottom: 24,
-  fontWeight: 700
+  fontWeight: 700,
 }
 
 const urlCell: React.CSSProperties = {
@@ -349,7 +405,7 @@ const urlCell: React.CSSProperties = {
   whiteSpace: "normal",
   lineHeight: "1.4",
   fontSize: 13,
-  color: "#333"
+  color: "#333",
 }
 
 const cardStyle = {
@@ -357,27 +413,27 @@ const cardStyle = {
   padding: 24,
   borderRadius: 14,
   border: "1px solid #eee",
-  marginTop: 20
+  marginTop: 20,
 }
 
 const sectionTitle = {
   fontSize: 16,
   fontWeight: 600,
-  marginBottom: 12
+  marginBottom: 12,
 }
 
 const rowCard = {
-  display: "flex",
+  display: "flex" as const,
   padding: "14px 16px",
   marginTop: 8,
   background: "#fff",
   borderRadius: 10,
   border: "1px solid #f1f1f1",
-  gap: 12
+  gap: 12,
 }
 
 const headerRow = {
-  display: "flex",
+  display: "flex" as const,
   padding: "8px 14px",
   marginTop: 10,
   color: "#6B7280",
@@ -389,7 +445,7 @@ const inputStyle = {
   padding: "10px",
   borderRadius: 8,
   border: "1px solid #ddd",
-  background: "#fff"
+  background: "#fff",
 }
 
 const searchStyle = {
@@ -407,20 +463,32 @@ const buttonPrimary = {
   borderRadius: 8,
   border: "none",
   fontWeight: 600,
-  cursor: "pointer"
+  cursor: "pointer",
+}
+
+const buttonSecondary = {
+  background: "#6366f1",
+  color: "#fff",
+  padding: "8px 16px",
+  borderRadius: 6,
+  border: "none",
+  cursor: "pointer",
+  fontWeight: 500,
+  fontSize: 13,
 }
 
 const buttonDanger = {
   background: "#ef4444",
   color: "#fff",
-  padding: "6px 12px",
+  padding: "8px 16px",
   borderRadius: 6,
   border: "none",
-  cursor: "pointer"
+  cursor: "pointer",
+  fontWeight: 500,
+  fontSize: 13,
 }
 
 const linkStyle = {
   color: "#7C3AED",
-  fontWeight: 500
+  fontWeight: 500,
 }
-
