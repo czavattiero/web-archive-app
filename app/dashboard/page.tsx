@@ -85,24 +85,25 @@ export default function Dashboard() {
       albertaDate.toLocaleString("en-US", { timeZone: "UTC" })
     ).toISOString()
   } else {
-    // For weekly, biweekly, 29 days, 30 days: set to 9 AM tomorrow (or today if before 9 AM)
+    // For weekly, biweekly, 29 days, 30 days: calculate based on schedule type
     const now = new Date()
     const albertaNow = new Date(
       now.toLocaleString("en-US", { timeZone: "America/Edmonton" })
     )
     
     const nextCapture = new Date(albertaNow)
-    const hoursUntil9AM = 9 - albertaNow.getHours()
     
-    if (hoursUntil9AM > 0) {
-      // Before 9 AM today
-      nextCapture.setHours(9, 0, 0, 0)
-    } else {
-      // After 9 AM today, set for tomorrow 9 AM
-      nextCapture.setDate(nextCapture.getDate() + 1)
-      nextCapture.setHours(9, 0, 0, 0)
-    }
+    // Calculate days to add based on schedule type
+    let daysToAdd = 7 // default: weekly
+    if (schedule === "biweekly") daysToAdd = 14
+    if (schedule === "29days") daysToAdd = 29
+    if (schedule === "30days") daysToAdd = 30
     
+    // Always set next capture to 9 AM on the scheduled day
+    nextCapture.setDate(nextCapture.getDate() + daysToAdd)
+    nextCapture.setHours(9, 0, 0, 0)
+    
+    // Convert back to UTC
     nextCaptureISO = new Date(
       nextCapture.toLocaleString("en-US", { timeZone: "UTC" })
     ).toISOString()
@@ -131,7 +132,7 @@ export default function Dashboard() {
     const response = await fetch("/api/capture", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url_id: null, immediate: true }),
+      body: JSON.stringify({ immediate: true }),
     })
 
     const data = await response.json()
