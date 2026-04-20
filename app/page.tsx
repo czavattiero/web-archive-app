@@ -156,11 +156,11 @@ export default function Home() {
           {/* BASIC */}
           <div style={card}>
             <h3>Basic</h3>
-            <p style={price}>$15</p>
-            <p style={muted}>per month</p>
+            <p style={price}>$12</p>
+            <p style={muted}>CAD / month</p>
 
             <ul style={list}>
-              <li>10 URLs</li>
+              <li>Up to 15 URLs every 30 days</li>
               <li>Scheduled captures</li>
               <li>PDF downloads</li>
             </ul>
@@ -173,11 +173,11 @@ export default function Home() {
           {/* PRO */}
           <div style={{ ...card, border: "2px solid #6A11CB" }}>
             <h3>Professional</h3>
-            <p style={price}>$30</p>
-            <p style={muted}>per month</p>
+            <p style={price}>$25</p>
+            <p style={muted}>CAD / month</p>
 
             <ul style={list}>
-              <li>20–50 URLs</li>
+              <li>Up to 40 URLs every 30 days</li>
               <li>Scheduled captures</li>
               <li>PDF downloads</li>
             </ul>
@@ -187,11 +187,11 @@ export default function Home() {
             </a>
           </div>
 
-          {/* CUSTOM PLAN */}
+          {/* ENTERPRISE */}
           <div style={card}>
-            <h3>Custom</h3>
+            <h3>Enterprise</h3>
             <p style={price}>Custom</p>
-            <p style={muted}>enterprise</p>
+            <p style={muted}>custom pricing</p>
 
             <ul style={list}>
               <li>Unlimited URLs</li>
@@ -203,7 +203,7 @@ export default function Home() {
               Contact:
             </p>
             <p style={{ color: "#6A11CB" }}>
-              support@screenly.app
+              support@screenly.ca
             </p>
           </div>
         </div>

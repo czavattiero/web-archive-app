@@ -208,7 +208,7 @@ export default function Dashboard() {
         } else if (errData.limitReached) {
           const isBasicPlan = errData.plan !== "pro"
           const upgradePrompt = isBasicPlan
-            ? "\n\nWould you like to upgrade to Pro for up to 50 URLs/30 days?"
+            ? "\n\nWould you like to upgrade to Pro for up to 40 URLs/30 days?"
             : ""
           const shouldUpgrade = isBasicPlan && window.confirm(errData.error + upgradePrompt)
           if (shouldUpgrade) handleUpgrade()
@@ -388,7 +388,7 @@ export default function Dashboard() {
 
           <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 12 }}>
             {plan === "pro"
-              ? `Pro plan · ${urlCount30d}/50 URLs added in last 30 days`
+              ? `Professional plan · ${urlCount30d}/40 URLs added in last 30 days`
               : plan === "trial"
               ? `Free trial · ${urlCount30d}/15 URLs added in last 30 days`
               : `Basic plan · ${urlCount30d}/15 URLs added in last 30 days`}
