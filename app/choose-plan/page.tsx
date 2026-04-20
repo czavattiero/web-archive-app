@@ -62,10 +62,10 @@ export default function ChoosePlanPage() {
         {/* BASIC */}
         <div style={cardStyle}>
           <h3 style={{ fontSize: 20, fontWeight: 700 }}>Basic</h3>
-          <p style={{ fontSize: 36, fontWeight: 800, margin: "12px 0 4px" }}>$15</p>
-          <p style={{ color: "#6B7280", marginBottom: 20 }}>per month</p>
+          <p style={{ fontSize: 36, fontWeight: 800, margin: "12px 0 4px" }}>$12</p>
+          <p style={{ color: "#6B7280", marginBottom: 20 }}>CAD / month</p>
           <ul style={{ listStyle: "none", padding: 0, lineHeight: 2, color: "#374151" }}>
-            <li>✓ 15 URLs per 30 days</li>
+            <li>✓ Up to 15 URLs every 30 days</li>
             <li>✓ Scheduled captures</li>
             <li>✓ PDF downloads</li>
           </ul>
@@ -81,10 +81,10 @@ export default function ChoosePlanPage() {
         {/* PRO */}
         <div style={{ ...cardStyle, border: "2px solid #6A11CB" }}>
           <h3 style={{ fontSize: 20, fontWeight: 700 }}>Professional</h3>
-          <p style={{ fontSize: 36, fontWeight: 800, margin: "12px 0 4px" }}>$30</p>
-          <p style={{ color: "#6B7280", marginBottom: 20 }}>per month</p>
+          <p style={{ fontSize: 36, fontWeight: 800, margin: "12px 0 4px" }}>$25</p>
+          <p style={{ color: "#6B7280", marginBottom: 20 }}>CAD / month</p>
           <ul style={{ listStyle: "none", padding: 0, lineHeight: 2, color: "#374151" }}>
-            <li>✓ 50 URLs per 30 days</li>
+            <li>✓ Up to 40 URLs every 30 days</li>
             <li>✓ Scheduled captures</li>
             <li>✓ PDF downloads</li>
           </ul>

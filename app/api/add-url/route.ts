@@ -7,7 +7,7 @@ const supabaseAdmin = createClient(
 )
 
 const PLAN_LIMITS: Record<string, number> = {
-  pro: 50,
+  pro: 40,
   basic: 15,
   trial: 15,
 }
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
       {
         error: `You've reached the ${planLabel} plan limit of ${limit} URLs per 30 days. ${
           plan !== "pro"
-            ? "Upgrade to Pro for up to 50 URLs per 30 days."
+            ? "Upgrade to Pro for up to 40 URLs per 30 days."
             : ""
         }`,
         limitReached: true,
