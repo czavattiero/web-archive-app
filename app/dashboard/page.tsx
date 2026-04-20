@@ -11,6 +11,9 @@ export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [billingLoading, setBillingLoading] = useState(false)
+  const [plan, setPlan] = useState<string>("basic")
+  const [upgradeLoading, setUpgradeLoading] = useState(false)
+  const [urlCount30d, setUrlCount30d] = useState(0)
 
   const [url, setUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
@@ -31,6 +34,15 @@ export default function Dashboard() {
 
       setUser(data.user)
       setLoading(false)
+
+      // Fetch user plan
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("plan")
+        .eq("id", data.user.id)
+        .maybeSingle()
+      setPlan(profile?.plan || "basic")
+
       fetchData(data.user)
     }
 
@@ -57,6 +69,16 @@ export default function Dashboard() {
 
     setUrls(urlsData || [])
     setCaptures(capturesData || [])
+
+    // Count URLs created in last 30 days for limit display
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const { count } = await supabase
+      .from("urls")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", currentUser.id)
+      .gte("created_at", thirtyDaysAgo.toISOString())
+    setUrlCount30d(count ?? 0)
   }
 
   async function handleManageBilling() {
@@ -82,6 +104,27 @@ export default function Dashboard() {
       alert("Error opening billing portal: " + err.message)
     } finally {
       setBillingLoading(false)
+    }
+  }
+
+  async function handleUpgrade() {
+    setUpgradeLoading(true)
+    try {
+      const response = await fetch("/api/upgrade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user?.id }),
+      })
+      const data = await response.json()
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        alert("Failed to start upgrade: " + (data.error || "Unknown error"))
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message)
+    } finally {
+      setUpgradeLoading(false)
     }
   }
 
@@ -134,30 +177,38 @@ export default function Dashboard() {
 
       console.log("📅 Next capture scheduled for:", nextCaptureISO)
 
-      // Insert the URL with last_captured_at = NULL (marks it as "needs immediate capture")
-      const { data: insertedData, error: insertError } = await supabase
-        .from("urls")
-        .insert([
-          {
-            url: url.trim(),
-            user_id: user.id,
-            next_capture_at: nextCaptureISO,
-            last_captured_at: null, // NULL = needs immediate capture
-            schedule_type: schedule,
-            schedule_value: schedule === "custom" ? customDate : null,
-            status: "active",
-          },
-        ])
-        .select()
+      // Insert URL via server-side API (enforces plan limits)
+      const addResponse = await fetch("/api/add-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id,
+          url: url.trim(),
+          schedule_type: schedule,
+          schedule_value: schedule === "custom" ? customDate : null,
+          next_capture_at: nextCaptureISO,
+        }),
+      })
 
-      if (insertError) {
-        console.error("❌ Database error:", insertError)
-        alert("Failed to add URL: " + insertError.message)
+      if (!addResponse.ok) {
+        const errData = await addResponse.json()
+        if (errData.limitReached) {
+          const isBasicPlan = errData.plan !== "pro"
+          const upgradePrompt = isBasicPlan
+            ? "\n\nWould you like to upgrade to Pro for up to 50 URLs/30 days?"
+            : ""
+          const shouldUpgrade = isBasicPlan && window.confirm(errData.error + upgradePrompt)
+          if (shouldUpgrade) handleUpgrade()
+          else if (!isBasicPlan) alert(errData.error)
+        } else {
+          alert("Failed to add URL: " + errData.error)
+        }
         return
       }
 
-      const newUrlId = insertedData?.[0]?.id
-      console.log("✅ URL added to database with ID:", newUrlId)
+      const { url: newUrl } = await addResponse.json()
+      const newUrlId = newUrl?.id
+      console.log("✅ URL added with ID:", newUrlId)
 
       // Trigger workflow to capture new URLs
       try {
@@ -256,6 +307,15 @@ export default function Dashboard() {
 
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <div style={{ fontSize: 14, color: "#555" }}>{user?.email}</div>
+          {plan !== "pro" && (
+            <button
+              onClick={handleUpgrade}
+              disabled={upgradeLoading}
+              style={upgradeLoading ? { ...buttonUpgrade, opacity: 0.7 } : buttonUpgrade}
+            >
+              {upgradeLoading ? "Loading..." : "⚡ Upgrade to Pro"}
+            </button>
+          )}
           <button 
             onClick={handleManageBilling} 
             disabled={billingLoading} 
@@ -275,6 +335,23 @@ export default function Dashboard() {
         {/* ADD URL */}
         <div style={cardStyle}>
           <h3 style={sectionTitle}>Add URL</h3>
+
+          <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 12 }}>
+            {plan === "pro"
+              ? `Pro plan · ${urlCount30d}/50 URLs added in last 30 days`
+              : `Basic plan · ${urlCount30d}/15 URLs added in last 30 days`}
+            {plan !== "pro" && urlCount30d >= BASIC_PLAN_WARNING_THRESHOLD && (
+              <span style={{ color: "#DC2626", marginLeft: 8 }}>
+                Approaching limit —{" "}
+                <button
+                  onClick={handleUpgrade}
+                  style={{ background: "none", border: "none", color: "#7C3AED", cursor: "pointer", fontWeight: 600, padding: 0 }}
+                >
+                  Upgrade to Pro
+                </button>
+              </span>
+            )}
+          </div>
 
           <div style={{ display: "flex", gap: 10 }}>
             <input
@@ -487,6 +564,19 @@ const buttonDanger = {
   fontWeight: 500,
   fontSize: 13,
 }
+
+const buttonUpgrade = {
+  background: "#059669",
+  color: "#fff",
+  padding: "8px 16px",
+  borderRadius: 6,
+  border: "none",
+  cursor: "pointer",
+  fontWeight: 600,
+  fontSize: 13,
+}
+
+const BASIC_PLAN_WARNING_THRESHOLD = 12
 
 const linkStyle = {
   color: "#7C3AED",
