@@ -70,7 +70,7 @@ export default function Home() {
           </p>
 
           <div style={{ marginTop: 30 }}>
-            <a href="/signup">
+            <a href="/signup?plan=trial">
               <button
                 style={{
                   background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
@@ -85,6 +85,9 @@ export default function Home() {
                 Start Free
               </button>
             </a>
+            <p style={{ marginTop: 10, fontSize: 13, color: "#6B7280" }}>
+              15-day free trial · No credit card required
+            </p>
           </div>
         </div>
 
