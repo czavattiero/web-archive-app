@@ -9,6 +9,7 @@ const supabaseAdmin = createClient(
 const PLAN_LIMITS: Record<string, number> = {
   pro: 50,
   basic: 15,
+  trial: 15,
 }
 
 export async function POST(req: Request) {
@@ -22,11 +23,23 @@ export async function POST(req: Request) {
   // Get user plan
   const { data: profile } = await supabaseAdmin
     .from("profiles")
-    .select("plan")
+    .select("plan, subscribed, trial_ends_at")
     .eq("id", userId)
     .maybeSingle()
 
   const plan: string = profile?.plan || "basic"
+
+  // Check trial expiry
+  const isTrial = profile?.plan === "trial" && !profile?.subscribed
+  const trialExpired = isTrial && profile?.trial_ends_at && new Date(profile.trial_ends_at) < new Date()
+
+  if (trialExpired) {
+    return NextResponse.json(
+      { error: "Your free trial has expired. Please choose a plan to continue.", trialExpired: true },
+      { status: 403 }
+    )
+  }
+
   const limit = PLAN_LIMITS[plan] ?? 15
 
   // Count URLs created in the last 30 days

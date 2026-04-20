@@ -14,6 +14,7 @@ export default function Dashboard() {
   const [plan, setPlan] = useState<string>("basic")
   const [upgradeLoading, setUpgradeLoading] = useState(false)
   const [urlCount30d, setUrlCount30d] = useState(0)
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
 
   const [url, setUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
@@ -38,10 +39,19 @@ export default function Dashboard() {
       // Fetch user plan
       const { data: profile } = await supabase
         .from("profiles")
-        .select("plan")
+        .select("plan, subscribed, trial_ends_at")
         .eq("id", data.user.id)
         .maybeSingle()
       setPlan(profile?.plan || "basic")
+      setTrialEndsAt(profile?.trial_ends_at || null)
+
+      const isTrial = (profile?.plan === "trial" || !profile?.plan) && !profile?.subscribed
+      const trialExpired = profile?.trial_ends_at && new Date(profile.trial_ends_at) < new Date()
+
+      if (isTrial && trialExpired) {
+        router.replace("/choose-plan")
+        return
+      }
 
       fetchData(data.user)
     }
@@ -192,7 +202,10 @@ export default function Dashboard() {
 
       if (!addResponse.ok) {
         const errData = await addResponse.json()
-        if (errData.limitReached) {
+        if (errData.trialExpired) {
+          router.push("/choose-plan")
+          return
+        } else if (errData.limitReached) {
           const isBasicPlan = errData.plan !== "pro"
           const upgradePrompt = isBasicPlan
             ? "\n\nWould you like to upgrade to Pro for up to 50 URLs/30 days?"
@@ -313,7 +326,7 @@ export default function Dashboard() {
               disabled={upgradeLoading}
               style={upgradeLoading ? { ...buttonUpgrade, opacity: 0.7 } : buttonUpgrade}
             >
-              {upgradeLoading ? "Loading..." : "⚡ Upgrade to Pro"}
+              {upgradeLoading ? "Loading..." : plan === "trial" ? "⚡ Choose a Plan" : "⚡ Upgrade to Pro"}
             </button>
           )}
           <button 
@@ -329,6 +342,43 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {plan === "trial" && trialEndsAt && new Date(trialEndsAt) > new Date() && (() => {
+        const daysLeft = Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        return (
+          <div style={{
+            background: daysLeft <= 3 ? "#FEF3C7" : "#EEF2FF",
+            borderBottom: `1px solid ${daysLeft <= 3 ? "#FCD34D" : "#C7D2FE"}`,
+            padding: "12px 40px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            fontSize: 14,
+          }}>
+            <span style={{ color: daysLeft <= 3 ? "#92400E" : "#3730A3", fontWeight: 500 }}>
+              {daysLeft <= 1
+                ? "⚠️ Your free trial expires today!"
+                : `⏳ Free trial: ${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining`}
+            </span>
+            <button
+              onClick={handleUpgrade}
+              disabled={upgradeLoading}
+              style={{
+                background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
+                color: "#fff",
+                border: "none",
+                padding: "8px 18px",
+                borderRadius: 8,
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: "pointer",
+              }}
+            >
+              {upgradeLoading ? "Loading..." : "Choose a Plan"}
+            </button>
+          </div>
+        )
+      })()}
+
       <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
         <h1 style={title}>Dashboard</h1>
 
@@ -339,6 +389,8 @@ export default function Dashboard() {
           <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 12 }}>
             {plan === "pro"
               ? `Pro plan · ${urlCount30d}/50 URLs added in last 30 days`
+              : plan === "trial"
+              ? `Free trial · ${urlCount30d}/15 URLs added in last 30 days`
               : `Basic plan · ${urlCount30d}/15 URLs added in last 30 days`}
             {plan !== "pro" && urlCount30d >= BASIC_PLAN_WARNING_THRESHOLD && (
               <span style={{ color: "#DC2626", marginLeft: 8 }}>

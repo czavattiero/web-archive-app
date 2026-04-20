@@ -7,7 +7,7 @@ import { supabase } from "../../lib/supabase"
 export default function SignupPage() {
 
   const searchParams = useSearchParams()
-  const plan = searchParams.get("plan") || "basic"
+  const plan = searchParams.get("plan") || "trial"
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -54,26 +54,32 @@ export default function SignupPage() {
       await supabase.from("profiles").upsert({
         id: userData.user.id,
         email: userData.user.email,
-        subscribed: false
+        subscribed: false,
+        plan: "trial",
+        trial_ends_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
       })
 
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ email, plan })
-      })
+      if (plan === "basic" || plan === "pro") {
+        const res = await fetch("/api/checkout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ email, plan })
+        })
 
-      const data = await res.json()
+        const data = await res.json()
 
-      if (!data.url) {
-        setError("Checkout failed")
-        setLoading(false)
-        return
+        if (!data.url) {
+          setError("Checkout failed")
+          setLoading(false)
+          return
+        }
+
+        window.location.href = data.url
+      } else {
+        window.location.href = "/dashboard"
       }
-
-      window.location.href = data.url
 
     } catch (err) {
       console.error("Signup error:", err)
@@ -109,6 +115,12 @@ export default function SignupPage() {
         }}>
           Create your account
         </h1>
+
+        {(plan !== "basic" && plan !== "pro") && (
+          <p style={{ textAlign: "center", color: "#6B7280", marginBottom: 16, fontSize: 14 }}>
+            15-day free trial · No credit card required
+          </p>
+        )}
 
         <form onSubmit={handleSignup} style={{
           display: "flex",
@@ -157,7 +169,7 @@ export default function SignupPage() {
               opacity: loading ? 0.7 : 1
             }}
           >
-            {loading ? "Creating account..." : "Continue to payment"}
+            {loading ? "Creating account..." : (plan === "basic" || plan === "pro") ? "Continue to payment" : "Start Free Trial"}
           </button>
 
         </form>
