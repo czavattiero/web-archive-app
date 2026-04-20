@@ -1,6 +1,8 @@
 name: Web Archive Capture Worker
 
 on:
+  schedule:
+    - cron: "0 14 * * *"   # Daily at 14:00 UTC (≈ 08:00 Alberta MDT)
   workflow_dispatch:
     inputs:
       capture_mode:
@@ -31,5 +33,5 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          CAPTURE_MODE: ${{ github.event.inputs.capture_mode }}
+          CAPTURE_MODE: ${{ github.event.inputs.capture_mode || 'SCHEDULED' }}
         run: node worker/capture.js

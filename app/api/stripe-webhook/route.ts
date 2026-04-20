@@ -67,12 +67,25 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true })
       }
 
+      // ✅ Detect plan from subscription price
+      let plan = "basic"
+      if (subscriptionId) {
+        const sub = await stripe.subscriptions.retrieve(subscriptionId)
+        const priceId = sub.items.data[0]?.price?.id
+        if (!priceId) {
+          console.warn("⚠️ Could not determine price ID from subscription", subscriptionId)
+        } else if (priceId === process.env.STRIPE_PRO_PRICE_ID) {
+          plan = "pro"
+        }
+      }
+
       // ✅ Ensure profile is updated
       await supabase
         .from("profiles")
         .update({
           stripe_customer_id: customerId,
           subscribed: true,
+          plan,
         })
         .eq("id", userId)
 
@@ -148,6 +161,18 @@ if (event.type === "invoice.payment_succeeded") {
 
   const subscriptionId = invoice.subscription as string
 
+  // ✅ Detect plan from subscription price
+  let plan = "basic"
+  if (subscriptionId) {
+    const sub = await stripe.subscriptions.retrieve(subscriptionId)
+    const priceId = sub.items.data[0]?.price?.id
+    if (!priceId) {
+      console.warn("⚠️ Could not determine price ID from subscription", subscriptionId)
+    } else if (priceId === process.env.STRIPE_PRO_PRICE_ID) {
+      plan = "pro"
+    }
+  }
+
   // ✅ INSERT / UPDATE SUBSCRIPTION
   await supabase.from("subscriptions").upsert(
     {
@@ -167,6 +192,7 @@ if (event.type === "invoice.payment_succeeded") {
     .update({
       subscribed: true,
       stripe_customer_id: customerId,
+      plan,
     })
     .eq("id", userId)
 }
@@ -177,12 +203,20 @@ if (event.type === "invoice.payment_succeeded") {
     if (event.type === "customer.subscription.updated") {
       const subscription = event.data.object as Stripe.Subscription
 
+      const priceId = subscription.items.data[0]?.price?.id
+      const plan = priceId === process.env.STRIPE_PRO_PRICE_ID ? "pro" : "basic"
+
       await supabase
         .from("subscriptions")
         .update({
           status: subscription.status,
         })
         .eq("stripe_subscription_id", subscription.id)
+
+      await supabase
+        .from("profiles")
+        .update({ plan })
+        .eq("stripe_customer_id", subscription.customer as string)
     }
 
     // =====================================================
@@ -206,6 +240,7 @@ if (event.type === "invoice.payment_succeeded") {
         .from("profiles")
         .update({
           subscribed: false,
+          plan: "basic",
         })
         .eq("stripe_customer_id", customerId)
     }
