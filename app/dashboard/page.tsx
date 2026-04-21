@@ -282,7 +282,7 @@ export default function Dashboard() {
 
   function StatusBadge({ status }: { status: string }) {
     const base = {
-      padding: "4px 10px",
+      padding: "3px 10px",
       borderRadius: 999,
       fontSize: 12,
       fontWeight: 600,
@@ -290,13 +290,13 @@ export default function Dashboard() {
     }
 
     if (status === "active")
-      return <span style={{ ...base, background: "#DCFCE7", color: "#166534" }}>Active</span>
+      return <span style={{ ...base, background: "#DCFCE7", color: "#15803D" }}>Active</span>
 
     if (status === "completed")
-      return <span style={{ ...base, background: "#E0E7FF", color: "#3730A3" }}>Completed</span>
+      return <span style={{ ...base, background: "#EEF2FF", color: "#4338CA" }}>Completed</span>
 
     if (status === "failed")
-      return <span style={{ ...base, background: "#FEE2E2", color: "#991B1B" }}>Failed</span>
+      return <span style={{ ...base, background: "#FEE2E2", color: "#B91C1C" }}>Failed</span>
 
     return <span style={{ ...base, background: "#E5E7EB", color: "#374151" }}>{status}</span>
   }
@@ -313,13 +313,13 @@ export default function Dashboard() {
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
   return (
-    <div style={{ minHeight: "100vh", background: "#ffffff" }}>
+    <div style={{ minHeight: "100vh", background: "#F9FAFB", fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* TOP BAR */}
       <div style={topBar}>
-        <img src="/screenly-logo.png" style={{ width: 140 }} />
+        <img src="/screenly-logo.png" alt="Screenly logo" style={{ height: 48 }} />
 
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <div style={{ fontSize: 14, color: "#555" }}>{user?.email}</div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ fontSize: 13, color: "#6B7280" }}>{user?.email}</div>
           {plan !== "pro" && (
             <button
               onClick={handleUpgrade}
@@ -379,25 +379,35 @@ export default function Dashboard() {
         )
       })()}
 
-      <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
+      <div style={{ padding: "32px 40px", maxWidth: 1200, margin: "0 auto" }}>
         <h1 style={title}>Dashboard</h1>
 
         {/* ADD URL */}
         <div style={cardStyle}>
           <h3 style={sectionTitle}>Add URL</h3>
 
-          <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 12 }}>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            background: "#F3F4F6",
+            borderRadius: 999,
+            padding: "4px 12px",
+            fontSize: 12,
+            color: "#6B7280",
+            fontWeight: 500,
+            marginBottom: 16,
+          }}>
             {plan === "pro"
-              ? `Professional plan · ${urlCount30d}/40 URLs added in last 30 days`
+              ? `Professional plan · ${urlCount30d}/40 URLs in last 30 days`
               : plan === "trial"
-              ? `Free trial · ${urlCount30d}/15 URLs added in last 30 days`
-              : `Basic plan · ${urlCount30d}/15 URLs added in last 30 days`}
+              ? `Free trial · ${urlCount30d}/15 URLs in last 30 days`
+              : `Basic plan · ${urlCount30d}/15 URLs in last 30 days`}
             {plan !== "pro" && urlCount30d >= BASIC_PLAN_WARNING_THRESHOLD && (
               <span style={{ color: "#DC2626", marginLeft: 8 }}>
                 Approaching limit —{" "}
                 <button
                   onClick={handleUpgrade}
-                  style={{ background: "none", border: "none", color: "#7C3AED", cursor: "pointer", fontWeight: 600, padding: 0 }}
+                  style={{ background: "none", border: "none", color: "#6A11CB", cursor: "pointer", fontWeight: 600, padding: 0 }}
                 >
                   Upgrade to Pro
                 </button>
@@ -518,119 +528,142 @@ const topBar = {
   display: "flex" as const,
   justifyContent: "space-between" as const,
   alignItems: "center" as const,
-  padding: "20px 40px",
-  borderBottom: "1px solid #eee",
+  padding: "14px 40px",
+  background: "#ffffff",
+  borderBottom: "1px solid #E5E7EB",
+  position: "sticky" as const,
+  top: 0,
+  zIndex: 10,
 }
 
 const title = {
-  fontSize: 26,
+  fontSize: 28,
   marginBottom: 24,
   fontWeight: 700,
+  color: "#111827",
 }
 
 const urlCell: React.CSSProperties = {
   flex: 3,
   wordBreak: "break-all",
   whiteSpace: "normal",
-  lineHeight: "1.4",
+  lineHeight: "1.5",
   fontSize: 13,
-  color: "#333",
+  color: "#111827",
+  fontWeight: 500,
 }
 
 const cardStyle = {
-  background: "#fff",
-  padding: 24,
-  borderRadius: 14,
-  border: "1px solid #eee",
+  background: "#ffffff",
+  padding: "24px 28px",
+  borderRadius: 16,
+  border: "1px solid #E5E7EB",
   marginTop: 20,
+  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
 }
 
 const sectionTitle = {
-  fontSize: 16,
+  fontSize: 15,
   fontWeight: 600,
   marginBottom: 12,
+  color: "#111827",
 }
 
 const rowCard = {
   display: "flex" as const,
   padding: "14px 16px",
-  marginTop: 8,
-  background: "#fff",
-  borderRadius: 10,
-  border: "1px solid #f1f1f1",
+  alignItems: "center" as const,
   gap: 12,
+  borderBottom: "1px solid #F9FAFB",
+  fontSize: 14,
+  color: "#374151",
 }
 
 const headerRow = {
   display: "flex" as const,
-  padding: "8px 14px",
-  marginTop: 10,
+  padding: "8px 16px",
+  marginTop: 4,
   color: "#6B7280",
   fontWeight: 600,
   fontSize: 12,
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.5px",
+  borderBottom: "1px solid #F3F4F6",
 }
 
 const inputStyle = {
-  padding: "10px",
+  padding: "10px 14px",
   borderRadius: 8,
-  border: "1px solid #ddd",
-  background: "#fff",
+  border: "1.5px solid #E5E7EB",
+  background: "#F9FAFB",
+  fontSize: 14,
+  color: "#111827",
+  outline: "none",
 }
 
 const searchStyle = {
   width: "100%",
-  padding: "10px",
-  marginTop: 10,
+  padding: "10px 14px",
+  marginBottom: 16,
   borderRadius: 8,
-  border: "1px solid #ddd",
+  border: "1.5px solid #E5E7EB",
+  background: "#F9FAFB",
+  fontSize: 14,
+  color: "#111827",
+  boxSizing: "border-box" as const,
 }
 
 const buttonPrimary = {
-  background: "#7C3AED",
+  background: "#6A11CB",
   color: "#fff",
-  padding: "10px 16px",
+  padding: "10px 22px",
   borderRadius: 8,
   border: "none",
   fontWeight: 600,
+  fontSize: 14,
   cursor: "pointer",
+  whiteSpace: "nowrap" as const,
 }
 
 const buttonSecondary = {
-  background: "#6366f1",
-  color: "#fff",
-  padding: "8px 16px",
-  borderRadius: 6,
-  border: "none",
+  background: "#ffffff",
+  color: "#6A11CB",
+  padding: "9px 18px",
+  borderRadius: 8,
+  border: "1.5px solid #6A11CB",
   cursor: "pointer",
-  fontWeight: 500,
+  fontWeight: 600,
   fontSize: 13,
 }
 
 const buttonDanger = {
-  background: "#ef4444",
-  color: "#fff",
-  padding: "8px 16px",
-  borderRadius: 6,
-  border: "none",
+  background: "#F3F4F6",
+  color: "#374151",
+  padding: "9px 18px",
+  borderRadius: 8,
+  border: "1px solid #E5E7EB",
   cursor: "pointer",
-  fontWeight: 500,
+  fontWeight: 600,
   fontSize: 13,
 }
 
 const buttonUpgrade = {
-  background: "#059669",
+  background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
   color: "#fff",
-  padding: "8px 16px",
-  borderRadius: 6,
+  padding: "9px 18px",
+  borderRadius: 8,
   border: "none",
   cursor: "pointer",
   fontWeight: 600,
   fontSize: 13,
+  letterSpacing: "0.2px",
 }
 
 const BASIC_PLAN_WARNING_THRESHOLD = 12
 
 const linkStyle = {
-  color: "#7C3AED",
-  fontWeight: 500,
+  color: "#6A11CB",
+  fontWeight: 600,
+  fontSize: 13,
+  textDecoration: "none",
 }
