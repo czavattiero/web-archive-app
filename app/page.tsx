@@ -127,29 +127,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* SOCIAL PROOF BAR */}
-      <div style={{
-        background: "#F9FAFB",
-        borderTop: "1px solid #E5E7EB",
-        borderBottom: "1px solid #E5E7EB",
-        padding: "20px 80px",
-        display: "flex",
-        justifyContent: "center",
-        gap: 60,
-        alignItems: "center",
-      }}>
-        {[
-          "✅ Timestamped proof",
-          "📄 PDF download",
-          "🔁 Scheduled captures",
-          "🔒 Secure storage",
-        ].map((item) => (
-          <span key={item} style={{ fontSize: 14, fontWeight: 500, color: "#6B7280" }}>
-            {item}
-          </span>
-        ))}
-      </div>
-
       {/* HOW IT WORKS */}
       <section style={{
         maxWidth: 1100,
@@ -244,7 +221,7 @@ export default function Home() {
           <div style={{
             position: "relative" as const,
             width: "100%",
-            paddingBottom: "56.25%", // 16:9 ratio
+            paddingBottom: "56.25%",
             borderRadius: 16,
             overflow: "hidden",
             boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
@@ -256,7 +233,7 @@ export default function Home() {
               Replace the div below with:
               <iframe
                 src="https://www.youtube.com/embed/YOUR_VIDEO_ID"
-                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%, border: "none" }}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
@@ -337,7 +314,7 @@ export default function Home() {
             </div>
             <p style={{ fontSize: 13, color: "#6B7280", margin: "0 0 28px" }}>CAD / month</p>
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column" as const, gap: 12 }}>
-              {["Up to 15 URLs every 30 days", "Scheduled captures", "PDF downloads"].map(f => (
+              {"Up to 15 URLs every 30 days".split(',').map(f => (
                 <li key={f} style={{ display: "flex", gap: 10, fontSize: 14, color: "#374151", alignItems: "flex-start" }}>
                   <span style={{ color: "#6A11CB", fontWeight: 700, flexShrink: 0 }}>✓</span> {f}
                 </li>
@@ -393,7 +370,7 @@ export default function Home() {
             </div>
             <p style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", margin: "0 0 28px" }}>CAD / month</p>
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column" as const, gap: 12 }}>
-              {["Up to 40 URLs every 30 days", "Scheduled captures", "PDF downloads"].map(f => (
+              {"Up to 40 URLs every 30 days".split(',').map(f => (
                 <li key={f} style={{ display: "flex", gap: 10, fontSize: 14, color: "rgba(255,255,255,0.9)", alignItems: "flex-start" }}>
                   <span style={{ color: "#FCD34D", fontWeight: 700, flexShrink: 0 }}>✓</span> {f}
                 </li>
@@ -432,7 +409,7 @@ export default function Home() {
             </div>
             <p style={{ fontSize: 13, color: "#6B7280", margin: "0 0 28px" }}>custom pricing</p>
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column" as const, gap: 12 }}>
-              {["Unlimited URLs", "Scheduled captures", "PDF downloads"].map(f => (
+              {"Unlimited URLs,Scheduled captures,PDF downloads".split(',').map(f => (
                 <li key={f} style={{ display: "flex", gap: 10, fontSize: 14, color: "#374151", alignItems: "flex-start" }}>
                   <span style={{ color: "#6A11CB", fontWeight: 700, flexShrink: 0 }}>✓</span> {f}
                 </li>
