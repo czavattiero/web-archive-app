@@ -343,12 +343,38 @@ async function runWorker() {
       })
 
       // Update URL: set last_captured_at and next_capture_at
-      const nextCaptureAt = calculateNextCapture(item.schedule_type)
+      let nextCaptureAt
+      let nextStatus
+
+      if (item.schedule_type === "custom") {
+        if (captureMode === "IMMEDIATE") {
+          // First snapshot done — still need to capture on the user's chosen date
+          const parsedDate = DateTime.fromISO(item.schedule_value, { zone: "America/Edmonton" })
+          if (!parsedDate.isValid) {
+            console.error(`❌ Invalid schedule_value "${item.schedule_value}" for URL ${item.id} — marking completed`)
+            nextCaptureAt = null
+            nextStatus = "completed"
+          } else {
+            nextCaptureAt = parsedDate
+              .set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
+              .toUTC()
+              .toISO()
+            nextStatus = "active"
+          }
+        } else {
+          // SCHEDULED mode — this was the chosen-date capture, we're done
+          nextCaptureAt = null
+          nextStatus = "completed"
+        }
+      } else {
+        nextCaptureAt = calculateNextCapture(item.schedule_type)
+        nextStatus = "active"
+      }
 
       const updateData = {
         last_captured_at: new Date().toISOString(),
         next_capture_at: nextCaptureAt,
-        status: nextCaptureAt === null ? "completed" : "active",
+        status: nextStatus,
         retry_count: 0,
       }
 
