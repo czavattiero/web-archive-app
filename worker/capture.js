@@ -79,8 +79,12 @@ async function captureWithRetry(page, url, maxRetries = 3) {
   }
 }
 
-const MAX_RETRIES = 3
-const RETRY_DELAY_MS = 60 * 60 * 1000 // 1 hour
+const EXTENDED_RETRY_DELAYS = [
+  5 * 60 * 1000,   // 5 minutes
+  10 * 60 * 1000,  // 10 minutes
+  15 * 60 * 1000,  // 15 minutes
+]
+const MAX_RETRIES = EXTENDED_RETRY_DELAYS.length // 3
 
 async function handleRetry(item) {
   const { data: urlRecord, error: fetchError } = await supabase
@@ -97,8 +101,10 @@ async function handleRetry(item) {
   const currentRetries = urlRecord?.retry_count ?? 0
   const newRetryCount = currentRetries + 1
 
-  if (newRetryCount < MAX_RETRIES) {
-    const retryAt = new Date(Date.now() + RETRY_DELAY_MS).toISOString()
+  if (newRetryCount <= MAX_RETRIES) {
+    const delayMs = EXTENDED_RETRY_DELAYS[currentRetries]
+    const delayMin = delayMs / (60 * 1000)
+    const retryAt = new Date(Date.now() + delayMs).toISOString()
     const { error: updateError } = await supabase
       .from("urls")
       .update({
@@ -110,7 +116,7 @@ async function handleRetry(item) {
     if (updateError) {
       console.error("❌ Failed to schedule retry for URL", item.id, updateError.message)
     } else {
-      console.log(`🔁 Retry ${newRetryCount}/${MAX_RETRIES} scheduled for: ${retryAt}`)
+      console.log(`🔁 Extended retry ${newRetryCount}/${MAX_RETRIES} in ${delayMin} min scheduled for: ${retryAt}`)
     }
   } else {
     const { error: updateError } = await supabase
@@ -124,7 +130,7 @@ async function handleRetry(item) {
     if (updateError) {
       console.error("❌ Failed to mark URL as failed", item.id, updateError.message)
     } else {
-      console.log(`❌ Max retries reached for URL ${item.id} — marked as failed`)
+      console.log(`❌ All retries exhausted for URL ${item.id} — marked as failed`)
     }
   }
 }
