@@ -52,18 +52,42 @@ async function handleRetry(url) {
       console.log(`🔁 Retry ${newRetryCount}/${MAX_RETRIES} scheduled for: ${retryAt}`)
     }
   } else {
+    // All retries exhausted — schedule next capture per the URL's schedule type
+    const baseTime = new Date(url.next_capture_at || Date.now())
+    let nextCapture
+
+    switch (url.schedule_type) {
+      case "custom":
+        nextCapture = null
+        break
+      case "weekly":
+        nextCapture = new Date(baseTime.getTime() + 7 * 86400000)
+        break
+      case "biweekly":
+        nextCapture = new Date(baseTime.getTime() + 14 * 86400000)
+        break
+      case "29days":
+        nextCapture = new Date(baseTime.getTime() + 29 * 86400000)
+        break
+      case "30days":
+        nextCapture = new Date(baseTime.getTime() + 30 * 86400000)
+        break
+      default:
+        nextCapture = new Date(baseTime.getTime() + 7 * 86400000)
+    }
+
     const { error: updateError } = await supabase
       .from("urls")
       .update({
-        retry_count: newRetryCount,
-        next_capture_at: null,
-        status: "failed",
+        retry_count: 0,
+        next_capture_at: nextCapture,
+        status: nextCapture === null ? "completed" : "active",
       })
       .eq("id", url.id)
     if (updateError) {
-      console.error("❌ Failed to mark URL as failed", url.id, updateError.message)
+      console.error("❌ Failed to schedule next capture for URL", url.id, updateError.message)
     } else {
-      console.log(`❌ Max retries reached for URL ${url.id} — marked as failed`)
+      console.log(`⚠️ All retries exhausted for URL ${url.id}. Next capture: ${nextCapture}`)
     }
   }
 }
