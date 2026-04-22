@@ -147,6 +147,10 @@ async function run() {
 
       switch (url.schedule_type) {
 
+        case "custom":
+          nextCapture = null
+          break
+
         case "weekly":
           nextCapture = new Date(baseTime.getTime() + 7 * 86400000)
           break
@@ -170,7 +174,10 @@ async function run() {
 
       await supabase
         .from("urls")
-        .update({ next_capture_at: nextCapture })
+        .update({
+          next_capture_at: nextCapture,
+          status: nextCapture === null ? "completed" : "active",
+        })
         .eq("id", url.id)
 
       console.log("📅 Next capture scheduled:", nextCapture)

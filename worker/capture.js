@@ -15,6 +15,8 @@ function calculateNextCapture(scheduleType) {
   let next = now.plus({ days: 1 }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
 
   switch (scheduleType) {
+    case "custom":
+      return null
     case "weekly":
       next = now.plus({ days: 7 }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
       break
@@ -287,10 +289,12 @@ async function runWorker() {
       })
 
       // Update URL: set last_captured_at and next_capture_at
+      const nextCaptureAt = calculateNextCapture(item.schedule_type)
+
       const updateData = {
         last_captured_at: new Date().toISOString(),
-        next_capture_at: calculateNextCapture(item.schedule_type),
-        status: "active",
+        next_capture_at: nextCaptureAt,
+        status: nextCaptureAt === null ? "completed" : "active",
       }
 
       await supabase
