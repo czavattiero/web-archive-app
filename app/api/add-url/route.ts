@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
   const { data: recentUrls } = await supabaseAdmin
     .from("urls")
-    .select("id, last_captured_at")
+    .select("id")
     .eq("user_id", userId)
     .gte("created_at", thirtyDaysAgo.toISOString())
 
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
 
     // Count a URL if:
     // - It has a successful capture (counts regardless), OR
-    // - It has never been attempted yet (last_captured_at is null and no failed capture) — pending
+    // - It is still pending (never attempted) — no success and no failed captures
     // Do NOT count it if it ONLY has failed captures and no successful capture
     countedIds = recentUrlIds.filter((id: string) => {
       const hasSuccess = successfulUrlIds.has(id)
