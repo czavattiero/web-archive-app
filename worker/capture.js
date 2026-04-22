@@ -2,6 +2,7 @@ import dotenv from "dotenv"
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
 import { DateTime } from "luxon"
+import { CLOUDFLARE_BLOCK_PATTERN } from "./cloudflareDetection.js"
 
 dotenv.config()
 
@@ -48,19 +49,15 @@ async function captureWithRetry(page, url, maxRetries = 3) {
 
       const content = await page.content()
 
-      if (
-        content.includes("security verification") ||
-        content.includes("Checking your browser") ||
-        content.includes("Access denied")
-      ) {
-        console.log(`⚠️ Block detected (attempt ${attempt})`)
+      if (CLOUDFLARE_BLOCK_PATTERN.test(content)) {
+        console.log(`⚠️ Cloudflare block detected (attempt ${attempt})`)
 
         if (attempt < maxRetries) {
           console.log("🔁 Retrying...")
           await page.waitForTimeout(5000)
           continue
         } else {
-          throw new Error("Blocked by Cloudflare after retries")
+          throw new Error("Blocked by Cloudflare")
         }
       }
 

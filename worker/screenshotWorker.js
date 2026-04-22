@@ -3,6 +3,7 @@ import path from "path"
 import { fileURLToPath } from "url"
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
+import { CLOUDFLARE_BLOCK_PATTERN } from "./cloudflareDetection.js"
 
 // Resolve project root
 const __filename = fileURLToPath(import.meta.url)
@@ -133,6 +134,13 @@ async function run() {
       })
 
       await page.waitForTimeout(3000)
+
+      const content = await page.content()
+
+      if (CLOUDFLARE_BLOCK_PATTERN.test(content)) {
+        console.log(`⚠️ Cloudflare block detected for ${url.url}`)
+        throw new Error("Blocked by Cloudflare")
+      }
 
       // Scroll to load dynamic content
       await page.evaluate(() => {
