@@ -349,11 +349,18 @@ async function runWorker() {
       if (item.schedule_type === "custom") {
         if (captureMode === "IMMEDIATE") {
           // First snapshot done — still need to capture on the user's chosen date
-          nextCaptureAt = DateTime.fromISO(item.schedule_value, { zone: "America/Edmonton" })
-            .set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
-            .toUTC()
-            .toISO()
-          nextStatus = "active"
+          const parsedDate = DateTime.fromISO(item.schedule_value, { zone: "America/Edmonton" })
+          if (!parsedDate.isValid) {
+            console.error(`❌ Invalid schedule_value "${item.schedule_value}" for URL ${item.id} — marking completed`)
+            nextCaptureAt = null
+            nextStatus = "completed"
+          } else {
+            nextCaptureAt = parsedDate
+              .set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
+              .toUTC()
+              .toISO()
+            nextStatus = "active"
+          }
         } else {
           // SCHEDULED mode — this was the chosen-date capture, we're done
           nextCaptureAt = null
