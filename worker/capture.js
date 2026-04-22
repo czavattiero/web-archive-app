@@ -86,7 +86,7 @@ const EXTENDED_RETRY_DELAYS = [
 ]
 const MAX_RETRIES = EXTENDED_RETRY_DELAYS.length // 3
 
-async function handleRetry(item) {
+async function handleRetry(item, captureMode) {
   const { data: urlRecord, error: fetchError } = await supabase
     .from("urls")
     .select("retry_count")
@@ -119,18 +119,52 @@ async function handleRetry(item) {
       console.log(`🔁 Extended retry ${newRetryCount}/${MAX_RETRIES} in ${delayMin} min scheduled for: ${retryAt}`)
     }
   } else {
+    // All retries exhausted — schedule next capture per the URL's schedule type
+    let nextCaptureAt
+    let nextStatus
+
+    if (item.schedule_type === "custom") {
+      if (captureMode === "IMMEDIATE") {
+        // IMMEDIATE capture failed — still schedule the chosen-date capture
+        if (item.schedule_value) {
+          const parsedDate = DateTime.fromISO(item.schedule_value, { zone: "America/Edmonton" })
+          if (parsedDate.isValid) {
+            nextCaptureAt = parsedDate
+              .set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
+              .toUTC()
+              .toISO()
+            nextStatus = "active"
+          } else {
+            nextCaptureAt = null
+            nextStatus = "completed"
+          }
+        } else {
+          nextCaptureAt = null
+          nextStatus = "completed"
+        }
+      } else {
+        // SCHEDULED capture failed — this was the chosen-date capture, we're done
+        nextCaptureAt = null
+        nextStatus = "completed"
+      }
+    } else {
+      // Recurring schedule — compute next capture date and stay active
+      nextCaptureAt = calculateNextCapture(item.schedule_type)
+      nextStatus = "active"
+    }
+
     const { error: updateError } = await supabase
       .from("urls")
       .update({
-        retry_count: newRetryCount,
-        next_capture_at: null,
-        status: "failed",
+        retry_count: 0,
+        next_capture_at: nextCaptureAt,
+        status: nextStatus,
       })
       .eq("id", item.id)
     if (updateError) {
-      console.error("❌ Failed to mark URL as failed", item.id, updateError.message)
+      console.error("❌ Failed to schedule next capture for URL", item.id, updateError.message)
     } else {
-      console.log(`❌ All retries exhausted for URL ${item.id} — marked as failed`)
+      console.log(`⚠️ All retries exhausted for ${item.url}. Next capture: ${nextCaptureAt}`)
     }
   }
 }
@@ -280,7 +314,7 @@ async function runWorker() {
           error: "Page load failed: " + err.message,
         })
 
-        await handleRetry(item)
+        await handleRetry(item, captureMode)
 
         await page.close()
         continue
@@ -332,7 +366,7 @@ async function runWorker() {
           error: "Upload failed: " + uploadError.message,
         })
 
-        await handleRetry(item)
+        await handleRetry(item, captureMode)
 
         await page.close()
         continue
@@ -401,7 +435,7 @@ async function runWorker() {
         error: err.message,
       })
 
-      await handleRetry(item)
+      await handleRetry(item, captureMode)
     }
 
     await page.close()
