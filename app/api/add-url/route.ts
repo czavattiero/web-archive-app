@@ -42,17 +42,52 @@ export async function POST(req: Request) {
 
   const limit = PLAN_LIMITS[plan] ?? 15
 
-  // Count URLs created in the last 30 days
+  // Fetch URLs created in last 30 days for this user
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-  const { count } = await supabaseAdmin
+  const { data: recentUrls } = await supabaseAdmin
     .from("urls")
-    .select("id", { count: "exact", head: true })
+    .select("id, last_captured_at")
     .eq("user_id", userId)
     .gte("created_at", thirtyDaysAgo.toISOString())
 
-  const currentCount = count ?? 0
+  const recentUrlIds = (recentUrls || []).map((u: any) => u.id)
+
+  let countedIds = recentUrlIds
+
+  if (recentUrlIds.length > 0) {
+    // Find URLs that have at least one successful capture
+    const { data: successCaptures } = await supabaseAdmin
+      .from("captures")
+      .select("url_id")
+      .in("url_id", recentUrlIds)
+      .eq("status", "success")
+
+    const successfulUrlIds = new Set((successCaptures || []).map((c: any) => c.url_id))
+
+    // Find URLs that have at least one failed capture
+    const { data: failedCaptures } = await supabaseAdmin
+      .from("captures")
+      .select("url_id")
+      .in("url_id", recentUrlIds)
+      .eq("status", "failed")
+
+    const failedUrlIds = new Set((failedCaptures || []).map((c: any) => c.url_id))
+
+    // Count a URL if:
+    // - It has a successful capture (counts regardless), OR
+    // - It has never been attempted yet (last_captured_at is null and no failed capture) — pending
+    // Do NOT count it if it ONLY has failed captures and no successful capture
+    countedIds = recentUrlIds.filter((id: string) => {
+      const hasSuccess = successfulUrlIds.has(id)
+      const hasFailed = failedUrlIds.has(id)
+      const isPending = !hasSuccess && !hasFailed
+      return hasSuccess || isPending
+    })
+  }
+
+  const currentCount = countedIds.length
 
   if (currentCount >= limit) {
     const planLabel = plan === "pro" ? "Pro" : "Basic"
