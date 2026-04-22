@@ -80,15 +80,44 @@ export default function Dashboard() {
     setUrls(urlsData || [])
     setCaptures(capturesData || [])
 
-    // Count URLs created in last 30 days for limit display
+    // Count URLs created in last 30 days for limit display — exclude URLs with only failed captures
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    const { count } = await supabase
+    const { data: recentUrls } = await supabase
       .from("urls")
-      .select("id", { count: "exact", head: true })
+      .select("id")
       .eq("user_id", currentUser.id)
       .gte("created_at", thirtyDaysAgo.toISOString())
-    setUrlCount30d(count ?? 0)
+
+    const recentUrlIds = (recentUrls || []).map((u: any) => u.id)
+    let urlCount = recentUrlIds.length
+
+    if (recentUrlIds.length > 0) {
+      const { data: successCaptures } = await supabase
+        .from("captures")
+        .select("url_id")
+        .in("url_id", recentUrlIds)
+        .eq("status", "success")
+
+      const successfulUrlIds = new Set((successCaptures || []).map((c: any) => c.url_id))
+
+      const { data: failedCaptures } = await supabase
+        .from("captures")
+        .select("url_id")
+        .in("url_id", recentUrlIds)
+        .eq("status", "failed")
+
+      const failedUrlIds = new Set((failedCaptures || []).map((c: any) => c.url_id))
+
+      urlCount = recentUrlIds.filter((id: string) => {
+        const hasSuccess = successfulUrlIds.has(id)
+        const hasFailed = failedUrlIds.has(id)
+        const isPending = !hasSuccess && !hasFailed
+        return hasSuccess || isPending
+      }).length
+    }
+
+    setUrlCount30d(urlCount)
   }
 
   async function handleManageBilling() {
@@ -280,13 +309,22 @@ export default function Dashboard() {
       .toFormat("MMM d, yyyy, h:mm a")
   }
 
-  function StatusBadge({ status, retryCount = 0 }: { status: string; retryCount?: number }) {
+  function StatusBadge({ status, retryCount = 0, urlId }: { status: string; retryCount?: number; urlId?: string }) {
     const base = {
       padding: "3px 10px",
       borderRadius: 999,
       fontSize: 12,
       fontWeight: 600,
       display: "inline-block" as const,
+    }
+
+    if (status === "active" && urlId) {
+      const urlCaptures = captures.filter((c) => c.url_id === urlId)
+      const hasSuccess = urlCaptures.some((c) => c.status === "success")
+      const hasFailed = urlCaptures.some((c) => c.status === "failed")
+
+      if (!hasSuccess && hasFailed)
+        return <span style={{ ...base, background: "#FEE2E2", color: "#B91C1C" }}>Capture Failed</span>
     }
 
     if (status === "active" && retryCount > 0)
@@ -478,7 +516,7 @@ export default function Dashboard() {
               <div style={{ flex: 1 }}>{u.schedule_type}</div>
               <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
               <div style={{ flex: 1 }}>
-                <StatusBadge status={u.status} retryCount={u.retry_count ?? 0} />
+                <StatusBadge status={u.status} retryCount={u.retry_count ?? 0} urlId={u.id} />
               </div>
               <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
             </div>
