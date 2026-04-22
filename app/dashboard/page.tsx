@@ -280,7 +280,7 @@ export default function Dashboard() {
       .toFormat("MMM d, yyyy, h:mm a")
   }
 
-  function StatusBadge({ status }: { status: string }) {
+  function StatusBadge({ status, retryCount = 0 }: { status: string; retryCount?: number }) {
     const base = {
       padding: "3px 10px",
       borderRadius: 999,
@@ -288,6 +288,9 @@ export default function Dashboard() {
       fontWeight: 600,
       display: "inline-block" as const,
     }
+
+    if (status === "active" && retryCount > 0)
+      return <span style={{ ...base, background: "#FEF3C7", color: "#B45309" }}>Retrying</span>
 
     if (status === "active")
       return <span style={{ ...base, background: "#DCFCE7", color: "#15803D" }}>Active</span>
@@ -475,7 +478,7 @@ export default function Dashboard() {
               <div style={{ flex: 1 }}>{u.schedule_type}</div>
               <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
               <div style={{ flex: 1 }}>
-                <StatusBadge status={u.status} />
+                <StatusBadge status={u.status} retryCount={u.retry_count ?? 0} />
               </div>
               <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
             </div>

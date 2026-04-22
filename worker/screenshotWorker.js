@@ -18,6 +18,56 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
+const MAX_RETRIES = 3
+const RETRY_DELAY_MS = 60 * 60 * 1000 // 1 hour
+
+async function handleRetry(url) {
+  const { data: urlRecord, error: fetchError } = await supabase
+    .from("urls")
+    .select("retry_count")
+    .eq("id", url.id)
+    .single()
+
+  if (fetchError) {
+    console.error("❌ Failed to fetch retry_count for URL", url.id, fetchError.message)
+    return
+  }
+
+  const currentRetries = urlRecord?.retry_count ?? 0
+  const newRetryCount = currentRetries + 1
+
+  if (newRetryCount < MAX_RETRIES) {
+    const retryAt = new Date(Date.now() + RETRY_DELAY_MS).toISOString()
+    const { error: updateError } = await supabase
+      .from("urls")
+      .update({
+        retry_count: newRetryCount,
+        next_capture_at: retryAt,
+        status: "active",
+      })
+      .eq("id", url.id)
+    if (updateError) {
+      console.error("❌ Failed to schedule retry for URL", url.id, updateError.message)
+    } else {
+      console.log(`🔁 Retry ${newRetryCount}/${MAX_RETRIES} scheduled for: ${retryAt}`)
+    }
+  } else {
+    const { error: updateError } = await supabase
+      .from("urls")
+      .update({
+        retry_count: newRetryCount,
+        next_capture_at: null,
+        status: "failed",
+      })
+      .eq("id", url.id)
+    if (updateError) {
+      console.error("❌ Failed to mark URL as failed", url.id, updateError.message)
+    } else {
+      console.log(`❌ Max retries reached for URL ${url.id} — marked as failed`)
+    }
+  }
+}
+
 async function run() {
 
   console.log("🚀 Starting capture worker...")
@@ -121,6 +171,7 @@ async function run() {
 
       if (uploadError) {
         console.error("❌ Upload error:", uploadError)
+        await handleRetry(url)
         continue
       }
 
@@ -177,6 +228,7 @@ async function run() {
         .update({
           next_capture_at: nextCapture,
           status: nextCapture === null ? "completed" : "active",
+          retry_count: 0,
         })
         .eq("id", url.id)
 
@@ -191,6 +243,8 @@ async function run() {
         captured_at: new Date(),
         status: "failed"
       })
+
+      await handleRetry(url)
 
     }
 

@@ -79,6 +79,56 @@ async function captureWithRetry(page, url, maxRetries = 3) {
   }
 }
 
+const MAX_RETRIES = 3
+const RETRY_DELAY_MS = 60 * 60 * 1000 // 1 hour
+
+async function handleRetry(item) {
+  const { data: urlRecord, error: fetchError } = await supabase
+    .from("urls")
+    .select("retry_count")
+    .eq("id", item.id)
+    .single()
+
+  if (fetchError) {
+    console.error("❌ Failed to fetch retry_count for URL", item.id, fetchError.message)
+    return
+  }
+
+  const currentRetries = urlRecord?.retry_count ?? 0
+  const newRetryCount = currentRetries + 1
+
+  if (newRetryCount < MAX_RETRIES) {
+    const retryAt = new Date(Date.now() + RETRY_DELAY_MS).toISOString()
+    const { error: updateError } = await supabase
+      .from("urls")
+      .update({
+        retry_count: newRetryCount,
+        next_capture_at: retryAt,
+        status: "active",
+      })
+      .eq("id", item.id)
+    if (updateError) {
+      console.error("❌ Failed to schedule retry for URL", item.id, updateError.message)
+    } else {
+      console.log(`🔁 Retry ${newRetryCount}/${MAX_RETRIES} scheduled for: ${retryAt}`)
+    }
+  } else {
+    const { error: updateError } = await supabase
+      .from("urls")
+      .update({
+        retry_count: newRetryCount,
+        next_capture_at: null,
+        status: "failed",
+      })
+      .eq("id", item.id)
+    if (updateError) {
+      console.error("❌ Failed to mark URL as failed", item.id, updateError.message)
+    } else {
+      console.log(`❌ Max retries reached for URL ${item.id} — marked as failed`)
+    }
+  }
+}
+
 async function runWorker() {
   console.log("🚀 Worker started")
 
@@ -224,6 +274,8 @@ async function runWorker() {
           error: "Page load failed: " + err.message,
         })
 
+        await handleRetry(item)
+
         await page.close()
         continue
       }
@@ -274,6 +326,8 @@ async function runWorker() {
           error: "Upload failed: " + uploadError.message,
         })
 
+        await handleRetry(item)
+
         await page.close()
         continue
       }
@@ -295,6 +349,7 @@ async function runWorker() {
         last_captured_at: new Date().toISOString(),
         next_capture_at: nextCaptureAt,
         status: nextCaptureAt === null ? "completed" : "active",
+        retry_count: 0,
       }
 
       await supabase
@@ -313,6 +368,8 @@ async function runWorker() {
         status: "failed",
         error: err.message,
       })
+
+      await handleRetry(item)
     }
 
     await page.close()
