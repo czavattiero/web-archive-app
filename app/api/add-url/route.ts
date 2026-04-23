@@ -42,7 +42,8 @@ export async function POST(req: Request) {
 
   const limit = PLAN_LIMITS[plan] ?? 15
 
-  // Fetch URLs created in last 30 days for this user
+  // Count URLs added in the last 30 days, excluding those with ONLY failed captures
+  // (failed-only URLs do not consume a slot — only successful or pending URLs count)
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
@@ -54,10 +55,9 @@ export async function POST(req: Request) {
 
   const recentUrlIds = (recentUrls || []).map((u: any) => u.id)
 
-  let countedIds = recentUrlIds
+  let currentCount = 0
 
   if (recentUrlIds.length > 0) {
-    // Find URLs that have at least one successful capture
     const { data: successCaptures } = await supabaseAdmin
       .from("captures")
       .select("url_id")
@@ -66,7 +66,6 @@ export async function POST(req: Request) {
 
     const successfulUrlIds = new Set((successCaptures || []).map((c: any) => c.url_id))
 
-    // Find URLs that have at least one failed capture
     const { data: failedCaptures } = await supabaseAdmin
       .from("captures")
       .select("url_id")
@@ -75,19 +74,17 @@ export async function POST(req: Request) {
 
     const failedUrlIds = new Set((failedCaptures || []).map((c: any) => c.url_id))
 
-    // Count a URL if:
-    // - It has a successful capture (counts regardless), OR
-    // - It is still pending (never attempted) — no success and no failed captures
-    // Do NOT count it if it ONLY has failed captures and no successful capture
-    countedIds = recentUrlIds.filter((id: string) => {
+    // Count URL if: has a successful capture OR is still pending (never attempted)
+    // Do NOT count if it only has failed captures
+    const countedIds = recentUrlIds.filter((id: string) => {
       const hasSuccess = successfulUrlIds.has(id)
       const hasFailed = failedUrlIds.has(id)
       const isPending = !hasSuccess && !hasFailed
       return hasSuccess || isPending
     })
-  }
 
-  const currentCount = countedIds.length
+    currentCount = countedIds.length
+  }
 
   if (currentCount >= limit) {
     const planLabel = plan === "pro" ? "Pro" : "Basic"
