@@ -80,7 +80,7 @@ export default function Dashboard() {
     setUrls(urlsData || [])
     setCaptures(capturesData || [])
 
-    // Count URLs created in last 30 days for limit display — exclude URLs with only failed captures
+    // Count URLs created in last 30 days for limit display  exclude URLs with only failed captures
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
     const { data: recentUrls } = await supabase
@@ -167,13 +167,13 @@ export default function Dashboard() {
     }
   }
 
-  // ✅ FIXED ADD URL (AUTO TRIGGER WORKER)
+  //  FIXED ADD URL (AUTO TRIGGER WORKER)
   async function addUrl() {
     if (!user) return
     if (!url.trim()) return alert("Enter a URL")
 
     try {
-      console.log("🚀 Adding new URL:", url)
+      console.log("\ud83d\ude80 Adding new URL:", url)
 
       const albertaTime = new Date().toLocaleString("en-CA", {
         timeZone: "America/Edmonton",
@@ -214,7 +214,7 @@ export default function Dashboard() {
         ).toISOString()
       }
 
-      console.log("📅 Next capture scheduled for:", nextCaptureISO)
+      console.log("\ud83d\udcc5 Next capture scheduled for:", nextCaptureISO)
 
       // Insert URL via server-side API (enforces plan limits)
       const addResponse = await fetch("/api/add-url", {
@@ -250,11 +250,11 @@ export default function Dashboard() {
 
       const { url: newUrl } = await addResponse.json()
       const newUrlId = newUrl?.id
-      console.log("✅ URL added with ID:", newUrlId)
+      console.log("\u2705 URL added with ID:", newUrlId)
 
       // Trigger workflow to capture new URLs
       try {
-        console.log("📤 Triggering capture workflow...")
+        console.log("\ud83d\udce4 Triggering capture workflow...")
         const response = await fetch("/api/capture", {
           method: "POST",
           headers: {
@@ -264,19 +264,19 @@ export default function Dashboard() {
         })
 
         const responseText = await response.text()
-        console.log("📬 API response status:", response.status)
-        console.log("📬 API response body:", responseText)
+        console.log("\ud83d\udcec API response status:", response.status)
+        console.log("\ud83d\udcec API response body:", responseText)
 
         if (!response.ok) {
-          console.error("❌ API error:", response.status, responseText)
+          console.error("\u274c API error:", response.status, responseText)
           alert(`Workflow trigger failed: ${response.status}`)
           return
         }
 
-        console.log("✅ Workflow triggered successfully")
-        alert("✅ URL added and queued for immediate capture!")
+        console.log("\u2705 Workflow triggered successfully")
+        alert("\u2705 URL added and queued for immediate capture!")
       } catch (err: any) {
-        console.error("❌ Fetch error:", err.message)
+        console.error("\u274c Fetch error:", err.message)
         alert("Failed to trigger workflow: " + err.message)
         return
       }
@@ -286,7 +286,7 @@ export default function Dashboard() {
       setCustomDate("")
       await fetchData(user)
     } catch (err: any) {
-      console.error("❌ Unexpected error:", err)
+      console.error("\u274c Unexpected error:", err)
       alert("Error: " + err.message)
     }
   }
@@ -302,7 +302,7 @@ export default function Dashboard() {
   }
 
   function formatAlbertaTime(dateString: string | null) {
-    if (!dateString) return "—"
+    if (!dateString) return ""
 
     return DateTime.fromISO(dateString, { zone: "utc" })
       .setZone("America/Edmonton")
@@ -345,7 +345,7 @@ export default function Dashboard() {
     <div style={{ minHeight: "100vh", background: "#F9FAFB", fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* TOP BAR */}
       <div style={topBar}>
-        <img src="/screenly-logo.png" alt="Screenly logo" style={{ height: 48 }} />
+        <img src="/timedshot-logo-.png" alt="Timedshot logo" style={{ height: 48 }} />
 
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <div style={{ fontSize: 13, color: "#6B7280" }}>{user?.email}</div>
