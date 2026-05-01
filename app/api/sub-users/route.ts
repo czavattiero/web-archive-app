@@ -14,14 +14,29 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "userId is required" }, { status: 400 })
   }
 
-  const { data: subUsers, error } = await supabaseAdmin
+  const { data: profiles, error } = await supabaseAdmin
     .from("profiles")
-    .select("id, email, created_at")
+    .select("id, created_at")
     .eq("parent_user_id", userId)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ subUsers: subUsers || [] })
+  const subUsers = await Promise.all(
+    (profiles || []).map(async (profile: { id: string; created_at: string }) => {
+      let email = "(unknown)"
+      try {
+        const { data: userData } = await supabaseAdmin.auth.admin.getUserById(profile.id)
+        if (userData?.user?.email) {
+          email = userData.user.email
+        }
+      } catch {
+        // keep "(unknown)"
+      }
+      return { id: profile.id, created_at: profile.created_at, email }
+    })
+  )
+
+  return NextResponse.json({ subUsers })
 }
