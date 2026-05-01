@@ -345,9 +345,18 @@ export default function Dashboard() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return alert("Please enter a valid email address")
     setInviteLoading(true)
     try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (!accessToken) {
+        alert("Session expired. Please log in again.")
+        return
+      }
       const res = await fetch("/api/sub-users/invite", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({ parentUserId: user?.id, email: trimmed }),
       })
       const data = await res.json()
