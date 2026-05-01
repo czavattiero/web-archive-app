@@ -72,7 +72,7 @@ export default function LoginPage() {
 
         {/* LOGO */}
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 120 }} />
+          <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160 }} />
         </div>
 
         {/* TITLE */}
