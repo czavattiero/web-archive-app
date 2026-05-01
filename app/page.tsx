@@ -22,7 +22,7 @@ export default function Home() {
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-        <img src="/screenly-logo.png" alt="Screenly" style={{ height: 44 }} />
+        <img src="/timedshot-logo-.png" alt="Timedshot" style={{ height: 44 }} />
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <a href="/login" style={{ fontSize: 14, fontWeight: 500, color: "#374151", textDecoration: "none" }}>
             Log in
@@ -121,7 +121,7 @@ export default function Home() {
         }}>
           <img
             src="/dashboard-preview.png"
-            alt="Screenly dashboard"
+            alt="Timedshot dashboard"
             style={{ width: "100%", display: "block" }}
           />
         </div>
@@ -211,7 +211,7 @@ export default function Home() {
             See it in action
           </p>
           <h2 style={{ fontSize: 36, fontWeight: 800, color: "#111827", marginBottom: 12 }}>
-            Watch how Screenly works
+            Watch how Timedshot works
           </h2>
           <p style={{ fontSize: 16, color: "#6B7280", marginBottom: 48, lineHeight: 1.6 }}>
             From adding a URL to downloading your timestamped PDF — in under 2 minutes.
@@ -417,8 +417,8 @@ export default function Home() {
             </ul>
             <div style={{ borderTop: "1px solid #F3F4F6", paddingTop: 20 }}>
               <p style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 4px" }}>Contact us:</p>
-              <a href="mailto:support@screenly.ca" style={{ fontSize: 14, color: "#6A11CB", fontWeight: 600, textDecoration: "none" }}>
-                support@screenly.ca
+              <a href="mailto:support@timedshot.com" style={{ fontSize: 14, color: "#6A11CB", fontWeight: 600, textDecoration: "none" }}>
+                support@timedshot.com
               </a>
             </div>
           </div>
@@ -461,14 +461,15 @@ export default function Home() {
         justifyContent: "space-between",
         alignItems: "center",
       }}>
-        <img src="/screenly-logo.png" alt="Screenly" style={{ height: 32, filter: "brightness(0) invert(1)", opacity: 0.7 }} />
-        <p style={{ fontSize: 13, color: "#6B7280", margin: 0 }}>© 2026 Screenly. All rights reserved.</p>
+        <img src="/timedshot-logo-.png" alt="Timedshot" style={{ height: 32, filter: "brightness(0) invert(1)", opacity: 0.7 }} />
+        <p style={{ fontSize: 13, color: "#6B7280", margin: 0 }}>© 2026 Timedshot. All rights reserved.</p>
         <div style={{ display: "flex", gap: 24 }}>
           <a href="/login" style={{ fontSize: 13, color: "#6B7280", textDecoration: "none" }}>Log in</a>
-          <a href="mailto:support@screenly.ca" style={{ fontSize: 13, color: "#6B7280", textDecoration: "none" }}>Contact</a>
+          <a href="mailto:support@timedshot.com" style={{ fontSize: 13, color: "#6B7280", textDecoration: "none" }}>Contact</a>
         </div>
       </footer>
 
     </main>
   )
 }
+
