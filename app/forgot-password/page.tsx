@@ -51,7 +51,7 @@ export default function ForgotPasswordPage() {
 
         {/* LOGO */}
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <img src="/screenly-logo.png" style={{ height: 80 }} />
+          <img src="/timedshot-logo-.png" style={{ height: 80 }} />
         </div>
 
         {/* TITLE */}
@@ -129,7 +129,7 @@ export default function ForgotPasswordPage() {
         {/* FOOTER */}
         <p style={{
           fontSize: 13,
-          color: "#6B7280",
+          color: "#6A11CB",
           marginTop: 20,
           textAlign: "center",
         }}>
@@ -144,3 +144,4 @@ export default function ForgotPasswordPage() {
     </main>
   )
 }
+
