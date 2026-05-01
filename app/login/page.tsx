@@ -72,7 +72,7 @@ export default function LoginPage() {
 
         {/* LOGO */}
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <img src="/screenly-logo.png" alt="Screenly" style={{ height: 80 }} />
+          <img src="/timedshot-logo-.png" alt="Timedshot" style={{ height: 80 }} />
         </div>
 
         {/* TITLE */}
@@ -197,3 +197,4 @@ export default function LoginPage() {
     </main>
   )
 }
+
