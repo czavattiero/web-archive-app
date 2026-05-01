@@ -20,6 +20,11 @@ export default function Dashboard() {
   const [schedule, setSchedule] = useState("weekly")
   const [customDate, setCustomDate] = useState("")
 
+  const [isSubUser, setIsSubUser] = useState(false)
+  const [subUsers, setSubUsers] = useState<any[]>([])
+  const [inviteEmail, setInviteEmail] = useState("")
+  const [inviteLoading, setInviteLoading] = useState(false)
+
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
   const [search, setSearch] = useState("")
@@ -36,19 +41,40 @@ export default function Dashboard() {
       setUser(data.user)
       setLoading(false)
 
-      // Fetch user plan
+      // Fetch user plan (include parent_user_id to detect sub-users)
       const { data: profile } = await supabase
         .from("profiles")
-        .select("plan, subscribed, trial_ends_at")
+        .select("plan, subscribed, trial_ends_at, parent_user_id")
         .eq("id", data.user.id)
         .maybeSingle()
+
+      // If this user was invited as a sub-user and hasn't been linked yet,
+      // link now (user_metadata.parent_user_id is set by the invite API)
+      const metaParentId = data.user.user_metadata?.parent_user_id
+      let parentUserId: string | null = profile?.parent_user_id || null
+
+      if (metaParentId && !parentUserId) {
+        const res = await fetch("/api/sub-users/link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: data.user.id, parentUserId: metaParentId }),
+        })
+        if (res.ok) {
+          parentUserId = metaParentId
+        }
+      }
+
+      const isSubUserAccount = !!parentUserId
+      setIsSubUser(isSubUserAccount)
+
       setPlan(profile?.plan || "basic")
       setTrialEndsAt(profile?.trial_ends_at || null)
 
       const isTrial = (profile?.plan === "trial" || !profile?.plan) && !profile?.subscribed
       const trialExpired = profile?.trial_ends_at && new Date(profile.trial_ends_at) < new Date()
 
-      if (isTrial && trialExpired) {
+      // Sub-users are governed by their parent's billing — skip trial redirect
+      if (!isSubUserAccount && isTrial && trialExpired) {
         router.replace("/choose-plan")
         return
       }
@@ -79,6 +105,13 @@ export default function Dashboard() {
 
     setUrls(urlsData || [])
     setCaptures(capturesData || [])
+
+    // Fetch sub-users for parent accounts
+    const subUsersRes = await fetch(`/api/sub-users?userId=${currentUser.id}`)
+    if (subUsersRes.ok) {
+      const { subUsers: fetchedSubUsers } = await subUsersRes.json()
+      setSubUsers(fetchedSubUsers || [])
+    }
 
     // Count URLs created in last 30 days for limit display — exclude URLs with only failed captures
     const thirtyDaysAgo = new Date()
@@ -297,6 +330,32 @@ export default function Dashboard() {
     window.location.href = "/"
   }
 
+  async function handleInviteSubUser() {
+    const trimmed = inviteEmail.trim()
+    if (!trimmed) return alert("Enter an email address")
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return alert("Please enter a valid email address")
+    setInviteLoading(true)
+    try {
+      const res = await fetch("/api/sub-users/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parentUserId: user?.id, email: trimmed }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        alert("Invite failed: " + data.error)
+      } else {
+        alert(`✅ Invitation sent to ${trimmed}`)
+        setInviteEmail("")
+        await fetchData(user)
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message)
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
   function getUrlById(id: string) {
     return urls.find((u) => u.id === id)
   }
@@ -349,7 +408,12 @@ export default function Dashboard() {
 
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <div style={{ fontSize: 13, color: "#6B7280" }}>{user?.email}</div>
-          {plan !== "pro" && (
+          {isSubUser && (
+            <div style={{ fontSize: 12, color: "#6B7280", background: "#F3F4F6", padding: "4px 10px", borderRadius: 999 }}>
+              Sub-user
+            </div>
+          )}
+          {!isSubUser && plan !== "pro" && (
             <button
               onClick={handleUpgrade}
               disabled={upgradeLoading}
@@ -358,20 +422,22 @@ export default function Dashboard() {
               {upgradeLoading ? "Loading..." : plan === "trial" ? "⚡ Choose a Plan" : "⚡ Upgrade to Pro"}
             </button>
           )}
-          <button 
-            onClick={handleManageBilling} 
-            disabled={billingLoading} 
-            style={billingLoading ? { ...buttonSecondary, opacity: 0.7 } : buttonSecondary}
-          >
-            {billingLoading ? "Loading..." : "Manage Billing"}
-          </button>
+          {!isSubUser && (
+            <button 
+              onClick={handleManageBilling} 
+              disabled={billingLoading} 
+              style={billingLoading ? { ...buttonSecondary, opacity: 0.7 } : buttonSecondary}
+            >
+              {billingLoading ? "Loading..." : "Manage Billing"}
+            </button>
+          )}
           <button onClick={handleLogout} style={buttonDanger}>
             Sign Out
           </button>
         </div>
       </div>
 
-      {plan === "trial" && trialEndsAt && new Date(trialEndsAt) > new Date() && (() => {
+      {!isSubUser && plan === "trial" && trialEndsAt && new Date(trialEndsAt) > new Date() && (() => {
         const daysLeft = Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         return (
           <div style={{
@@ -431,7 +497,7 @@ export default function Dashboard() {
               : plan === "trial"
               ? `Free trial · ${urlCount30d}/15 URLs in last 30 days`
               : `Basic plan · ${urlCount30d}/15 URLs in last 30 days`}
-            {plan !== "pro" && urlCount30d >= BASIC_PLAN_WARNING_THRESHOLD && (
+            {!isSubUser && plan !== "pro" && urlCount30d >= BASIC_PLAN_WARNING_THRESHOLD && (
               <span style={{ color: "#DC2626", marginLeft: 8 }}>
                 Approaching limit —{" "}
                 <button
@@ -546,6 +612,52 @@ export default function Dashboard() {
             )
           })}
         </div>
+
+        {/* SUB-USERS — only shown to parent (non-sub) accounts */}
+        {!isSubUser && (
+          <div style={cardStyle}>
+            <h3 style={sectionTitle}>Sub-users</h3>
+            <p style={{ fontSize: 13, color: "#6B7280", marginBottom: 16 }}>
+              Invite team members to add and track URLs under your account. Their URLs count against your shared plan quota.
+            </p>
+
+            {/* Invite form */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="colleague@example.com"
+                style={{ ...inputStyle, flex: 2 }}
+              />
+              <button
+                onClick={handleInviteSubUser}
+                disabled={inviteLoading}
+                style={inviteLoading ? { ...buttonPrimary, opacity: 0.7 } : buttonPrimary}
+              >
+                {inviteLoading ? "Sending..." : "Send Invite"}
+              </button>
+            </div>
+
+            {/* Sub-user list */}
+            {subUsers.length === 0 ? (
+              <p style={{ fontSize: 13, color: "#9CA3AF" }}>No sub-users yet.</p>
+            ) : (
+              <>
+                <div style={headerRow}>
+                  <div style={{ flex: 3 }}>Email</div>
+                  <div style={{ flex: 1 }}>Joined</div>
+                </div>
+                {subUsers.map((su: any) => (
+                  <div key={su.id} style={rowCard}>
+                    <div style={{ flex: 3, fontSize: 13, color: "#111827" }}>{su.email}</div>
+                    <div style={{ flex: 1 }}>{formatAlbertaTime(su.created_at)}</div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

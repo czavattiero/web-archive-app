@@ -20,37 +20,59 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "userId and url are required" }, { status: 400 })
   }
 
-  // Get user plan
+  // Get user plan (include parent_user_id to detect sub-users)
   const { data: profile } = await supabaseAdmin
     .from("profiles")
-    .select("plan, subscribed, trial_ends_at")
+    .select("plan, subscribed, trial_ends_at, parent_user_id")
     .eq("id", userId)
     .maybeSingle()
 
-  const plan: string = profile?.plan || "basic"
+  // If this is a sub-user, use the parent's plan and quota
+  const ownerId: string = profile?.parent_user_id || userId
+  let planProfile: any = profile
 
-  // Check trial expiry
-  const isTrial = profile?.plan === "trial" && !profile?.subscribed
-  const trialExpired = isTrial && profile?.trial_ends_at && new Date(profile.trial_ends_at) < new Date()
+  if (profile?.parent_user_id) {
+    const { data: parentProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("plan, subscribed, trial_ends_at")
+      .eq("id", ownerId)
+      .maybeSingle()
+    planProfile = parentProfile
+  }
 
-  if (trialExpired) {
-    return NextResponse.json(
-      { error: "Your free trial has expired. Please choose a plan to continue.", trialExpired: true },
-      { status: 403 }
-    )
+  const plan: string = planProfile?.plan || "basic"
+
+  // Check trial expiry (only applies to owner accounts, not sub-users)
+  if (!profile?.parent_user_id) {
+    const isTrial = planProfile?.plan === "trial" && !planProfile?.subscribed
+    const trialExpired = isTrial && planProfile?.trial_ends_at && new Date(planProfile.trial_ends_at) < new Date()
+
+    if (trialExpired) {
+      return NextResponse.json(
+        { error: "Your free trial has expired. Please choose a plan to continue.", trialExpired: true },
+        { status: 403 }
+      )
+    }
   }
 
   const limit = PLAN_LIMITS[plan] ?? 15
 
-  // Count URLs added in the last 30 days, excluding those with ONLY failed captures
-  // (failed-only URLs do not consume a slot — only successful or pending URLs count)
+  // Collect all user IDs in this account (owner + sub-users) for shared quota
+  const { data: accountSubUsers } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("parent_user_id", ownerId)
+  const accountUserIds: string[] = [ownerId, ...(accountSubUsers || []).map((u: any) => u.id)]
+
+  // Count URLs added in the last 30 days across the whole account, excluding
+  // those with ONLY failed captures (failed-only URLs do not consume a slot)
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
   const { data: recentUrls } = await supabaseAdmin
     .from("urls")
     .select("id")
-    .eq("user_id", userId)
+    .in("user_id", accountUserIds)
     .gte("created_at", thirtyDaysAgo.toISOString())
 
   const recentUrlIds = (recentUrls || []).map((u: any) => u.id)
