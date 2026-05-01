@@ -122,44 +122,19 @@ export default function Dashboard() {
       setSubUsers(fetchedSubUsers || [])
     }
 
-    // Count URLs created in last 30 days for limit display — exclude URLs with only failed captures
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    const { data: recentUrls } = await supabase
-      .from("urls")
-      .select("id")
-      .eq("user_id", currentUser.id)
-      .gte("created_at", thirtyDaysAgo.toISOString())
-
-    const recentUrlIds = (recentUrls || []).map((u: any) => u.id)
-    let urlCount = recentUrlIds.length
-
-    if (recentUrlIds.length > 0) {
-      const { data: successCaptures } = await supabase
-        .from("captures")
-        .select("url_id")
-        .in("url_id", recentUrlIds)
-        .eq("status", "success")
-
-      const successfulUrlIds = new Set((successCaptures || []).map((c: any) => c.url_id))
-
-      const { data: failedCaptures } = await supabase
-        .from("captures")
-        .select("url_id")
-        .in("url_id", recentUrlIds)
-        .eq("status", "failed")
-
-      const failedUrlIds = new Set((failedCaptures || []).map((c: any) => c.url_id))
-
-      urlCount = recentUrlIds.filter((id: string) => {
-        const hasSuccess = successfulUrlIds.has(id)
-        const hasFailed = failedUrlIds.has(id)
-        const isPending = !hasSuccess && !hasFailed
-        return hasSuccess || isPending
-      }).length
+    // Fetch aggregated URL count (owner + sub-users) from server-side API
+    try {
+      const countRes = await fetch(`/api/account-url-count?userId=${currentUser.id}`)
+      if (countRes.ok) {
+        const { urlCount } = await countRes.json()
+        setUrlCount30d(urlCount ?? 0)
+      } else {
+        setUrlCount30d(0)
+      }
+    } catch (err) {
+      console.error("Failed to fetch account URL count:", err)
+      setUrlCount30d(0)
     }
-
-    setUrlCount30d(urlCount)
   }
 
   async function handleManageBilling() {
