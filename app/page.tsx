@@ -22,7 +22,7 @@ export default function Home() {
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-        <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 120 }} />
+        <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160 }} />
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <a href="/login" style={{ fontSize: 14, fontWeight: 500, color: "#374151", textDecoration: "none" }}>
             Log in
@@ -461,7 +461,7 @@ export default function Home() {
         justifyContent: "space-between",
         alignItems: "center",
       }}>
-        <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 120, filter: "brightness(0) invert(1)", opacity: 0.7 }} />
+        <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160, filter: "brightness(0) invert(1)", opacity: 0.7 }} />
         <p style={{ fontSize: 13, color: "#6B7280", margin: 0 }}>© 2026 Timedshot. All rights reserved.</p>
         <div style={{ display: "flex", gap: 24 }}>
           <a href="/login" style={{ fontSize: 13, color: "#6B7280", textDecoration: "none" }}>Log in</a>

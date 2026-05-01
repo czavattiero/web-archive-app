@@ -49,7 +49,7 @@ export default function ChoosePlanPage() {
       justifyContent: "center",
       padding: 40,
     }}>
-      <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 120, marginBottom: 32 }} />
+      <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160, marginBottom: 32 }} />
 
       <h1 style={{ fontSize: 30, fontWeight: 800, textAlign: "center" }}>
         Your free trial has ended
