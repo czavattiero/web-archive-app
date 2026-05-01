@@ -38,6 +38,15 @@ export default function Dashboard() {
         return
       }
 
+      // Guard: if the user accepted an invite but has not yet set their
+      // password, send them to /set-password before allowing dashboard access.
+      // This prevents the onboarding step from being skipped by navigating
+      // directly to /dashboard after clicking the invite link.
+      if (data.user.user_metadata?.needs_password_setup) {
+        router.replace("/set-password")
+        return
+      }
+
       setUser(data.user)
       setLoading(false)
 

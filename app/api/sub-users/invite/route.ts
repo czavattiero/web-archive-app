@@ -29,9 +29,13 @@ export async function POST(req: Request) {
   }
 
   try {
+    // Redirect invitees to /set-password instead of /dashboard so they are
+    // required to create a password before accessing the app. The
+    // needs_password_setup flag is read by both the set-password page and the
+    // dashboard guard to enforce this one-time step.
     const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-      data: { parent_user_id: parentUserId },
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
+      data: { parent_user_id: parentUserId, needs_password_setup: true },
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/set-password`,
     })
 
     if (error) {
