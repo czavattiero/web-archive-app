@@ -7,10 +7,32 @@ const supabaseAdmin = createClient(
 )
 
 export async function POST(req: Request) {
+  // Verify the caller's identity via the Bearer token so that sub-users
+  // cannot bypass the restriction by supplying a different parentUserId.
+  const authHeader = req.headers.get("Authorization") ?? ""
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : ""
+
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const { data: callerData, error: callerError } = await supabaseAdmin.auth.getUser(token)
+
+  if (callerError || !callerData.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const callerId = callerData.user.id
+
   const { parentUserId, email } = await req.json()
 
   if (!parentUserId || !email) {
     return NextResponse.json({ error: "parentUserId and email are required" }, { status: 400 })
+  }
+
+  // The authenticated caller must be the parentUserId supplied in the body.
+  if (callerId !== parentUserId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   // Verify the parent exists and is not itself a sub-user
