@@ -345,7 +345,7 @@ export default function Dashboard() {
     <div style={{ minHeight: "100vh", background: "#F9FAFB", fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* TOP BAR */}
       <div style={topBar}>
-        <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 80 }} />
+        <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 120 }} />
 
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <div style={{ fontSize: 13, color: "#6B7280" }}>{user?.email}</div>
