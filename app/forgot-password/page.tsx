@@ -51,7 +51,7 @@ export default function ForgotPasswordPage() {
 
         {/* LOGO */}
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 80 }} />
+          <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 120 }} />
         </div>
 
         {/* TITLE */}
