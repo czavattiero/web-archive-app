@@ -41,8 +41,10 @@ export async function POST(req: Request) {
 
   const { error } = await supabaseAdmin
     .from("profiles")
-    .update({ parent_user_id: parentUserId })
-    .eq("id", userId)
+    .upsert(
+      { id: userId, parent_user_id: parentUserId },
+      { onConflict: "id" }
+    )
 
   if (error) {
     console.error("❌ Link error:", error)
