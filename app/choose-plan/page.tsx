@@ -49,13 +49,13 @@ export default function ChoosePlanPage() {
       justifyContent: "center",
       padding: 40,
     }}>
-      <img src="/screenly-logo.png" style={{ height: 60, marginBottom: 32 }} />
+      <img src="/timedshot-logo-.png" style={{ height: 60, marginBottom: 32 }} />
 
       <h1 style={{ fontSize: 30, fontWeight: 800, textAlign: "center" }}>
         Your free trial has ended
       </h1>
       <p style={{ color: "#6B7280", marginTop: 10, marginBottom: 48, textAlign: "center" }}>
-        Choose a plan to continue using Screenly
+        Choose a plan to continue using the app
       </p>
 
       <div style={{ display: "flex", gap: 32 }}>
@@ -120,3 +120,4 @@ const btnStyle = {
   fontSize: 15,
   cursor: "pointer",
 }
+
