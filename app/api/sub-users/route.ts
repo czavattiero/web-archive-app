@@ -24,17 +24,22 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const linkedIds = new Set((profiles || []).map((p: any) => p.id))
+  const linkedProfiles: { id: string; created_at: string }[] = profiles || []
+  const linkedIds = new Set(linkedProfiles.map((p) => p.id))
 
-  // Step 2: scan auth users whose metadata points to this parent (self-healing)
-  // This catches invited sub-users whose profile link was never written
+  // Step 2: scan auth users whose metadata points to this parent (self-healing).
+  // Catches invited sub-users whose profiles.parent_user_id was never written
+  // (e.g. because the invite upsert failed or a DB trigger reset it).
   try {
     const usersToRepair: { id: string; created_at: string }[] = []
     let page = 1
     const perPage = 1000
     while (true) {
       const { data: authPage, error: listError } = await supabaseAdmin.auth.admin.listUsers({ page, perPage })
-      if (listError) throw listError
+      if (listError) {
+        console.warn("⚠️ Auth user list failed (non-fatal):", listError.message)
+        break
+      }
       if (!authPage?.users?.length) break
 
       for (const authUser of authPage.users) {
@@ -61,20 +66,21 @@ export async function GET(req: Request) {
         )
       if (!repairError) {
         for (const u of usersToRepair) {
-          ;(profiles as any[]).push(u)
+          linkedProfiles.push(u)
           linkedIds.add(u.id)
         }
       } else {
         console.warn("⚠️ Auto-repair batch upsert failed:", repairError.message)
       }
     }
-  } catch (scanErr: any) {
-    console.warn("⚠️ Auth user scan failed (non-fatal):", scanErr.message)
+  } catch (scanErr) {
+    const msg = scanErr instanceof Error ? scanErr.message : String(scanErr)
+    console.warn("⚠️ Auth user scan failed (non-fatal):", msg)
   }
 
   // Step 3: resolve emails for all linked sub-users
   const subUsers = await Promise.all(
-    (profiles || []).map(async (profile: { id: string; created_at: string }) => {
+    linkedProfiles.map(async (profile) => {
       let email = "(unknown)"
       try {
         const { data: userData } = await supabaseAdmin.auth.admin.getUserById(profile.id)
