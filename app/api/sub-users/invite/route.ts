@@ -55,13 +55,25 @@ export async function POST(req: Request) {
     // required to create a password before accessing the app. The
     // needs_password_setup flag is read by both the set-password page and the
     // dashboard guard to enforce this one-time step.
-    const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    const { data: inviteData, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: { parent_user_id: parentUserId, needs_password_setup: true },
       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/set-password`,
     })
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    if (inviteData?.user?.id) {
+      const { error: upsertError } = await supabaseAdmin
+        .from("profiles")
+        .upsert(
+          { id: inviteData.user.id, parent_user_id: parentUserId },
+          { onConflict: "id" }
+        )
+      if (upsertError) {
+        console.warn("⚠️ Failed to create profile for invited sub-user:", upsertError.message)
+      }
     }
 
     return NextResponse.json({ success: true })
