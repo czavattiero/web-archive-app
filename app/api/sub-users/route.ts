@@ -34,7 +34,11 @@ export async function GET(req: Request) {
     let page = 1
     const perPage = 1000
     while (true) {
-      const { data: authPage } = await supabaseAdmin.auth.admin.listUsers({ page, perPage })
+      const { data: authPage, error: listError } = await supabaseAdmin.auth.admin.listUsers({ page, perPage })
+      if (listError) {
+        console.warn("⚠️ Auth user list failed (non-fatal):", listError.message)
+        break
+      }
       if (!authPage?.users?.length) break
 
       for (const authUser of authPage.users) {
@@ -52,7 +56,7 @@ export async function GET(req: Request) {
           if (!repairError) {
             linkedProfiles.push({
               id: authUser.id,
-              created_at: authUser.created_at ?? new Date().toISOString(),
+              created_at: authUser.created_at,
             })
             linkedIds.add(authUser.id)
           } else {
@@ -64,8 +68,9 @@ export async function GET(req: Request) {
       if (authPage.users.length < perPage) break
       page++
     }
-  } catch (scanErr: any) {
-    console.warn("⚠️ Auth user scan failed (non-fatal):", scanErr.message)
+  } catch (scanErr) {
+    const msg = scanErr instanceof Error ? scanErr.message : String(scanErr)
+    console.warn("⚠️ Auth user scan failed (non-fatal):", msg)
   }
 
   // Step 3: resolve emails for all linked sub-users
