@@ -39,13 +39,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true })
   }
 
-  // Include plan: "basic" to avoid silent failure on NOT NULL plan constraint
+  // Use UPDATE (not upsert/insert) to only patch parent_user_id on the existing
+  // row. The profile row is created by a Supabase DB trigger on user creation;
+  // an INSERT/upsert here would fail NOT NULL constraints on other columns.
   const { error } = await supabaseAdmin
     .from("profiles")
-    .upsert(
-      { id: userId, parent_user_id: parentUserId, plan: "basic" },
-      { onConflict: "id" }
-    )
+    .update({ parent_user_id: parentUserId })
+    .eq("id", userId)
 
   if (error) {
     console.error("❌ Link error:", error)

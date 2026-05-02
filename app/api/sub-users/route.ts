@@ -30,6 +30,8 @@ export async function GET(req: Request) {
   // Step 2: scan auth users whose metadata points to this parent (self-healing).
   // Catches invited sub-users whose profiles.parent_user_id was never written
   // (e.g. because the invite upsert failed or a DB trigger reset it).
+  // We use UPDATE (not upsert/insert) so we only touch parent_user_id on the
+  // existing row — avoids any NOT NULL constraint failures on other columns.
   try {
     const usersToRepair: { id: string; created_at: string }[] = []
     let page = 1
@@ -55,22 +57,18 @@ export async function GET(req: Request) {
       page++
     }
 
-    if (usersToRepair.length > 0) {
-      // Batch upsert all missing links in a single DB call.
-      // Include plan: "basic" to satisfy any NOT NULL constraint on the plan column.
+    // Repair each user individually with UPDATE (not upsert) so we only patch
+    // parent_user_id without risking NOT NULL violations on other columns.
+    for (const u of usersToRepair) {
       const { error: repairError } = await supabaseAdmin
         .from("profiles")
-        .upsert(
-          usersToRepair.map((u) => ({ id: u.id, parent_user_id: userId, plan: "basic" })),
-          { onConflict: "id" }
-        )
+        .update({ parent_user_id: userId })
+        .eq("id", u.id)
       if (!repairError) {
-        for (const u of usersToRepair) {
-          linkedProfiles.push(u)
-          linkedIds.add(u.id)
-        }
+        linkedProfiles.push(u)
+        linkedIds.add(u.id)
       } else {
-        console.warn("⚠️ Auto-repair batch upsert failed:", repairError.message)
+        console.warn("⚠️ Auto-repair UPDATE failed for sub-user", u.id, repairError.message)
       }
     }
   } catch (scanErr) {

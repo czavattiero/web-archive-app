@@ -64,18 +64,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
+    // At invite time the profile row may not exist yet (Supabase creates it via
+    // a DB trigger only after the user accepts and signs in). We attempt an
+    // UPDATE here so we only patch parent_user_id without risking NOT NULL
+    // violations. If the row doesn't exist yet the UPDATE is a no-op and the
+    // self-healing scan in GET /api/sub-users will repair it on the parent's
+    // next dashboard load after the sub-user has signed in.
     if (inviteData?.user?.id) {
-      // Write the parent_user_id link. Include plan: "basic" to satisfy any
-      // NOT NULL constraint on the plan column — the sub-user's plan is governed
-      // by the parent account anyway.
-      const { error: upsertError } = await supabaseAdmin
+      const { error: updateError } = await supabaseAdmin
         .from("profiles")
-        .upsert(
-          { id: inviteData.user.id, parent_user_id: parentUserId, plan: "basic" },
-          { onConflict: "id" }
-        )
-      if (upsertError) {
-        console.warn("⚠️ Failed to create profile for invited sub-user:", upsertError.message)
+        .update({ parent_user_id: parentUserId })
+        .eq("id", inviteData.user.id)
+      if (updateError) {
+        console.warn("⚠️ Failed to pre-link profile for invited sub-user:", updateError.message)
       }
     }
 
