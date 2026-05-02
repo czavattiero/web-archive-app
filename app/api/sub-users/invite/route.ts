@@ -65,14 +65,14 @@ export async function POST(req: Request) {
     }
 
     if (inviteData?.user?.id) {
-      const { error: upsertError } = await supabaseAdmin
+      const { error: linkError } = await supabaseAdmin
         .from("profiles")
         .upsert(
-          { id: inviteData.user.id, parent_user_id: parentUserId, email: email },
+          { id: inviteData.user.id, parent_user_id: parentUserId },
           { onConflict: "id" }
         )
-      if (upsertError) {
-        console.warn("⚠️ Failed to create profile for invited sub-user:", upsertError.message)
+      if (linkError) {
+        console.warn("⚠️ Failed to link invited sub-user profile:", linkError.message)
       }
     }
 
