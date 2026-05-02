@@ -24,6 +24,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Validate worker syntax
+        run: node --check worker/cleanup.js
+
+      - name: Lint worker files
+        run: npx eslint worker/
+
       - name: Run cleanup worker
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

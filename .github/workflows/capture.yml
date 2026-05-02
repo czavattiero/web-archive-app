@@ -26,6 +26,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Validate worker syntax
+        run: node --check worker/capture.js
+
+      - name: Lint worker files
+        run: npx eslint worker/
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
