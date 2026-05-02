@@ -32,7 +32,7 @@ export async function GET(req: Request) {
           email = userData.user.email
         }
       } catch {
-        // keep fallback email from profile row
+        // keep "(unknown)"
       }
       return { id: profile.id, created_at: profile.created_at, email }
     })

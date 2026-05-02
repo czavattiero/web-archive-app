@@ -65,6 +65,9 @@ export async function POST(req: Request) {
     }
 
     if (inviteData?.user?.id) {
+      // Always write parent_user_id — this is what makes the sub-user appear
+      // on the dashboard. Do NOT include email here in case the column doesn't
+      // exist yet; a missing email column must not block the link from being created.
       const { error: linkError } = await supabaseAdmin
         .from("profiles")
         .upsert(
