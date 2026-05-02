@@ -65,14 +65,17 @@ export async function POST(req: Request) {
     }
 
     if (inviteData?.user?.id) {
-      const { error: upsertError } = await supabaseAdmin
+      // Always write parent_user_id — this is what makes the sub-user appear
+      // on the dashboard. Do NOT include email here in case the column doesn't
+      // exist yet; a missing email column must not block the link from being created.
+      const { error: linkError } = await supabaseAdmin
         .from("profiles")
         .upsert(
-          { id: inviteData.user.id, parent_user_id: parentUserId, email: email },
+          { id: inviteData.user.id, parent_user_id: parentUserId },
           { onConflict: "id" }
         )
-      if (upsertError) {
-        console.warn("⚠️ Failed to create profile for invited sub-user:", upsertError.message)
+      if (linkError) {
+        console.warn("⚠️ Failed to link invited sub-user profile:", linkError.message)
       }
     }
 
