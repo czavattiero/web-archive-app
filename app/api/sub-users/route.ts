@@ -28,10 +28,9 @@ export async function GET(req: Request) {
   const linkedIds = new Set(linkedProfiles.map((p) => p.id))
 
   // Step 2: scan auth users whose metadata points to this parent (self-healing).
-  // Catches invited sub-users whose profiles.parent_user_id was never written
-  // (e.g. because the invite upsert failed or a DB trigger reset it).
-  // We use UPDATE (not upsert/insert) so we only touch parent_user_id on the
-  // existing row — avoids any NOT NULL constraint failures on other columns.
+  // inviteUserByEmail stores data in user_metadata, but depending on the Supabase
+  // version / flow it may surface on the admin API under app_metadata instead.
+  // We check both to be safe.
   try {
     const usersToRepair: { id: string; created_at: string }[] = []
     let page = 1
@@ -45,10 +44,11 @@ export async function GET(req: Request) {
       if (!authPage?.users?.length) break
 
       for (const authUser of authPage.users) {
-        if (
-          authUser.user_metadata?.parent_user_id === userId &&
-          !linkedIds.has(authUser.id)
-        ) {
+        const metaParent =
+          authUser.user_metadata?.parent_user_id ??
+          (authUser as any).app_metadata?.parent_user_id
+
+        if (metaParent === userId && !linkedIds.has(authUser.id)) {
           usersToRepair.push({ id: authUser.id, created_at: authUser.created_at })
         }
       }
@@ -57,8 +57,8 @@ export async function GET(req: Request) {
       page++
     }
 
-    // Repair each user individually with UPDATE (not upsert) so we only patch
-    // parent_user_id without risking NOT NULL violations on other columns.
+    // Repair each user with UPDATE so we only patch parent_user_id without
+    // risking NOT NULL violations on other columns.
     for (const u of usersToRepair) {
       const { error: repairError } = await supabaseAdmin
         .from("profiles")
@@ -69,6 +69,10 @@ export async function GET(req: Request) {
         linkedIds.add(u.id)
       } else {
         console.warn("⚠️ Auto-repair UPDATE failed for sub-user", u.id, repairError.message)
+        // Still surface the user even if the DB repair failed — the email
+        // lookup in Step 3 will work as long as the auth user exists.
+        linkedProfiles.push(u)
+        linkedIds.add(u.id)
       }
     }
   } catch (scanErr) {
