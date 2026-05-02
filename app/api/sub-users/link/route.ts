@@ -39,10 +39,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true })
   }
 
+  // Include plan: "basic" to avoid silent failure on NOT NULL plan constraint
   const { error } = await supabaseAdmin
     .from("profiles")
     .upsert(
-      { id: userId, parent_user_id: parentUserId },
+      { id: userId, parent_user_id: parentUserId, plan: "basic" },
       { onConflict: "id" }
     )
 
