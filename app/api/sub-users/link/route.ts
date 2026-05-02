@@ -13,7 +13,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "userId and parentUserId are required" }, { status: 400 })
   }
 
-  // Verify parent exists and is not itself a sub-user
   const { data: parentProfile } = await supabaseAdmin
     .from("profiles")
     .select("id, parent_user_id")
@@ -34,14 +33,10 @@ export async function POST(req: Request) {
     .eq("id", userId)
     .maybeSingle()
 
-  // Already linked — nothing to do
   if (profile?.parent_user_id) {
     return NextResponse.json({ success: true })
   }
 
-  // Fetch email from auth so we can populate the row if it doesn't exist yet.
-  // The DB trigger does NOT fire for invited users, so the profile row may be
-  // missing entirely — we must upsert (not just update).
   let subUserEmail: string | undefined
   try {
     const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId)
@@ -50,6 +45,7 @@ export async function POST(req: Request) {
     // proceed without email
   }
 
+  // profiles table has no created_at column — do not include it in upsert
   const { error } = await supabaseAdmin
     .from("profiles")
     .upsert(
@@ -57,13 +53,14 @@ export async function POST(req: Request) {
         id: userId,
         parent_user_id: parentUserId,
         plan: "basic",
+        subscribed: false,
         ...(subUserEmail ? { email: subUserEmail } : {}),
       },
       { onConflict: "id" }
     )
 
   if (error) {
-    console.error("❌ Link error:", error)
+    console.error("\u274c Link error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 

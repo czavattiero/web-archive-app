@@ -7,8 +7,6 @@ const supabaseAdmin = createClient(
 )
 
 export async function POST(req: Request) {
-  // Verify the caller's identity via the Bearer token so that sub-users
-  // cannot bypass the restriction by supplying a different parentUserId.
   const authHeader = req.headers.get("Authorization") ?? ""
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : ""
 
@@ -23,19 +21,16 @@ export async function POST(req: Request) {
   }
 
   const callerId = callerData.user.id
-
   const { parentUserId, email } = await req.json()
 
   if (!parentUserId || !email) {
     return NextResponse.json({ error: "parentUserId and email are required" }, { status: 400 })
   }
 
-  // The authenticated caller must be the parentUserId supplied in the body.
   if (callerId !== parentUserId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  // Verify the parent exists and is not itself a sub-user
   const { data: parentProfile } = await supabaseAdmin
     .from("profiles")
     .select("id, parent_user_id")
@@ -51,10 +46,6 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Redirect invitees to /set-password instead of /dashboard so they are
-    // required to create a password before accessing the app. The
-    // needs_password_setup flag is read by both the set-password page and the
-    // dashboard guard to enforce this one-time step.
     const { data: inviteData, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: { parent_user_id: parentUserId, needs_password_setup: true },
       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/set-password`,
@@ -64,10 +55,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    // The DB trigger does NOT fire for invited users, so the profile row won't
-    // exist yet. Upsert with all required fields so we create it immediately.
-    // If the row somehow already exists (re-invite), the onConflict update
-    // ensures parent_user_id is set correctly.
+    // The DB trigger does NOT fire for invited users — upsert the profile row.
+    // profiles table has no created_at column so we don't include it.
     if (inviteData?.user?.id) {
       const { error: upsertError } = await supabaseAdmin
         .from("profiles")
@@ -77,17 +66,18 @@ export async function POST(req: Request) {
             parent_user_id: parentUserId,
             email: email,
             plan: "basic",
+            subscribed: false,
           },
           { onConflict: "id" }
         )
       if (upsertError) {
-        console.warn("⚠️ Failed to create profile for invited sub-user:", upsertError.message)
+        console.warn("\u26a0\ufe0f Failed to create profile for invited sub-user:", upsertError.message)
       }
     }
 
     return NextResponse.json({ success: true })
   } catch (err: any) {
-    console.error("❌ Invite error:", err)
+    console.error("\u274c Invite error:", err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

@@ -14,30 +14,30 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "userId is required" }, { status: 400 })
   }
 
-  // Step 1: get already-linked sub-users from profiles
+  // Step 1: get already-linked sub-users from profiles.
+  // profiles table has no created_at column — select only id.
   const { data: profiles, error } = await supabaseAdmin
     .from("profiles")
-    .select("id, created_at")
+    .select("id")
     .eq("parent_user_id", userId)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const linkedProfiles: { id: string; created_at: string; email?: string }[] = profiles || []
-  const linkedIds = new Set(linkedProfiles.map((p) => p.id))
+  const linkedIds = new Set((profiles || []).map((p: any) => p.id))
 
   // Step 2: scan auth users whose metadata points to this parent (self-healing).
-  // The Supabase DB trigger that creates profile rows does NOT fire for invited
-  // users — so invited sub-users have no profiles row at all. We detect them
-  // via user_metadata and upsert the full row here.
+  // The Supabase DB trigger does NOT fire for invited users, so invited
+  // sub-users may have no profiles row. We detect and repair them here.
+  const repairedUsers: { id: string; email: string; created_at: string }[] = []
   try {
     let page = 1
     const perPage = 1000
     while (true) {
       const { data: authPage, error: listError } = await supabaseAdmin.auth.admin.listUsers({ page, perPage })
       if (listError) {
-        console.warn("⚠️ Auth user list failed (non-fatal):", listError.message)
+        console.warn("\u26a0\ufe0f Auth user list failed (non-fatal):", listError.message)
         break
       }
       if (!authPage?.users?.length) break
@@ -48,9 +48,6 @@ export async function GET(req: Request) {
           (authUser as any).app_metadata?.parent_user_id
 
         if (metaParent === userId && !linkedIds.has(authUser.id)) {
-          // The profile row may not exist (trigger doesn't fire for invites).
-          // Upsert with all required fields so this works whether or not the
-          // row already exists.
           const { error: upsertError } = await supabaseAdmin
             .from("profiles")
             .upsert(
@@ -59,16 +56,21 @@ export async function GET(req: Request) {
                 parent_user_id: userId,
                 email: authUser.email ?? null,
                 plan: "basic",
+                subscribed: false,
               },
               { onConflict: "id" }
             )
 
           if (upsertError) {
-            console.warn("⚠️ Auto-repair upsert failed for sub-user", authUser.id, upsertError.message)
+            console.warn("\u26a0\ufe0f Auto-repair upsert failed for sub-user", authUser.id, upsertError.message)
           }
 
-          // Surface the user regardless of whether the DB write succeeded
-          linkedProfiles.push({ id: authUser.id, created_at: authUser.created_at, email: authUser.email })
+          // Surface user regardless of whether DB write succeeded
+          repairedUsers.push({
+            id: authUser.id,
+            email: authUser.email ?? "(unknown)",
+            created_at: authUser.created_at,
+          })
           linkedIds.add(authUser.id)
         }
       }
@@ -78,24 +80,32 @@ export async function GET(req: Request) {
     }
   } catch (scanErr) {
     const msg = scanErr instanceof Error ? scanErr.message : String(scanErr)
-    console.warn("⚠️ Auth user scan failed (non-fatal):", msg)
+    console.warn("\u26a0\ufe0f Auth user scan failed (non-fatal):", msg)
   }
 
-  // Step 3: resolve emails for all linked sub-users
-  const subUsers = await Promise.all(
-    linkedProfiles.map(async (profile) => {
-      let email = profile.email || "(unknown)"
+  // Step 3: resolve emails + created_at for all linked sub-users from auth
+  const linkedProfileIds = (profiles || []).map((p: any) => p.id)
+  const linkedSubUsers = await Promise.all(
+    linkedProfileIds.map(async (id: string) => {
+      let email = "(unknown)"
+      let created_at = ""
       try {
-        const { data: userData } = await supabaseAdmin.auth.admin.getUserById(profile.id)
-        if (userData?.user?.email) {
-          email = userData.user.email
-        }
+        const { data: userData } = await supabaseAdmin.auth.admin.getUserById(id)
+        if (userData?.user?.email) email = userData.user.email
+        if (userData?.user?.created_at) created_at = userData.user.created_at
       } catch {
-        // keep existing email
+        // keep defaults
       }
-      return { id: profile.id, created_at: profile.created_at, email }
+      return { id, email, created_at }
     })
   )
 
-  return NextResponse.json({ subUsers })
+  // Merge: repaired users first, then existing linked users (deduplicated)
+  const repairedIds = new Set(repairedUsers.map((u) => u.id))
+  const combined = [
+    ...repairedUsers,
+    ...linkedSubUsers.filter((u) => !repairedIds.has(u.id)),
+  ]
+
+  return NextResponse.json({ subUsers: combined })
 }
