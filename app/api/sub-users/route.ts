@@ -31,6 +31,7 @@ export async function GET(req: Request) {
   // Catches invited sub-users whose profiles.parent_user_id was never written
   // (e.g. because the invite upsert failed or a DB trigger reset it).
   try {
+    const usersToRepair: { id: string; created_at: string }[] = []
     let page = 1
     const perPage = 1000
     while (true) {
@@ -46,27 +47,31 @@ export async function GET(req: Request) {
           authUser.user_metadata?.parent_user_id === userId &&
           !linkedIds.has(authUser.id)
         ) {
-          // Auto-repair: write the missing parent_user_id link
-          const { error: repairError } = await supabaseAdmin
-            .from("profiles")
-            .upsert(
-              { id: authUser.id, parent_user_id: userId, plan: "basic" },
-              { onConflict: "id" }
-            )
-          if (!repairError) {
-            linkedProfiles.push({
-              id: authUser.id,
-              created_at: authUser.created_at,
-            })
-            linkedIds.add(authUser.id)
-          } else {
-            console.warn("⚠️ Auto-repair failed for sub-user", authUser.id, repairError.message)
-          }
+          usersToRepair.push({ id: authUser.id, created_at: authUser.created_at })
         }
       }
 
       if (authPage.users.length < perPage) break
       page++
+    }
+
+    if (usersToRepair.length > 0) {
+      // Batch upsert all missing links in a single DB call.
+      // Include plan: "basic" to satisfy any NOT NULL constraint on the plan column.
+      const { error: repairError } = await supabaseAdmin
+        .from("profiles")
+        .upsert(
+          usersToRepair.map((u) => ({ id: u.id, parent_user_id: userId, plan: "basic" })),
+          { onConflict: "id" }
+        )
+      if (!repairError) {
+        for (const u of usersToRepair) {
+          linkedProfiles.push(u)
+          linkedIds.add(u.id)
+        }
+      } else {
+        console.warn("⚠️ Auto-repair batch upsert failed:", repairError.message)
+      }
     }
   } catch (scanErr) {
     const msg = scanErr instanceof Error ? scanErr.message : String(scanErr)
