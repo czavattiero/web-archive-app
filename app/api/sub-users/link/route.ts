@@ -39,13 +39,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true })
   }
 
-  // Use UPDATE (not upsert/insert) to only patch parent_user_id on the existing
-  // row. The profile row is created by a Supabase DB trigger on user creation;
-  // an INSERT/upsert here would fail NOT NULL constraints on other columns.
+  // Fetch email from auth so we can populate the row if it doesn't exist yet.
+  // The DB trigger does NOT fire for invited users, so the profile row may be
+  // missing entirely — we must upsert (not just update).
+  let subUserEmail: string | undefined
+  try {
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId)
+    subUserEmail = authUser?.user?.email
+  } catch {
+    // proceed without email
+  }
+
   const { error } = await supabaseAdmin
     .from("profiles")
-    .update({ parent_user_id: parentUserId })
-    .eq("id", userId)
+    .upsert(
+      {
+        id: userId,
+        parent_user_id: parentUserId,
+        plan: "basic",
+        ...(subUserEmail ? { email: subUserEmail } : {}),
+      },
+      { onConflict: "id" }
+    )
 
   if (error) {
     console.error("❌ Link error:", error)

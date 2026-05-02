@@ -24,15 +24,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const linkedProfiles: { id: string; created_at: string }[] = profiles || []
+  const linkedProfiles: { id: string; created_at: string; email?: string }[] = profiles || []
   const linkedIds = new Set(linkedProfiles.map((p) => p.id))
 
   // Step 2: scan auth users whose metadata points to this parent (self-healing).
-  // inviteUserByEmail stores data in user_metadata, but depending on the Supabase
-  // version / flow it may surface on the admin API under app_metadata instead.
-  // We check both to be safe.
+  // The Supabase DB trigger that creates profile rows does NOT fire for invited
+  // users — so invited sub-users have no profiles row at all. We detect them
+  // via user_metadata and upsert the full row here.
   try {
-    const usersToRepair: { id: string; created_at: string }[] = []
     let page = 1
     const perPage = 1000
     while (true) {
@@ -49,31 +48,33 @@ export async function GET(req: Request) {
           (authUser as any).app_metadata?.parent_user_id
 
         if (metaParent === userId && !linkedIds.has(authUser.id)) {
-          usersToRepair.push({ id: authUser.id, created_at: authUser.created_at })
+          // The profile row may not exist (trigger doesn't fire for invites).
+          // Upsert with all required fields so this works whether or not the
+          // row already exists.
+          const { error: upsertError } = await supabaseAdmin
+            .from("profiles")
+            .upsert(
+              {
+                id: authUser.id,
+                parent_user_id: userId,
+                email: authUser.email ?? null,
+                plan: "basic",
+              },
+              { onConflict: "id" }
+            )
+
+          if (upsertError) {
+            console.warn("⚠️ Auto-repair upsert failed for sub-user", authUser.id, upsertError.message)
+          }
+
+          // Surface the user regardless of whether the DB write succeeded
+          linkedProfiles.push({ id: authUser.id, created_at: authUser.created_at, email: authUser.email })
+          linkedIds.add(authUser.id)
         }
       }
 
       if (authPage.users.length < perPage) break
       page++
-    }
-
-    // Repair each user with UPDATE so we only patch parent_user_id without
-    // risking NOT NULL violations on other columns.
-    for (const u of usersToRepair) {
-      const { error: repairError } = await supabaseAdmin
-        .from("profiles")
-        .update({ parent_user_id: userId })
-        .eq("id", u.id)
-      if (!repairError) {
-        linkedProfiles.push(u)
-        linkedIds.add(u.id)
-      } else {
-        console.warn("⚠️ Auto-repair UPDATE failed for sub-user", u.id, repairError.message)
-        // Still surface the user even if the DB repair failed — the email
-        // lookup in Step 3 will work as long as the auth user exists.
-        linkedProfiles.push(u)
-        linkedIds.add(u.id)
-      }
     }
   } catch (scanErr) {
     const msg = scanErr instanceof Error ? scanErr.message : String(scanErr)
@@ -83,14 +84,14 @@ export async function GET(req: Request) {
   // Step 3: resolve emails for all linked sub-users
   const subUsers = await Promise.all(
     linkedProfiles.map(async (profile) => {
-      let email = "(unknown)"
+      let email = profile.email || "(unknown)"
       try {
         const { data: userData } = await supabaseAdmin.auth.admin.getUserById(profile.id)
         if (userData?.user?.email) {
           email = userData.user.email
         }
       } catch {
-        // keep "(unknown)"
+        // keep existing email
       }
       return { id: profile.id, created_at: profile.created_at, email }
     })
