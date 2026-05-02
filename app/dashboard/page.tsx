@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 import { DateTime } from "luxon"
@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [customDate, setCustomDate] = useState("")
 
   const [isSubUser, setIsSubUser] = useState(false)
+  const isSubUserRef = useRef(isSubUser)
   const [subUsers, setSubUsers] = useState<any[]>([])
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteLoading, setInviteLoading] = useState(false)
@@ -63,17 +64,23 @@ export default function Dashboard() {
       let parentUserId: string | null = profile?.parent_user_id || null
 
       if (metaParentId && !parentUserId) {
-        const res = await fetch("/api/sub-users/link", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: data.user.id, parentUserId: metaParentId }),
-        })
-        if (res.ok) {
-          parentUserId = metaParentId
+        // Treat the user as a sub-user immediately based on metadata,
+        // regardless of whether the link API call succeeds.
+        parentUserId = metaParentId
+        try {
+          await fetch("/api/sub-users/link", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: data.user.id, parentUserId: metaParentId }),
+          })
+        } catch (error) {
+          // best-effort — isSubUser is already set correctly
+          console.error("Failed to persist sub-user link:", error)
         }
       }
 
       const isSubUserAccount = !!parentUserId
+      isSubUserRef.current = isSubUserAccount
       setIsSubUser(isSubUserAccount)
 
       setPlan(profile?.plan || "basic")
@@ -115,11 +122,13 @@ export default function Dashboard() {
     setUrls(urlsData || [])
     setCaptures(capturesData || [])
 
-    // Fetch sub-users for parent accounts
-    const subUsersRes = await fetch(`/api/sub-users?userId=${currentUser.id}`)
-    if (subUsersRes.ok) {
-      const { subUsers: fetchedSubUsers } = await subUsersRes.json()
-      setSubUsers(fetchedSubUsers || [])
+    // Fetch sub-users for parent accounts only
+    if (!isSubUserRef.current) {
+      const subUsersRes = await fetch(`/api/sub-users?userId=${currentUser.id}`)
+      if (subUsersRes.ok) {
+        const { subUsers: fetchedSubUsers } = await subUsersRes.json()
+        setSubUsers(fetchedSubUsers || [])
+      }
     }
 
     // Fetch aggregated URL count (owner + sub-users) from server-side API
