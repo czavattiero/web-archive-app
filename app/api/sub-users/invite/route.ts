@@ -65,14 +65,30 @@ export async function POST(req: Request) {
     }
 
     if (inviteData?.user?.id) {
-      const { error: upsertError } = await supabaseAdmin
+      // Step 1: always write the parent_user_id link — this is critical for the
+      // sub-user to appear on the dashboard at all.
+      const { error: linkError } = await supabaseAdmin
         .from("profiles")
         .upsert(
-          { id: inviteData.user.id, parent_user_id: parentUserId, email: email },
+          { id: inviteData.user.id, parent_user_id: parentUserId },
           { onConflict: "id" }
         )
-      if (upsertError) {
-        console.warn("⚠️ Failed to create profile for invited sub-user:", upsertError.message)
+      if (linkError) {
+        console.warn("⚠️ Failed to link invited sub-user profile:", linkError.message)
+      }
+
+      // Step 2: try to store the email as well (requires the email column to exist).
+      // This is best-effort — the sub-user will still appear even if this fails.
+      try {
+        const { error: emailError } = await supabaseAdmin
+          .from("profiles")
+          .update({ email })
+          .eq("id", inviteData.user.id)
+        if (emailError) {
+          console.warn("⚠️ Failed to store email on sub-user profile:", emailError.message)
+        }
+      } catch {
+        // email column may not exist yet; ignore
       }
     }
 
