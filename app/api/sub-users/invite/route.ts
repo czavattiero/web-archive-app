@@ -70,7 +70,7 @@ export async function POST(req: Request) {
       const { error: linkError } = await supabaseAdmin
         .from("profiles")
         .upsert(
-          { id: inviteData.user.id, parent_user_id: parentUserId },
+          { id: inviteData.user.id, parent_user_id: parentUserId, plan: "basic" },
           { onConflict: "id" }
         )
       if (linkError) {

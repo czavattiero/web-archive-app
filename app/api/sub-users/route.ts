@@ -14,6 +14,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "userId is required" }, { status: 400 })
   }
 
+  // Step 1: get already-linked sub-users from profiles
   const { data: profiles, error } = await supabaseAdmin
     .from("profiles")
     .select("id, created_at")
@@ -23,6 +24,55 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  const linkedIds = new Set((profiles || []).map((p: any) => p.id))
+
+  // Step 2: scan auth users whose metadata points to this parent (self-healing)
+  // This catches invited sub-users whose profile link was never written
+  try {
+    const usersToRepair: { id: string; created_at: string }[] = []
+    let page = 1
+    const perPage = 1000
+    while (true) {
+      const { data: authPage, error: listError } = await supabaseAdmin.auth.admin.listUsers({ page, perPage })
+      if (listError) throw listError
+      if (!authPage?.users?.length) break
+
+      for (const authUser of authPage.users) {
+        if (
+          authUser.user_metadata?.parent_user_id === userId &&
+          !linkedIds.has(authUser.id)
+        ) {
+          usersToRepair.push({ id: authUser.id, created_at: authUser.created_at })
+        }
+      }
+
+      if (authPage.users.length < perPage) break
+      page++
+    }
+
+    if (usersToRepair.length > 0) {
+      // Batch upsert all missing links in a single DB call.
+      // Include plan: "basic" to satisfy any NOT NULL constraint on the plan column.
+      const { error: repairError } = await supabaseAdmin
+        .from("profiles")
+        .upsert(
+          usersToRepair.map((u) => ({ id: u.id, parent_user_id: userId, plan: "basic" })),
+          { onConflict: "id" }
+        )
+      if (!repairError) {
+        for (const u of usersToRepair) {
+          ;(profiles as any[]).push(u)
+          linkedIds.add(u.id)
+        }
+      } else {
+        console.warn("⚠️ Auto-repair batch upsert failed:", repairError.message)
+      }
+    }
+  } catch (scanErr: any) {
+    console.warn("⚠️ Auth user scan failed (non-fatal):", scanErr.message)
+  }
+
+  // Step 3: resolve emails for all linked sub-users
   const subUsers = await Promise.all(
     (profiles || []).map(async (profile: { id: string; created_at: string }) => {
       let email = "(unknown)"
