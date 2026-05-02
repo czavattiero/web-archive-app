@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
   const { data: profiles, error } = await supabaseAdmin
     .from("profiles")
-    .select("id, created_at, email")
+    .select("id, created_at")
     .eq("parent_user_id", userId)
 
   if (error) {
@@ -24,8 +24,8 @@ export async function GET(req: Request) {
   }
 
   const subUsers = await Promise.all(
-    (profiles || []).map(async (profile: { id: string; created_at: string; email?: string }) => {
-      let email = profile.email || "(unknown)"
+    (profiles || []).map(async (profile: { id: string; created_at: string }) => {
+      let email = "(unknown)"
       try {
         const { data: userData } = await supabaseAdmin.auth.admin.getUserById(profile.id)
         if (userData?.user?.email) {
