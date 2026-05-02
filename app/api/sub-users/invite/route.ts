@@ -68,7 +68,7 @@ export async function POST(req: Request) {
       const { error: upsertError } = await supabaseAdmin
         .from("profiles")
         .upsert(
-          { id: inviteData.user.id, parent_user_id: parentUserId },
+          { id: inviteData.user.id, parent_user_id: parentUserId, email: email },
           { onConflict: "id" }
         )
       if (upsertError) {

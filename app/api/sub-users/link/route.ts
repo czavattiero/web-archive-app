@@ -39,10 +39,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true })
   }
 
+  // Resolve the sub-user's email from auth to store in the profile row
+  let subUserEmail: string | undefined
+  try {
+    const { data: authData } = await supabaseAdmin.auth.admin.getUserById(userId)
+    subUserEmail = authData?.user?.email
+  } catch {
+    // ignore
+  }
+
   const { error } = await supabaseAdmin
     .from("profiles")
     .upsert(
-      { id: userId, parent_user_id: parentUserId },
+      {
+        id: userId,
+        parent_user_id: parentUserId,
+        ...(subUserEmail ? { email: subUserEmail } : {}),
+      },
       { onConflict: "id" }
     )
 
