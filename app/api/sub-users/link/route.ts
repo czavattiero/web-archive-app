@@ -30,30 +30,19 @@ export async function POST(req: Request) {
 
   const { data: profile } = await supabaseAdmin
     .from("profiles")
-    .select("parent_user_id, email")
+    .select("parent_user_id")
     .eq("id", userId)
     .maybeSingle()
 
-  if (profile?.parent_user_id && profile?.email) {
+  // Already linked — nothing to do
+  if (profile?.parent_user_id) {
     return NextResponse.json({ success: true })
-  }
-
-  let subUserEmail: string | undefined
-  try {
-    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId)
-    subUserEmail = authUser?.user?.email
-  } catch {
-    // proceed without email
   }
 
   const { error } = await supabaseAdmin
     .from("profiles")
     .upsert(
-      {
-        id: userId,
-        parent_user_id: parentUserId,
-        ...(subUserEmail ? { email: subUserEmail } : {}),
-      },
+      { id: userId, parent_user_id: parentUserId },
       { onConflict: "id" }
     )
 
