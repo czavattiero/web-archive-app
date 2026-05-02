@@ -77,6 +77,16 @@ export async function POST(req: Request) {
       if (linkError) {
         console.warn("⚠️ Failed to link invited sub-user profile:", linkError.message)
       }
+
+      try {
+        await supabaseAdmin
+          .from("profiles")
+          .update({ email })
+          .eq("id", inviteData.user.id)
+      } catch (emailErr: any) {
+        // email column may not exist yet — non-fatal
+        console.warn("⚠️ Could not update email on profile:", emailErr?.message)
+      }
     }
 
     return NextResponse.json({ success: true })
