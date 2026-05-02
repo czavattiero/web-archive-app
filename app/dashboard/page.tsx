@@ -474,34 +474,36 @@ export default function Dashboard() {
         <div style={cardStyle}>
           <h3 style={sectionTitle}>Add URL</h3>
 
-          <div style={{
-            display: "inline-flex",
-            alignItems: "center",
-            background: "#F3F4F6",
-            borderRadius: 999,
-            padding: "4px 12px",
-            fontSize: 12,
-            color: "#6B7280",
-            fontWeight: 500,
-            marginBottom: 16,
-          }}>
-            {plan === "pro"
-              ? `Professional plan · ${urlCount30d}/40 URLs in last 30 days`
-              : plan === "trial"
-              ? `Free trial · ${urlCount30d}/15 URLs in last 30 days`
-              : `Basic plan · ${urlCount30d}/15 URLs in last 30 days`}
-            {!isSubUser && plan !== "pro" && urlCount30d >= BASIC_PLAN_WARNING_THRESHOLD && (
-              <span style={{ color: "#DC2626", marginLeft: 8 }}>
-                Approaching limit —{" "}
-                <button
-                  onClick={handleUpgrade}
-                  style={{ background: "none", border: "none", color: "#6A11CB", cursor: "pointer", fontWeight: 600, padding: 0 }}
-                >
-                  Upgrade to Pro
-                </button>
-              </span>
-            )}
-          </div>
+          {!isSubUser && (
+            <div style={{
+              display: "inline-flex",
+              alignItems: "center",
+              background: "#F3F4F6",
+              borderRadius: 999,
+              padding: "4px 12px",
+              fontSize: 12,
+              color: "#6B7280",
+              fontWeight: 500,
+              marginBottom: 16,
+            }}>
+              {plan === "pro"
+                ? `Professional plan · ${urlCount30d}/40 URLs in last 30 days`
+                : plan === "trial"
+                ? `Free trial · ${urlCount30d}/15 URLs in last 30 days`
+                : `Basic plan · ${urlCount30d}/15 URLs in last 30 days`}
+              {plan !== "pro" && urlCount30d >= BASIC_PLAN_WARNING_THRESHOLD && (
+                <span style={{ color: "#DC2626", marginLeft: 8 }}>
+                  Approaching limit —{" "}
+                  <button
+                    onClick={handleUpgrade}
+                    style={{ background: "none", border: "none", color: "#6A11CB", cursor: "pointer", fontWeight: 600, padding: 0 }}
+                  >
+                    Upgrade to Pro
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
 
           <div style={{ display: "flex", gap: 10 }}>
             <input
