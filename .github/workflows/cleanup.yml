@@ -25,7 +25,7 @@ jobs:
         run: npm install
 
       - name: Validate worker syntax
-        run: node --check worker/cleanup.js
+        run: node --check worker/*.js
 
       - name: Lint worker files
         run: npx eslint worker/
