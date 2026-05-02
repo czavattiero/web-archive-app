@@ -28,24 +28,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Cannot link to a sub-user" }, { status: 400 })
   }
 
-  // Skip if already linked
   const { data: profile } = await supabaseAdmin
     .from("profiles")
-    .select("parent_user_id")
+    .select("parent_user_id, email")
     .eq("id", userId)
     .maybeSingle()
 
-  if (profile?.parent_user_id) {
+  if (profile?.parent_user_id && profile?.email) {
     return NextResponse.json({ success: true })
   }
 
-  // Resolve the sub-user's email from auth to store in the profile row
   let subUserEmail: string | undefined
   try {
-    const { data: authData } = await supabaseAdmin.auth.admin.getUserById(userId)
-    subUserEmail = authData?.user?.email
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId)
+    subUserEmail = authUser?.user?.email
   } catch {
-    // ignore
+    // proceed without email
   }
 
   const { error } = await supabaseAdmin
