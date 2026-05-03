@@ -10,13 +10,12 @@ export default function Home() {
     }}>
 
       {/* NAVIGATION */}
-      <nav style={{
+      <nav className="landing-nav" style={{
         position: "sticky",
         top: 0,
         zIndex: 50,
         background: "#ffffff",
         borderBottom: "1px solid #E5E7EB",
-        padding: "0 80px",
         height: 90,
         display: "flex",
         alignItems: "center",
@@ -45,18 +44,13 @@ export default function Home() {
       </nav>
 
       {/* HERO */}
-      <section style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: 60,
-        alignItems: "center",
+      <section className="hero-section" style={{
         maxWidth: 1200,
         margin: "0 auto",
-        padding: "100px 80px",
       }}>
         {/* LEFT */}
         <div>
-          <h1 style={{
+          <h1 className="hero-heading" style={{
             fontSize: 52,
             fontWeight: 800,
             lineHeight: 1.15,
@@ -113,10 +107,9 @@ export default function Home() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section style={{
+      <section className="how-section" style={{
         maxWidth: 1100,
         margin: "0 auto",
-        padding: "100px 80px",
         textAlign: "center",
       }}>
         <p style={{ fontSize: 13, fontWeight: 600, color: "#6A11CB", letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>
@@ -126,12 +119,7 @@ export default function Home() {
           Three steps to timestamped proof
         </h2>
 
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 32,
-          marginTop: 56,
-          textAlign: "left",
+        <div className="steps-grid" style={{
         }}>
           {[
             {
@@ -184,11 +172,10 @@ export default function Home() {
       </section>
 
       {/* DEMO VIDEO */}
-      <section style={{
+      <section className="demo-section" style={{
         background: "#F9FAFB",
         borderTop: "1px solid #E5E7EB",
         borderBottom: "1px solid #E5E7EB",
-        padding: "100px 80px",
         textAlign: "center",
       }}>
         <div style={{ maxWidth: 800, margin: "0 auto" }}>
@@ -261,10 +248,9 @@ export default function Home() {
       </section>
 
       {/* PRICING */}
-      <section style={{
+      <section className="pricing-section" style={{
         maxWidth: 1100,
         margin: "0 auto",
-        padding: "100px 80px",
         textAlign: "center",
       }}>
         <p style={{ fontSize: 13, fontWeight: 600, color: "#6A11CB", letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>
@@ -277,11 +263,7 @@ export default function Home() {
           Start free. Upgrade when you're ready.
         </p>
 
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 28,
-          alignItems: "start",
+        <div className="pricing-grid" style={{
         }}>
           {/* BASIC */}
           <div style={{
@@ -411,9 +393,8 @@ export default function Home() {
       </section>
 
       {/* CTA BANNER */}
-      <section style={{
+      <section className="cta-section" style={{
         background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
-        padding: "80px",
         textAlign: "center",
       }}>
         <h2 style={{ fontSize: 36, fontWeight: 800, color: "#fff", margin: "0 0 16px" }}>
@@ -439,12 +420,8 @@ export default function Home() {
       </section>
 
       {/* FOOTER */}
-      <footer style={{
+      <footer className="landing-footer" style={{
         background: "#111827",
-        padding: "40px 80px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
       }}>
         <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 56, filter: "brightness(0) invert(1)", opacity: 0.7 }} />
         <p style={{ fontSize: 13, color: "#6B7280", margin: 0 }}>© 2026 Timedshot. All rights reserved.</p>

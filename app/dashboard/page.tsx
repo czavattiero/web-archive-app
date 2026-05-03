@@ -413,7 +413,7 @@ export default function Dashboard() {
   return (
     <div style={{ minHeight: "100vh", background: "#F9FAFB", fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* TOP BAR */}
-      <div style={topBar}>
+      <div className="dashboard-topbar" style={topBar}>
         <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160 }} />
 
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -484,7 +484,7 @@ export default function Dashboard() {
         )
       })()}
 
-      <div style={{ padding: "32px 40px", maxWidth: 1200, margin: "0 auto" }}>
+      <div className="dashboard-content" style={{ maxWidth: 1200, margin: "0 auto" }}>
         <DisclaimerBanner />
         {/* SUB-USERS — only shown to parent (non-sub) accounts */}
         {!isSubUser && (
@@ -567,7 +567,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 10 }}>
+          <div className="add-url-row" style={{ display: "flex", gap: 10 }}>
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}

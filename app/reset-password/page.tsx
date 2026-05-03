@@ -42,7 +42,8 @@ export default function ResetPasswordPage() {
       background: "#f7f8fb"
     }}>
       <div style={{
-        width: 400,
+        maxWidth: 400,
+        width: "100%",
         background: "white",
         padding: 40,
         borderRadius: 20,
