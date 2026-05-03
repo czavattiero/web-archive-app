@@ -21,66 +21,65 @@ export default function SignupPage() {
   const completedRef = useRef(false)
 
   // When the user returns from clicking their confirmation email link,
-  // Supabase will have established a session. Detect this and complete setup.
+  // wait for the SIGNED_IN event (after PKCE code exchange) before completing setup.
   useEffect(() => {
     if (!isConfirmed || completedRef.current) return
     completedRef.current = true
 
-    async function completeSignup() {
-      setLoading(true)
-      setError("")
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === "SIGNED_IN" && session?.user) {
+          subscription.unsubscribe()
+          setLoading(true)
+          setError("")
 
-      try {
-        const { data: userData } = await supabase.auth.getUser()
+          try {
+            const user = session.user
 
-        if (!userData?.user) {
-          setError("Session not found. Please try signing in.")
-          setLoading(false)
-          return
-        }
+            const { error: upsertError } = await supabase.from("profiles").upsert({
+              id: user.id,
+              email: user.email,
+              subscribed: false,
+              plan: "trial",
+              trial_ends_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+            })
 
-        const { error: upsertError } = await supabase.from("profiles").upsert({
-          id: userData.user.id,
-          email: userData.user.email,
-          subscribed: false,
-          plan: "trial",
-          trial_ends_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-        })
+            if (upsertError) {
+              console.error("Profile upsert error:", upsertError)
+              setError("Failed to create profile")
+              setLoading(false)
+              return
+            }
 
-        if (upsertError) {
-          console.error("Profile upsert error:", upsertError)
-          setError("Failed to create profile")
-          setLoading(false)
-          return
-        }
+            if (plan === "basic" || plan === "pro") {
+              const res = await fetch("/api/checkout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: user.email, plan, userId: user.id }),
+              })
+              const data = await res.json()
 
-        if (plan === "basic" || plan === "pro") {
-          const res = await fetch("/api/checkout", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: userData.user.email, plan, userId: userData.user.id }),
-          })
+              if (!data.url) {
+                setError("Checkout failed")
+                setLoading(false)
+                return
+              }
 
-          const data = await res.json()
-
-          if (!data.url) {
-            setError("Checkout failed")
+              window.location.href = data.url
+            } else {
+              window.location.href = "/dashboard"
+            }
+          } catch (err) {
+            console.error("Post-confirmation error:", err)
+            setError("Something went wrong")
             setLoading(false)
-            return
           }
-
-          window.location.href = data.url
-        } else {
-          window.location.href = "/dashboard"
         }
-      } catch (err) {
-        console.error("Post-confirmation error:", err)
-        setError("Something went wrong")
-        setLoading(false)
       }
-    }
+    )
 
-    completeSignup()
+    // Cleanup in case the component unmounts before SIGNED_IN fires
+    return () => subscription.unsubscribe()
   }, [isConfirmed, plan])
 
   async function handleSignup(e: any) {
