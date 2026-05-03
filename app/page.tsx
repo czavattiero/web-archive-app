@@ -171,7 +171,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* DEMO VIDEO */}
+      {/* DEMO */}
       <section className="demo-section" style={{
         background: "#F9FAFB",
         borderTop: "1px solid #E5E7EB",
@@ -189,20 +189,21 @@ export default function Home() {
             From adding a URL to downloading your timestamped PDF — in under 2 minutes.
           </p>
 
-          {/* Video embed container */}
+          {/* Arcade interactive demo */}
           <div style={{
             position: "relative" as const,
             width: "100%",
-            paddingBottom: "56.25%",
+            paddingBottom: "calc(56.25% + 41px)",
             borderRadius: 16,
             overflow: "hidden",
             boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
             border: "1px solid #E5E7EB",
           }}>
             <iframe
-              src="https://www.youtube.com/embed/1P25Ncyq-wM"
+              src="https://demo.arcade.software/JqUGB4hlwxA2yV2n9nAg?embed&embed_mobile=tab&embed_desktop=inline&show_copy_link=true"
+              title="Timedshot Demo"
               style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allow="clipboard-write"
               allowFullScreen
             />
           </div>
