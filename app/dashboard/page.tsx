@@ -322,7 +322,12 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
+    // Preserve disclaimer acknowledgement flags so the modal doesn't re-appear on next login
+    const disclaimerEntries = Object.keys(localStorage)
+      .filter((key) => key.startsWith("disclaimer_acknowledged_"))
+      .map((key): [string, string] => [key, localStorage.getItem(key) as string])
     localStorage.clear()
+    disclaimerEntries.forEach(([key, value]) => localStorage.setItem(key, value))
     window.location.href = "/"
   }
 
