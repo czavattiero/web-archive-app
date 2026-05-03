@@ -38,10 +38,29 @@ export async function POST(req: Request) {
     .maybeSingle()
 
   if (!parentProfile) {
-    return NextResponse.json({ error: "Parent user not found" }, { status: 404 })
-  }
-
-  if (parentProfile.parent_user_id) {
+    // Profile row is missing (DB trigger didn't fire). Verify the auth user
+    // exists, auto-upsert a basic profile, and continue.
+    const { data: authUserData } = await supabaseAdmin.auth.admin.getUserById(parentUserId)
+    if (!authUserData?.user) {
+      return NextResponse.json({ error: "Parent user not found" }, { status: 404 })
+    }
+    const { error: upsertParentError } = await supabaseAdmin
+      .from("profiles")
+      .upsert(
+        {
+          id: parentUserId,
+          plan: "basic",
+          subscribed: false,
+          email: authUserData.user.email,
+        },
+        { onConflict: "id" }
+      )
+    if (upsertParentError) {
+      console.warn("⚠️ Failed to auto-create parent profile:", upsertParentError.message)
+      // Continue anyway — the invite email and sub-user profile creation below
+      // do not depend on the parent's profile row being present.
+    }
+  } else if (parentProfile.parent_user_id) {
     return NextResponse.json({ error: "Sub-users cannot invite other sub-users" }, { status: 403 })
   }
 
