@@ -22,7 +22,7 @@ export default function Home() {
         justifyContent: "space-between",
       }}>
         <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 72 }} />
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <div className="nav-actions" style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <a href="/login" style={{ fontSize: 14, fontWeight: 500, color: "#374151", textDecoration: "none" }}>
             Log in
           </a>
@@ -115,7 +115,7 @@ export default function Home() {
         <p style={{ fontSize: 13, fontWeight: 600, color: "#6A11CB", letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>
           How it works
         </p>
-        <h2 style={{ fontSize: 36, fontWeight: 800, color: "#111827", margin: 0 }}>
+        <h2 className="section-heading" style={{ fontSize: 36, fontWeight: 800, color: "#111827", margin: 0 }}>
           Three steps to timestamped proof
         </h2>
 
@@ -182,7 +182,7 @@ export default function Home() {
           <p style={{ fontSize: 13, fontWeight: 600, color: "#6A11CB", letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>
             See it in action
           </p>
-          <h2 style={{ fontSize: 36, fontWeight: 800, color: "#111827", marginBottom: 12 }}>
+          <h2 className="section-heading" style={{ fontSize: 36, fontWeight: 800, color: "#111827", marginBottom: 12 }}>
             Watch how Timedshot works
           </h2>
           <p style={{ fontSize: 16, color: "#6B7280", marginBottom: 48, lineHeight: 1.6 }}>
@@ -256,7 +256,7 @@ export default function Home() {
         <p style={{ fontSize: 13, fontWeight: 600, color: "#6A11CB", letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>
           Pricing
         </p>
-        <h2 style={{ fontSize: 36, fontWeight: 800, color: "#111827", margin: "0 0 8px" }}>
+        <h2 className="section-heading" style={{ fontSize: 36, fontWeight: 800, color: "#111827", margin: "0 0 8px" }}>
           Simple pricing
         </h2>
         <p style={{ fontSize: 16, color: "#6B7280", marginBottom: 56 }}>
@@ -397,7 +397,7 @@ export default function Home() {
         background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
         textAlign: "center",
       }}>
-        <h2 style={{ fontSize: 36, fontWeight: 800, color: "#fff", margin: "0 0 16px" }}>
+        <h2 className="section-heading" style={{ fontSize: 36, fontWeight: 800, color: "#fff", margin: "0 0 16px" }}>
           Ready to capture your first screenshot?
         </h2>
         <p style={{ fontSize: 16, color: "rgba(255,255,255,0.8)", margin: "0 0 36px" }}>
