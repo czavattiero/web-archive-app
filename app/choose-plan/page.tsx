@@ -58,7 +58,7 @@ export default function ChoosePlanPage() {
         Choose a plan to continue using Timedshot
       </p>
 
-      <div style={{ display: "flex", gap: 32 }}>
+      <div style={{ display: "flex", gap: 32, flexWrap: "wrap", justifyContent: "center" }}>
         {/* BASIC */}
         <div style={cardStyle}>
           <h3 style={{ fontSize: 20, fontWeight: 700 }}>Basic</h3>
@@ -105,7 +105,8 @@ const cardStyle = {
   background: "#fff",
   padding: 36,
   borderRadius: 16,
-  width: 260,
+  maxWidth: 260,
+  width: "100%",
   boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
   textAlign: "center" as const,
 }
