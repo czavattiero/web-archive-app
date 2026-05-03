@@ -42,3 +42,8 @@ next-env.d.ts
 
 # generated captures (VERY IMPORTANT)
 screenshots/
+
+# Supabase local dev
+.supabase/
+supabase/.branches
+supabase/.temp
