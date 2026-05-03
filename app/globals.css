@@ -121,6 +121,21 @@ body {
   flex-wrap: wrap !important;
 }
 
+/* ── Logo camera-shutter pulse ── */
+@keyframes camera-pulse {
+  0%   { transform: scale(1);    filter: brightness(1); }
+  8%   { transform: scale(1.07); filter: brightness(1.45); }
+  18%  { transform: scale(0.94); filter: brightness(0.9); }
+  28%  { transform: scale(1.02); filter: brightness(1.05); }
+  36%  { transform: scale(1);    filter: brightness(1); }
+  100% { transform: scale(1);    filter: brightness(1); }
+}
+
+.logo-pulse {
+  animation: camera-pulse 3.5s ease-in-out infinite;
+  transform-origin: left center;
+}
+
 /* ── Mobile breakpoint (≤ 768px) ── */
 
 @media (max-width: 768px) {

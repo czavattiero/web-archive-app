@@ -21,7 +21,7 @@ export default function Home() {
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-        <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 120 }} />
+        <img src="/Timedshot-logo.png" alt="Timedshot logo" className="logo-pulse" style={{ height: 120 }} />
         <div className="nav-actions" style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <a href="/login" style={{ fontSize: 14, fontWeight: 500, color: "#374151", textDecoration: "none" }}>
             Log in
