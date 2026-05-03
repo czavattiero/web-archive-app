@@ -98,7 +98,16 @@ export default function SignupPage() {
       })
 
       if (signupError && !signupError.message.includes("already registered")) {
-        setError(signupError.message)
+        const lowerMsg = signupError.message.toLowerCase()
+        const isEmailError =
+          lowerMsg.includes("email") ||
+          lowerMsg.includes("sending") ||
+          lowerMsg.includes("smtp")
+        setError(
+          isEmailError
+            ? "We couldn't send a confirmation email. Please check the address and try again, or contact support."
+            : signupError.message
+        )
         setLoading(false)
         return
       }
