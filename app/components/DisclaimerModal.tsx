@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 interface DisclaimerModalProps {
   userId: string
@@ -9,20 +9,26 @@ interface DisclaimerModalProps {
 
 export default function DisclaimerModal({ userId, onClose }: DisclaimerModalProps) {
   const [visible, setVisible] = useState(false)
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
 
   useEffect(() => {
     const key = `disclaimer_acknowledged_${userId}`
     if (localStorage.getItem(key)) {
-      onClose()
+      onCloseRef.current()
     } else {
       setVisible(true)
     }
-  }, [userId, onClose])
+  }, [userId])
 
   if (!visible) return null
 
   function handleAcknowledge() {
-    localStorage.setItem(`disclaimer_acknowledged_${userId}`, "true")
+    const key = `disclaimer_acknowledged_${userId}`
+    localStorage.setItem(key, "true")
     onClose()
   }
 
