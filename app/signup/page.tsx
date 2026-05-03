@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
@@ -8,11 +8,80 @@ export default function SignupPage() {
 
   const searchParams = useSearchParams()
   const plan = searchParams.get("plan") || "trial"
+  const isConfirmed = searchParams.get("confirmed") === "true"
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [checkEmail, setCheckEmail] = useState(false)
+  const [submittedEmail, setSubmittedEmail] = useState("")
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendMessage, setResendMessage] = useState("")
+  const completedRef = useRef(false)
+
+  // When the user returns from clicking their confirmation email link,
+  // Supabase will have established a session. Detect this and complete setup.
+  useEffect(() => {
+    if (!isConfirmed || completedRef.current) return
+    completedRef.current = true
+
+    async function completeSignup() {
+      setLoading(true)
+      setError("")
+
+      try {
+        const { data: userData } = await supabase.auth.getUser()
+
+        if (!userData?.user) {
+          setError("Session not found. Please try signing in.")
+          setLoading(false)
+          return
+        }
+
+        const { error: upsertError } = await supabase.from("profiles").upsert({
+          id: userData.user.id,
+          email: userData.user.email,
+          subscribed: false,
+          plan: "trial",
+          trial_ends_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+        })
+
+        if (upsertError) {
+          console.error("Profile upsert error:", upsertError)
+          setError("Failed to create profile")
+          setLoading(false)
+          return
+        }
+
+        if (plan === "basic" || plan === "pro") {
+          const res = await fetch("/api/checkout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: userData.user.email, plan, userId: userData.user.id }),
+          })
+
+          const data = await res.json()
+
+          if (!data.url) {
+            setError("Checkout failed")
+            setLoading(false)
+            return
+          }
+
+          window.location.href = data.url
+        } else {
+          window.location.href = "/dashboard"
+        }
+      } catch (err) {
+        console.error("Post-confirmation error:", err)
+        setError("Something went wrong")
+        setLoading(false)
+      }
+    }
+
+    completeSignup()
+  }, [isConfirmed, plan])
 
   async function handleSignup(e: any) {
     e.preventDefault()
@@ -21,9 +90,12 @@ export default function SignupPage() {
     setError("")
 
     try {
+      const redirectTo = `${window.location.origin}/signup?confirmed=true&plan=${plan}`
+
       const { error: signupError } = await supabase.auth.signUp({
         email,
-        password
+        password,
+        options: { emailRedirectTo: redirectTo },
       })
 
       if (signupError && !signupError.message.includes("already registered")) {
@@ -32,67 +104,162 @@ export default function SignupPage() {
         return
       }
 
-      const { error: loginError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-
-      if (loginError) {
-        setError("Login failed")
-        setLoading(false)
-        return
-      }
-
-      const { data: userData } = await supabase.auth.getUser()
-
-      if (!userData?.user) {
-        setError("User not authenticated")
-        setLoading(false)
-        return
-      }
-
-      const { error: upsertError } = await supabase.from("profiles").upsert({
-        id: userData.user.id,
-        email: userData.user.email,
-        subscribed: false,
-        plan: "trial",
-        trial_ends_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-      })
-
-      if (upsertError) {
-        console.error("Profile upsert error:", upsertError)
-        setError("Failed to create profile")
-        setLoading(false)
-        return
-      }
-
-      if (plan === "basic" || plan === "pro") {
-        const res = await fetch("/api/checkout", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ email, plan, userId: userData.user.id })
-        })
-
-        const data = await res.json()
-
-        if (!data.url) {
-          setError("Checkout failed")
-          setLoading(false)
-          return
-        }
-
-        window.location.href = data.url
-      } else {
-        window.location.href = "/dashboard"
-      }
+      setSubmittedEmail(email)
+      setCheckEmail(true)
+      setLoading(false)
 
     } catch (err) {
       console.error("Signup error:", err)
       setError("Something went wrong")
       setLoading(false)
     }
+  }
+
+  async function handleResend() {
+    setResendLoading(true)
+    setResendMessage("")
+
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: submittedEmail,
+    })
+
+    if (error) {
+      setResendMessage("Failed to resend. Please try again.")
+    } else {
+      setResendMessage("Confirmation email resent! Check your inbox.")
+    }
+
+    setResendLoading(false)
+  }
+
+  // Show a spinner while processing the confirmed=true redirect
+  if (isConfirmed && loading) {
+    return (
+      <main style={{
+        minHeight: "100vh",
+        background: "linear-gradient(to bottom, #ffffff, #f7f8fb)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "system-ui, sans-serif",
+        padding: 20,
+      }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <img className="dashboard-logo" src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160 }} />
+        </div>
+        <div style={{
+          maxWidth: 420,
+          width: "100%",
+          background: "white",
+          padding: 40,
+          borderRadius: 20,
+          boxShadow: "0 25px 60px rgba(0,0,0,0.12)",
+          textAlign: "center",
+        }}>
+          <p style={{ color: "#6B7280" }}>Setting up your account…</p>
+        </div>
+      </main>
+    )
+  }
+
+  // Show the "Check your email" confirmation screen
+  if (checkEmail) {
+    return (
+      <main style={{
+        minHeight: "100vh",
+        background: "linear-gradient(to bottom, #ffffff, #f7f8fb)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "system-ui, sans-serif",
+        padding: 20,
+      }}>
+
+        {/* LOGO */}
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <img className="dashboard-logo" src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160 }} />
+        </div>
+
+        <div style={{
+          maxWidth: 420,
+          width: "100%",
+          background: "white",
+          padding: 40,
+          borderRadius: 20,
+          boxShadow: "0 25px 60px rgba(0,0,0,0.12)",
+          textAlign: "center",
+        }}>
+
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📧</div>
+
+          <h1 style={{
+            fontSize: 26,
+            fontWeight: 700,
+            marginBottom: 12,
+          }}>
+            Check your email
+          </h1>
+
+          <p style={{ color: "#374151", marginBottom: 8, fontSize: 15 }}>
+            We sent a confirmation link to:
+          </p>
+
+          <p style={{
+            fontWeight: 700,
+            fontSize: 16,
+            color: "#6A11CB",
+            marginBottom: 20,
+            wordBreak: "break-word",
+            overflowWrap: "break-word",
+          }}>
+            {submittedEmail}
+          </p>
+
+          <p style={{ color: "#6B7280", fontSize: 14, marginBottom: 8 }}>
+            Click the link in the email to verify your account.
+          </p>
+
+          <p style={{ color: "#6B7280", fontSize: 14, marginBottom: 28 }}>
+            {(plan === "basic" || plan === "pro")
+              ? "After verification you'll be redirected to complete your payment."
+              : "After verification you'll be redirected to your dashboard."}
+          </p>
+
+          <button
+            onClick={handleResend}
+            disabled={resendLoading}
+            style={{
+              background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
+              color: "white",
+              border: "none",
+              padding: "12px 24px",
+              borderRadius: 12,
+              fontWeight: 600,
+              cursor: resendLoading ? "not-allowed" : "pointer",
+              opacity: resendLoading ? 0.7 : 1,
+              fontSize: 14,
+            }}
+          >
+            {resendLoading ? "Sending…" : "Resend confirmation email"}
+          </button>
+
+          {resendMessage && (
+            <p style={{
+              marginTop: 14,
+              fontSize: 13,
+              color: resendMessage.startsWith("Failed") ? "red" : "#059669",
+            }}>
+              {resendMessage}
+            </p>
+          )}
+
+        </div>
+
+      </main>
+    )
   }
 
   return (
