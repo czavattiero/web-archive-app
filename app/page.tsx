@@ -16,12 +16,12 @@ export default function Home() {
         zIndex: 50,
         background: "#ffffff",
         borderBottom: "1px solid #E5E7EB",
-        height: 90,
+        height: 120,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-        <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 72 }} />
+        <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 120 }} />
         <div className="nav-actions" style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <a href="/login" style={{ fontSize: 14, fontWeight: 500, color: "#374151", textDecoration: "none" }}>
             Log in
