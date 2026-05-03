@@ -53,12 +53,18 @@ export default function LoginPage() {
         minHeight: "100vh",
         background: "linear-gradient(to bottom, #ffffff, #f7f8fb)",
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         fontFamily: "system-ui, sans-serif",
         padding: 20,
       }}
     >
+
+      {/* LOGO */}
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <img className="dashboard-logo" src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160 }} />
+      </div>
 
       <div
         style={{
@@ -70,11 +76,6 @@ export default function LoginPage() {
           boxShadow: "0 25px 60px rgba(0,0,0,0.12)",
         }}
       >
-
-        {/* LOGO */}
-        <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160 }} />
-        </div>
 
         {/* TITLE */}
         <h1 style={{
