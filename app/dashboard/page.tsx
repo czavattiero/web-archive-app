@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 import { DateTime } from "luxon"
+import DisclaimerBanner from "../components/DisclaimerBanner"
+import DisclaimerModal from "../components/DisclaimerModal"
 
 export default function Dashboard() {
   const router = useRouter()
@@ -29,6 +31,7 @@ export default function Dashboard() {
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
   const [search, setSearch] = useState("")
+  const [showDisclaimerModal, setShowDisclaimerModal] = useState(true)
 
   useEffect(() => {
     async function init() {
@@ -477,6 +480,7 @@ export default function Dashboard() {
       })()}
 
       <div style={{ padding: "32px 40px", maxWidth: 1200, margin: "0 auto" }}>
+        <DisclaimerBanner />
         {/* SUB-USERS — only shown to parent (non-sub) accounts */}
         {!isSubUser && (
           <div style={cardStyle}>
@@ -662,6 +666,10 @@ export default function Dashboard() {
         </div>
 
       </div>
+
+      {showDisclaimerModal && user !== null && (
+        <DisclaimerModal userId={user.id} onClose={() => setShowDisclaimerModal(false)} />
+      )}
     </div>
   )
 }
