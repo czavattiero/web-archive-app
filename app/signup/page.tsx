@@ -93,11 +93,17 @@ export default function SignupPage() {
       minHeight: "100vh",
       background: "linear-gradient(to bottom, #ffffff, #f7f8fb)",
       display: "flex",
+      flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
       fontFamily: "system-ui, sans-serif",
       padding: 20,
     }}>
+
+      {/* LOGO */}
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <img className="dashboard-logo" src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160 }} />
+      </div>
 
       <div style={{
         maxWidth: 420,
