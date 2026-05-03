@@ -12,7 +12,7 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
-    const { email, plan } = await req.json()
+    const { email, plan, userId: clientUserId } = await req.json()
 
     const priceId =
       plan === "pro"
@@ -23,14 +23,29 @@ export async function POST(req: Request) {
       throw new Error("Missing price ID")
     }
 
-    // 🔥 1. GET USER FROM PROFILES (CRITICAL)
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("email", email)
-      .single()
+    // 🔥 1. GET USER FROM PROFILES — try by userId first (most reliable),
+    //    then fall back to email for backward compatibility.
+    let profile: { id: string } | null = null
 
-    if (profileError || !profile) {
+    if (clientUserId) {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", clientUserId)
+        .maybeSingle()
+      profile = data
+    }
+
+    if (!profile) {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", email)
+        .maybeSingle()
+      profile = data
+    }
+
+    if (!profile) {
       throw new Error("User profile not found")
     }
 
@@ -53,29 +68,34 @@ export async function POST(req: Request) {
       customerId = newCustomer.id
     }
 
-    // 🔥 3. CREATE CHECKOUT SESSION (FIXED)
+    // 🔥 3. CREATE CHECKOUT SESSION
     const session = await stripe.checkout.sessions.create({
-  mode: "subscription",
+      mode: "subscription",
 
-  customer: customerId,
+      customer: customerId,
 
-  line_items: [
-    {
-      price: priceId,
-      quantity: 1,
-    },
-  ],
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
 
-  // 🔥 THE REAL FIX
-  subscription_data: {
-    metadata: {
-      user_id: userId,
-    },
-  },
+      // user_id in both session metadata (for verify-session / webhook
+      // checkout.session.completed) and subscription metadata (for
+      // invoice.payment_succeeded / subscription events).
+      metadata: {
+        user_id: userId,
+      },
+      subscription_data: {
+        metadata: {
+          user_id: userId,
+        },
+      },
 
-  success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
-  cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/`,
-})
+      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
+      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/`,
+    })
     
     // 🔥 4. SAVE CUSTOMER ID TO PROFILE
     await supabase
