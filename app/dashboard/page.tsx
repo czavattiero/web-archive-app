@@ -414,7 +414,7 @@ export default function Dashboard() {
     <div style={{ minHeight: "100vh", background: "#F9FAFB", fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* TOP BAR */}
       <div className="dashboard-topbar" style={topBar}>
-        <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160 }} />
+        <img className="dashboard-logo" src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160 }} />
 
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <div style={{ fontSize: 13, color: "#6B7280" }}>{user?.email}</div>
@@ -450,7 +450,7 @@ export default function Dashboard() {
       {!isSubUser && plan === "trial" && trialEndsAt && new Date(trialEndsAt) > new Date() && (() => {
         const daysLeft = Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         return (
-          <div style={{
+          <div className="trial-banner" style={{
             background: daysLeft <= 3 ? "#FEF3C7" : "#EEF2FF",
             borderBottom: `1px solid ${daysLeft <= 3 ? "#FCD34D" : "#C7D2FE"}`,
             padding: "12px 40px",
@@ -495,7 +495,7 @@ export default function Dashboard() {
             </p>
 
             {/* Invite form */}
-            <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+            <div className="invite-row" style={{ display: "flex", gap: 10, marginBottom: 20 }}>
               <input
                 type="email"
                 value={inviteEmail}
@@ -613,61 +613,65 @@ export default function Dashboard() {
             style={searchStyle} 
           />
 
-          <div style={headerRow}>
-            <div style={{ flex: 3 }}>URL</div>
-            <div style={{ flex: 1 }}>Schedule</div>
-            <div style={{ flex: 1 }}>Next</div>
-            <div style={{ flex: 1 }}>Status</div>
-            <div style={{ flex: 1 }}>Added</div>
-          </div>
-
-          {filteredUrls.map((u) => (
-            <div key={u.id} style={rowCard}>
-              <div style={urlCell}>{u.url}</div>
-              <div style={{ flex: 1 }}>{u.schedule_type}</div>
-              <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
-              <div style={{ flex: 1 }}>
-                <StatusBadge status={u.status} />
-              </div>
-              <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
+          <div className="table-scroll-wrapper">
+            <div style={headerRow}>
+              <div style={{ flex: 3 }}>URL</div>
+              <div style={{ flex: 1 }}>Schedule</div>
+              <div style={{ flex: 1 }}>Next</div>
+              <div style={{ flex: 1 }}>Status</div>
+              <div style={{ flex: 1 }}>Added</div>
             </div>
-          ))}
+
+            {filteredUrls.map((u) => (
+              <div key={u.id} style={rowCard}>
+                <div style={urlCell}>{u.url}</div>
+                <div style={{ flex: 1 }}>{u.schedule_type}</div>
+                <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
+                <div style={{ flex: 1 }}>
+                  <StatusBadge status={u.status} />
+                </div>
+                <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* CAPTURE HISTORY */}
         <div style={cardStyle}>
           <h3 style={sectionTitle}>Capture History</h3>
 
-          <div style={headerRow}>
-            <div style={{ flex: 3 }}>URL</div>
-            <div style={{ flex: 1 }}>Captured</div>
-            <div style={{ flex: 1 }}>Status</div>
-            <div style={{ flex: 1 }}>PDF</div>
+          <div className="table-scroll-wrapper">
+            <div style={headerRow}>
+              <div style={{ flex: 3 }}>URL</div>
+              <div style={{ flex: 1 }}>Captured</div>
+              <div style={{ flex: 1 }}>Status</div>
+              <div style={{ flex: 1 }}>PDF</div>
+            </div>
+
+            {filteredCaptures.map((c) => {
+              const urlData = getUrlById(c.url_id)
+
+              const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
+
+              console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
+              console.log("FINAL URL:", publicUrl)
+
+              return (
+                <div key={c.id} style={rowCard}>
+                  <div style={urlCell}>{urlData?.url}</div>
+                  <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
+                  <div style={{ flex: 1 }}>
+                    <StatusBadge status={c.status} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={linkStyle}>
+                      Download
+                    </a>
+                  </div>
+                </div>
+              )
+            })}
           </div>
-
-          {filteredCaptures.map((c) => {
-            const urlData = getUrlById(c.url_id)
-
-            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
-
-            console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
-            console.log("FINAL URL:", publicUrl)
-
-            return (
-              <div key={c.id} style={rowCard}>
-                <div style={urlCell}>{urlData?.url}</div>
-                <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
-                <div style={{ flex: 1 }}>
-                  <StatusBadge status={c.status} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={linkStyle}>
-                    Download
-                  </a>
-                </div>
-              </div>
-            )
-          })}
         </div>
 
       </div>
