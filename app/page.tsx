@@ -198,51 +198,13 @@ export default function Home() {
             overflow: "hidden",
             boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
             border: "1px solid #E5E7EB",
-            background: "#111827",
           }}>
-            {/*
-              TO ADD YOUR VIDEO:
-              Replace the div below with:
-              <iframe
-                src="https://www.youtube.com/embed/YOUR_VIDEO_ID"
-                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%, border: "none" }}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-
-              Or for a self-hosted mp4:
-              <video
-                src="/demo-video.mp4"
-                controls
-                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
-              />
-            */}
-            <div style={{
-              position: "absolute" as const,
-              inset: 0,
-              display: "flex",
-              flexDirection: "column" as const,
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#fff",
-              gap: 16,
-            }}>
-              <div style={{
-                width: 72,
-                height: 72,
-                borderRadius: "50%",
-                background: "rgba(255,255,255,0.15)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 28,
-              }}>
-                ▶
-              </div>
-              <p style={{ fontSize: 16, fontWeight: 500, color: "rgba(255,255,255,0.7)", margin: 0 }}>
-                Demo video coming soon
-              </p>
-            </div>
+            <iframe
+              src="https://www.youtube.com/embed/1P25Ncyq-wM"
+              style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
           </div>
         </div>
       </section>
