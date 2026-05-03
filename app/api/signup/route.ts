@@ -10,6 +10,8 @@ const supabaseAdmin = createClient(
 const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM_EMAIL = process.env.FROM_EMAIL || "Timedshot <noreply@timedshot.com>"
 
+const VALID_PLANS = new Set(["trial", "basic", "pro"])
+
 export async function POST(req: Request) {
   try {
     const { email, password, plan } = await req.json()
@@ -18,7 +20,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/signup?confirmed=true&plan=${plan || "trial"}`
+    const safePlan = VALID_PLANS.has(plan) ? plan : "trial"
+
+    const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/signup?confirmed=true&plan=${safePlan}`
 
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "signup",
