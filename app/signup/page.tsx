@@ -51,7 +51,7 @@ export default function SignupPage() {
         return
       }
 
-      await supabase.from("profiles").upsert({
+      const { error: upsertError } = await supabase.from("profiles").upsert({
         id: userData.user.id,
         email: userData.user.email,
         subscribed: false,
@@ -59,13 +59,20 @@ export default function SignupPage() {
         trial_ends_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
       })
 
+      if (upsertError) {
+        console.error("Profile upsert error:", upsertError)
+        setError("Failed to create profile")
+        setLoading(false)
+        return
+      }
+
       if (plan === "basic" || plan === "pro") {
         const res = await fetch("/api/checkout", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ email, plan })
+          body: JSON.stringify({ email, plan, userId: userData.user.id })
         })
 
         const data = await res.json()
