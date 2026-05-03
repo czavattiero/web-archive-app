@@ -477,7 +477,51 @@ export default function Dashboard() {
       })()}
 
       <div style={{ padding: "32px 40px", maxWidth: 1200, margin: "0 auto" }}>
-        <h1 style={title}>Dashboard</h1>
+        {/* SUB-USERS — only shown to parent (non-sub) accounts */}
+        {!isSubUser && (
+          <div style={cardStyle}>
+            <h3 style={sectionTitle}>Sub-users</h3>
+            <p style={{ fontSize: 13, color: "#6B7280", marginBottom: 16 }}>
+              Invite team members to add and track URLs under your account. Their URLs count against your shared plan quota.
+            </p>
+
+            {/* Invite form */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="colleague@example.com"
+                style={{ ...inputStyle, flex: 2 }}
+              />
+              <button
+                onClick={handleInviteSubUser}
+                disabled={inviteLoading}
+                style={inviteLoading ? { ...buttonPrimary, opacity: 0.7 } : buttonPrimary}
+              >
+                {inviteLoading ? "Sending..." : "Send Invite"}
+              </button>
+            </div>
+
+            {/* Sub-user list */}
+            {subUsers.length === 0 ? (
+              <p style={{ fontSize: 13, color: "#9CA3AF" }}>No sub-users yet.</p>
+            ) : (
+              <>
+                <div style={headerRow}>
+                  <div style={{ flex: 3 }}>Email</div>
+                  <div style={{ flex: 1 }}>Joined</div>
+                </div>
+                {subUsers.map((su: any) => (
+                  <div key={su.id} style={rowCard}>
+                    <div style={{ flex: 3, fontSize: 13, color: "#111827" }}>{su.email}</div>
+                    <div style={{ flex: 1 }}>{formatAlbertaTime(su.created_at)}</div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
 
         {/* ADD URL */}
         <div style={cardStyle}>
@@ -617,51 +661,6 @@ export default function Dashboard() {
           })}
         </div>
 
-        {/* SUB-USERS — only shown to parent (non-sub) accounts */}
-        {!isSubUser && (
-          <div style={cardStyle}>
-            <h3 style={sectionTitle}>Sub-users</h3>
-            <p style={{ fontSize: 13, color: "#6B7280", marginBottom: 16 }}>
-              Invite team members to add and track URLs under your account. Their URLs count against your shared plan quota.
-            </p>
-
-            {/* Invite form */}
-            <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="colleague@example.com"
-                style={{ ...inputStyle, flex: 2 }}
-              />
-              <button
-                onClick={handleInviteSubUser}
-                disabled={inviteLoading}
-                style={inviteLoading ? { ...buttonPrimary, opacity: 0.7 } : buttonPrimary}
-              >
-                {inviteLoading ? "Sending..." : "Send Invite"}
-              </button>
-            </div>
-
-            {/* Sub-user list */}
-            {subUsers.length === 0 ? (
-              <p style={{ fontSize: 13, color: "#9CA3AF" }}>No sub-users yet.</p>
-            ) : (
-              <>
-                <div style={headerRow}>
-                  <div style={{ flex: 3 }}>Email</div>
-                  <div style={{ flex: 1 }}>Joined</div>
-                </div>
-                {subUsers.map((su: any) => (
-                  <div key={su.id} style={rowCard}>
-                    <div style={{ flex: 3, fontSize: 13, color: "#111827" }}>{su.email}</div>
-                    <div style={{ flex: 1 }}>{formatAlbertaTime(su.created_at)}</div>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        )}
       </div>
     </div>
   )
