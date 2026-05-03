@@ -384,8 +384,8 @@ export default function Home() {
             </ul>
             <div style={{ borderTop: "1px solid #F3F4F6", paddingTop: 20 }}>
               <p style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 4px" }}>Contact us:</p>
-              <a href="mailto:support@screenly.ca" style={{ fontSize: 14, color: "#6A11CB", fontWeight: 600, textDecoration: "none" }}>
-                support@screenly.ca
+              <a href="mailto:support@timedshot.ca" style={{ fontSize: 14, color: "#6A11CB", fontWeight: 600, textDecoration: "none" }}>
+                support@timedshot.ca
               </a>
             </div>
           </div>
@@ -427,7 +427,7 @@ export default function Home() {
         <p style={{ fontSize: 13, color: "#6B7280", margin: 0 }}>© 2026 Timedshot. All rights reserved.</p>
         <div style={{ display: "flex", gap: 24 }}>
           <a href="/login" style={{ fontSize: 13, color: "#6B7280", textDecoration: "none" }}>Log in</a>
-          <a href="mailto:support@screenly.ca" style={{ fontSize: 13, color: "#6B7280", textDecoration: "none" }}>Contact</a>
+          <a href="mailto:support@timedshot.ca" style={{ fontSize: 13, color: "#6B7280", textDecoration: "none" }}>Contact</a>
         </div>
       </footer>
 
