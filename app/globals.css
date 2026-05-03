@@ -81,20 +81,6 @@ body {
   align-items: center !important;
 }
 
-/* ── Landing page section headings ── */
-
-.section-heading {
-  font-size: 36px;
-}
-
-/* ── Nav actions ── */
-
-.nav-actions {
-  display: flex !important;
-  gap: 12px !important;
-  align-items: center !important;
-}
-
 /* ── Dashboard responsive layout ── */
 
 .dashboard-logo {
