@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       type: "signup",
       email,
       password,
-      options: { emailRedirectTo },
+      options: { redirectTo: emailRedirectTo },
     })
 
     if (linkError) {
