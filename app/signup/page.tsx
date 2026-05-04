@@ -81,7 +81,9 @@ export default function SignupPage() {
     // Show the loading screen immediately so the user sees progress.
     setLoading(true)
 
-    let subscription: { unsubscribe: () => void } | null = null
+    // Use an object ref so the subscription can be captured by the callback
+    // closure even before the assignment on the next line completes.
+    const subRef: { current: { unsubscribe: () => void } | null } = { current: null }
 
     async function run() {
       // Eagerly check for an existing session first.
@@ -94,11 +96,11 @@ export default function SignupPage() {
       // No session yet — subscribe as a fallback for delayed token exchange.
       const { data } = supabase.auth.onAuthStateChange(async (event, s) => {
         if (event === "SIGNED_IN" && s?.user) {
-          subscription?.unsubscribe()
+          subRef.current?.unsubscribe()
           completeSetup(s.user)
         }
       })
-      subscription = data.subscription
+      subRef.current = data.subscription
     }
 
     run().catch((err) => {
@@ -107,7 +109,7 @@ export default function SignupPage() {
       setLoading(false)
     })
 
-    return () => subscription?.unsubscribe()
+    return () => subRef.current?.unsubscribe()
   }, [isConfirmed, completeSetup])
 
   async function handleSignup(e: any) {
