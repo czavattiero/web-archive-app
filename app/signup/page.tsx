@@ -89,25 +89,16 @@ export default function SignupPage() {
     setError("")
 
     try {
-      const redirectTo = `${window.location.origin}/signup?confirmed=true&plan=${plan}`
-
-      const { error: signupError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: redirectTo },
+      const res = await fetch("/api/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, plan }),
       })
 
-      if (signupError && !signupError.message.includes("already registered")) {
-        const lowerMsg = signupError.message.toLowerCase()
-        const isEmailError =
-          lowerMsg.includes("email") ||
-          lowerMsg.includes("sending") ||
-          lowerMsg.includes("smtp")
-        setError(
-          isEmailError
-            ? "We couldn't send a confirmation email. Please check the address and try again, or contact support."
-            : signupError.message
-        )
+      const data = await res.json()
+
+      if (data.error && !data.error.includes("already registered")) {
+        setError(data.error)
         setLoading(false)
         return
       }
