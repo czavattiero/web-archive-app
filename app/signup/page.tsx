@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
@@ -20,67 +20,97 @@ export default function SignupPage() {
   const [resendMessage, setResendMessage] = useState("")
   const completedRef = useRef(false)
 
-  // When the user returns from clicking their confirmation email link,
-  // wait for the SIGNED_IN event (after PKCE code exchange) before completing setup.
-  useEffect(() => {
-    if (!isConfirmed || completedRef.current) return
+  // Shared post-confirmation setup: upsert profile then redirect.
+  // Guarded by completedRef so it runs at most once even if both the
+  // eager session check and the auth-state listener fire.
+  const completeSetup = useCallback(async (user: { id: string; email?: string | null }) => {
+    if (completedRef.current) return
     completedRef.current = true
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === "SIGNED_IN" && session?.user) {
-          subscription.unsubscribe()
-          setLoading(true)
-          setError("")
+    setLoading(true)
+    setError("")
 
-          try {
-            const user = session.user
+    try {
+      const { error: upsertError } = await supabase.from("profiles").upsert({
+        id: user.id,
+        email: user.email,
+        subscribed: false,
+        plan: "trial",
+        trial_ends_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+      })
 
-            const { error: upsertError } = await supabase.from("profiles").upsert({
-              id: user.id,
-              email: user.email,
-              subscribed: false,
-              plan: "trial",
-              trial_ends_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-            })
-
-            if (upsertError) {
-              console.error("Profile upsert error:", upsertError)
-              setError("Failed to create profile")
-              setLoading(false)
-              return
-            }
-
-            if (plan === "basic" || plan === "pro") {
-              const res = await fetch("/api/checkout", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: user.email, plan, userId: user.id }),
-              })
-              const data = await res.json()
-
-              if (!data.url) {
-                setError("Checkout failed")
-                setLoading(false)
-                return
-              }
-
-              window.location.href = data.url
-            } else {
-              window.location.href = "/dashboard"
-            }
-          } catch (err) {
-            console.error("Post-confirmation error:", err)
-            setError("Something went wrong")
-            setLoading(false)
-          }
-        }
+      if (upsertError) {
+        console.error("Profile upsert error:", upsertError)
+        setError("Failed to create profile")
+        setLoading(false)
+        return
       }
-    )
 
-    // Cleanup in case the component unmounts before SIGNED_IN fires
-    return () => subscription.unsubscribe()
-  }, [isConfirmed, plan])
+      if (plan === "basic" || plan === "pro") {
+        const res = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: user.email, plan, userId: user.id }),
+        })
+        const data = await res.json()
+
+        if (!data.url) {
+          setError("Checkout failed")
+          setLoading(false)
+          return
+        }
+
+        window.location.href = data.url
+      } else {
+        window.location.href = "/dashboard"
+      }
+    } catch (err) {
+      console.error("Post-confirmation error:", err)
+      setError("Something went wrong")
+      setLoading(false)
+    }
+  }, [plan])
+
+  // When the user returns from clicking their confirmation email link,
+  // first check whether a session is already present (detectSessionInUrl
+  // may have exchanged the token before this effect runs), then fall back
+  // to onAuthStateChange in case the exchange happens slightly later.
+  useEffect(() => {
+    if (!isConfirmed) return
+
+    // Show the loading screen immediately so the user sees progress.
+    setLoading(true)
+
+    // Use an object ref so the subscription can be captured by the callback
+    // closure even before the assignment on the next line completes.
+    const subRef: { current: { unsubscribe: () => void } | null } = { current: null }
+
+    async function run() {
+      // Eagerly check for an existing session first.
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        completeSetup(session.user)
+        return
+      }
+
+      // No session yet — subscribe as a fallback for delayed token exchange.
+      const { data } = supabase.auth.onAuthStateChange(async (event, s) => {
+        if (event === "SIGNED_IN" && s?.user) {
+          subRef.current?.unsubscribe()
+          completeSetup(s.user)
+        }
+      })
+      subRef.current = data.subscription
+    }
+
+    run().catch((err) => {
+      console.error("Confirmation setup error:", err)
+      setError("Something went wrong")
+      setLoading(false)
+    })
+
+    return () => subRef.current?.unsubscribe()
+  }, [isConfirmed, completeSetup])
 
   async function handleSignup(e: any) {
     e.preventDefault()
