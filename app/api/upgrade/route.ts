@@ -23,7 +23,7 @@ export async function POST(req: Request) {
       mode: "subscription",
       line_items: [{ price: resolvedPriceId, quantity: 1 }],
       metadata: { user_id: userId },
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
+      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
     })
 

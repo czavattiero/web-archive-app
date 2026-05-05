@@ -92,10 +92,20 @@ export default function Dashboard() {
       const isTrial = (profile?.plan === "trial" || !profile?.plan) && !profile?.subscribed
       const trialExpired = profile?.trial_ends_at && new Date(profile.trial_ends_at) < new Date()
 
-      // Sub-users are governed by their parent's billing — skip trial redirect
-      if (!isSubUserAccount && isTrial && trialExpired) {
-        router.replace("/choose-plan")
-        return
+      // Sub-users are governed by their parent's billing — skip all billing redirects
+      if (!isSubUserAccount) {
+        // Expired trial owners must choose a plan
+        if (isTrial && trialExpired) {
+          router.replace("/choose-plan")
+          return
+        }
+
+        // basic/pro owners who haven't completed payment cannot use the dashboard
+        const isPaidPlan = profile?.plan === "basic" || profile?.plan === "pro"
+        if (isPaidPlan && !profile?.subscribed) {
+          router.replace("/choose-plan")
+          return
+        }
       }
 
       fetchData(data.user)

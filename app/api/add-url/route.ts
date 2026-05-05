@@ -53,6 +53,15 @@ export async function POST(req: Request) {
         { status: 403 }
       )
     }
+
+    // basic/pro owners must have completed payment before adding URLs
+    const isPaidPlan = planProfile?.plan === "basic" || planProfile?.plan === "pro"
+    if (isPaidPlan && !planProfile?.subscribed) {
+      return NextResponse.json(
+        { error: "Payment required. Please complete your subscription to add URLs.", paymentRequired: true },
+        { status: 403 }
+      )
+    }
   }
 
   const limit = PLAN_LIMITS[plan] ?? 15
