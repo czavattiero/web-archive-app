@@ -41,6 +41,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Failed to generate confirmation link" }, { status: 500 })
     }
 
+    // When ALLOW_DISPOSABLE_EMAILS is set, skip Resend and return the
+    // confirmation URL directly so testers can complete the flow without a
+    // real inbox (useful for disposable / temporary email addresses).
+    if (process.env.ALLOW_DISPOSABLE_EMAILS === "true") {
+      return NextResponse.json({ ok: true, confirmationUrl })
+    }
+
     const html = `
 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
   <div style="text-align:center;margin-bottom:32px;">
