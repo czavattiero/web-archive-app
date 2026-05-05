@@ -133,6 +133,24 @@ export default function SignupPage() {
         return
       }
 
+      // Test mode: ALLOW_DISPOSABLE_EMAILS=true bypasses Resend and returns the
+      // confirmation URL directly so the flow can be tested without a real inbox.
+      // Validate the URL origin matches our Supabase instance before redirecting
+      // to prevent open-redirect attacks.
+      if (data.confirmationUrl) {
+        const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
+        try {
+          const parsed = new URL(data.confirmationUrl)
+          const expected = supabaseOrigin ? new URL(supabaseOrigin) : null
+          if (expected && parsed.origin === expected.origin) {
+            window.location.href = data.confirmationUrl
+            return
+          }
+        } catch {
+          // Invalid URL - fall through to show check-email screen
+        }
+      }
+
       setSubmittedEmail(email)
       setCheckEmail(true)
       setLoading(false)
