@@ -27,9 +27,7 @@ export async function POST(req: Request) {
     // When ALLOW_DISPOSABLE_EMAILS=true:
     //   1. Call signUp() so Supabase sends a real confirmation email to the
     //      provided address (including Mailinator / disposable inboxes).
-    //   2. Also call generateLink() to obtain the confirmation URL and return
-    //      it in the response so the on-screen test-mode banner shows a direct
-    //      clickable link as a backup (in case the email is slow or filtered).
+    //   2. Return success and let users confirm via the email they receive.
     // RESEND_API_KEY is not required in this path.
     if (process.env.ALLOW_DISPOSABLE_EMAILS === "true") {
       const supabasePublic = createClient(
@@ -48,18 +46,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: signUpError.message }, { status: 400 })
       }
 
-      // Attempt to generate the confirmation URL for the on-screen banner.
-      // If this fails it's non-fatal — the email was already dispatched above.
-      const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-        type: "signup",
-        email,
-        password,
-        options: { redirectTo: emailRedirectTo },
-      })
-
-      const confirmationUrl = data?.properties?.action_link
-
-      return NextResponse.json({ ok: true, ...(confirmationUrl ? { confirmationUrl } : {}) })
+      return NextResponse.json({ ok: true })
     }
 
     // ── Production mode – Resend ──────────────────────────────────────────────
