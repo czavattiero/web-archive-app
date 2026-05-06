@@ -35,7 +35,7 @@ Copy `.env.local.example` to `.env.local` and fill in the values:
 | `STRIPE_BASIC_PRICE_ID` | ✅ | Stripe price ID for the Basic plan |
 | `STRIPE_PRO_PRICE_ID` | ✅ | Stripe price ID for the Pro plan |
 | `RESEND_API_KEY` | ⚠️ | Resend API key for sending confirmation emails. Not required when `ALLOW_DISPOSABLE_EMAILS=true`. |
-| `ALLOW_DISPOSABLE_EMAILS` | — | Set to `"true"` to bypass Resend during development/testing. The confirmation URL is returned directly in the API response instead of being emailed, so the full signup flow can be tested without a real inbox or a Resend API key. **⚠️ This bypasses email verification entirely. Never enable in production — doing so would allow anyone to create an account without confirming ownership of their email address.** |
+| `ALLOW_DISPOSABLE_EMAILS` | — | Set to `"true"` to enable full end-to-end email confirmation testing with temporary/disposable addresses (e.g. Mailinator). When `"true"`, Supabase sends a **real** confirmation email to the provided address via its built-in SMTP (no Resend API key needed), **and** the confirmation URL is also returned directly in the API response so the on-screen test-mode banner shows a direct clickable link as a backup. **Never enable in production.** |
 
 ## Learn More
 

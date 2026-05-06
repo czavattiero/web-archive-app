@@ -24,10 +24,32 @@ export async function POST(req: Request) {
     const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/signup?confirmed=true&plan=${safePlan}`
 
     // ── Test mode ────────────────────────────────────────────────────────────
-    // When ALLOW_DISPOSABLE_EMAILS=true, generate a link and return the URL
-    // directly so testers can complete the flow without a real inbox.
+    // When ALLOW_DISPOSABLE_EMAILS=true:
+    //   1. Call signUp() so Supabase sends a real confirmation email to the
+    //      provided address (including Mailinator / disposable inboxes).
+    //   2. Also call generateLink() to obtain the confirmation URL and return
+    //      it in the response so the on-screen test-mode banner shows a direct
+    //      clickable link as a backup (in case the email is slow or filtered).
     // RESEND_API_KEY is not required in this path.
     if (process.env.ALLOW_DISPOSABLE_EMAILS === "true") {
+      const supabasePublic = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+
+      const { error: signUpError } = await supabasePublic.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo },
+      })
+
+      if (signUpError) {
+        // Pass through "already registered" so the client can handle it gracefully
+        return NextResponse.json({ error: signUpError.message }, { status: 400 })
+      }
+
+      // Attempt to generate the confirmation URL for the on-screen banner.
+      // If this fails it's non-fatal — the email was already dispatched above.
       const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
         type: "signup",
         email,
@@ -35,16 +57,9 @@ export async function POST(req: Request) {
         options: { redirectTo: emailRedirectTo },
       })
 
-      if (linkError) {
-        return NextResponse.json({ error: linkError.message }, { status: 400 })
-      }
-
       const confirmationUrl = data?.properties?.action_link
-      if (!confirmationUrl) {
-        return NextResponse.json({ error: "Failed to generate confirmation link" }, { status: 500 })
-      }
 
-      return NextResponse.json({ ok: true, confirmationUrl })
+      return NextResponse.json({ ok: true, ...(confirmationUrl ? { confirmationUrl } : {}) })
     }
 
     // ── Production mode – Resend ──────────────────────────────────────────────
