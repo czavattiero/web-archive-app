@@ -28,6 +28,10 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
   })
 }
 
+function isAlreadyRegisteredError(message?: string) {
+  return message?.toLowerCase().includes(ALREADY_REGISTERED_ERROR)
+}
+
 export async function POST(req: Request) {
   try {
     const { email, password, plan } = await req.json()
@@ -56,7 +60,7 @@ export async function POST(req: Request) {
       })
 
       if (signUpError) {
-        if (signUpError.message.toLowerCase().includes(ALREADY_REGISTERED_ERROR)) {
+        if (isAlreadyRegisteredError(signUpError.message)) {
           const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
           if (!resendError) return NextResponse.json({ ok: true })
           return NextResponse.json({ error: resendError.message }, { status: 400 })
@@ -78,7 +82,7 @@ export async function POST(req: Request) {
       })
 
       if (linkError) {
-        if (linkError.message.toLowerCase().includes(ALREADY_REGISTERED_ERROR)) {
+        if (isAlreadyRegisteredError(linkError.message)) {
           const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
           if (!resendError) return NextResponse.json({ ok: true })
           return NextResponse.json({ error: resendError.message }, { status: 400 })
@@ -151,7 +155,7 @@ export async function POST(req: Request) {
     })
 
     if (signUpError) {
-      if (signUpError.message.toLowerCase().includes(ALREADY_REGISTERED_ERROR)) {
+      if (isAlreadyRegisteredError(signUpError.message)) {
         const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
         if (!resendError) return NextResponse.json({ ok: true })
         return NextResponse.json({ error: resendError.message }, { status: 400 })
