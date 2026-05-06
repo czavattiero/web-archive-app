@@ -32,6 +32,10 @@ function isAlreadyRegisteredError(message?: string) {
   return message?.toLowerCase().includes(ALREADY_REGISTERED_ERROR)
 }
 
+function errorMessage(error: { message?: string } | null | undefined, fallback: string) {
+  return error?.message || fallback
+}
+
 export async function POST(req: Request) {
   try {
     const { email, password, plan } = await req.json()
@@ -63,7 +67,7 @@ export async function POST(req: Request) {
         if (isAlreadyRegisteredError(signUpError.message)) {
           const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
           if (!resendError) return NextResponse.json({ ok: true })
-          return NextResponse.json({ error: resendError.message }, { status: 400 })
+          return NextResponse.json({ error: errorMessage(resendError, "Failed to resend confirmation email") }, { status: 400 })
         }
         return NextResponse.json({ error: signUpError.message }, { status: 400 })
       }
@@ -85,7 +89,7 @@ export async function POST(req: Request) {
         if (isAlreadyRegisteredError(linkError.message)) {
           const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
           if (!resendError) return NextResponse.json({ ok: true })
-          return NextResponse.json({ error: resendError.message }, { status: 400 })
+          return NextResponse.json({ error: errorMessage(resendError, "Failed to resend confirmation email") }, { status: 400 })
         }
         return NextResponse.json({ error: linkError.message }, { status: 400 })
       }
@@ -158,7 +162,7 @@ export async function POST(req: Request) {
       if (isAlreadyRegisteredError(signUpError.message)) {
         const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
         if (!resendError) return NextResponse.json({ ok: true })
-        return NextResponse.json({ error: resendError.message }, { status: 400 })
+        return NextResponse.json({ error: errorMessage(resendError, "Failed to resend confirmation email") }, { status: 400 })
       }
       return NextResponse.json({ error: signUpError.message }, { status: 400 })
     }
