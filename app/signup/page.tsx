@@ -18,6 +18,7 @@ export default function SignupPage() {
   const [submittedEmail, setSubmittedEmail] = useState("")
   const [resendLoading, setResendLoading] = useState(false)
   const [resendMessage, setResendMessage] = useState("")
+  const [confirmationUrl, setConfirmationUrl] = useState("")
   const completedRef = useRef(false)
 
   // Shared post-confirmation setup: upsert profile then redirect.
@@ -143,6 +144,10 @@ export default function SignupPage() {
           const parsed = new URL(data.confirmationUrl)
           const expected = supabaseOrigin ? new URL(supabaseOrigin) : null
           if (expected && parsed.origin === expected.origin) {
+            // Store the URL so it remains visible as a fallback if the redirect
+            // is blocked or the tester wants to inspect/copy it.
+            setConfirmationUrl(data.confirmationUrl)
+            setLoading(false)
             window.location.href = data.confirmationUrl
             return
           }
@@ -406,6 +411,39 @@ export default function SignupPage() {
           <p style={{ color: "red", marginTop: 15 }}>
             {error}
           </p>
+        )}
+
+        {confirmationUrl && (
+          <div style={{
+            marginTop: 24,
+            padding: "20px 24px",
+            background: "linear-gradient(135deg, #f3eeff, #fff4ec)",
+            border: "1px solid #e0d0ff",
+            borderRadius: 14,
+            textAlign: "center",
+          }}>
+            <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, color: "#374151" }}>
+              🧪 Test mode — email bypass active
+            </p>
+            <p style={{ color: "#6B7280", fontSize: 13, marginBottom: 14 }}>
+              Click the link below to confirm your account (no email sent):
+            </p>
+            <a
+              href={confirmationUrl}
+              style={{
+                display: "inline-block",
+                background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
+                color: "white",
+                textDecoration: "none",
+                padding: "10px 22px",
+                borderRadius: 10,
+                fontWeight: 600,
+                fontSize: 14,
+              }}
+            >
+              Confirm my account →
+            </a>
+          </div>
         )}
 
       </div>
