@@ -10,6 +10,23 @@ const supabaseAdmin = createClient(
 const FROM_EMAIL = process.env.FROM_EMAIL || "Timedshot <noreply@timedshot.com>"
 
 const VALID_PLANS = new Set(["trial", "basic", "pro"])
+const ALREADY_REGISTERED_ERROR = "already registered"
+
+function createSupabasePublicClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
+
+async function resendSignupConfirmationEmail(email: string, emailRedirectTo: string) {
+  const supabasePublic = createSupabasePublicClient()
+  return supabasePublic.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo },
+  })
+}
 
 export async function POST(req: Request) {
   try {
@@ -30,10 +47,7 @@ export async function POST(req: Request) {
     //   2. Return success and let users confirm via the email they receive.
     // RESEND_API_KEY is not required in this path.
     if (process.env.ALLOW_DISPOSABLE_EMAILS === "true") {
-      const supabasePublic = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
+      const supabasePublic = createSupabasePublicClient()
 
       const { error: signUpError } = await supabasePublic.auth.signUp({
         email,
@@ -42,7 +56,11 @@ export async function POST(req: Request) {
       })
 
       if (signUpError) {
-        // Pass through "already registered" so the client can handle it gracefully
+        if (signUpError.message.toLowerCase().includes(ALREADY_REGISTERED_ERROR)) {
+          const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
+          if (!resendError) return NextResponse.json({ ok: true })
+          return NextResponse.json({ error: resendError.message }, { status: 400 })
+        }
         return NextResponse.json({ error: signUpError.message }, { status: 400 })
       }
 
@@ -60,6 +78,11 @@ export async function POST(req: Request) {
       })
 
       if (linkError) {
+        if (linkError.message.toLowerCase().includes(ALREADY_REGISTERED_ERROR)) {
+          const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
+          if (!resendError) return NextResponse.json({ ok: true })
+          return NextResponse.json({ error: resendError.message }, { status: 400 })
+        }
         return NextResponse.json({ error: linkError.message }, { status: 400 })
       }
 
@@ -119,10 +142,7 @@ export async function POST(req: Request) {
     // Use the public Supabase client's signUp() which triggers Supabase's own
     // built-in confirmation email. Works out-of-the-box on every Supabase
     // hosted project with no extra configuration.
-    const supabasePublic = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabasePublic = createSupabasePublicClient()
 
     const { error: signUpError } = await supabasePublic.auth.signUp({
       email,
@@ -131,7 +151,11 @@ export async function POST(req: Request) {
     })
 
     if (signUpError) {
-      // Pass through "already registered" so the client can handle it gracefully
+      if (signUpError.message.toLowerCase().includes(ALREADY_REGISTERED_ERROR)) {
+        const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
+        if (!resendError) return NextResponse.json({ ok: true })
+        return NextResponse.json({ error: resendError.message }, { status: 400 })
+      }
       return NextResponse.json({ error: signUpError.message }, { status: 400 })
     }
 
