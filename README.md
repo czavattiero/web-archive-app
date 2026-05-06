@@ -20,6 +20,23 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment Variables
+
+Copy `.env.local.example` to `.env.local` and fill in the values:
+
+| Variable | Required | Description |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anonymous/public key |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Supabase service role key (server-side only) |
+| `NEXT_PUBLIC_SITE_URL` | ✅ | Full URL of the site (e.g. `http://localhost:3000`) |
+| `STRIPE_SECRET_KEY` | ✅ | Stripe secret key for payment processing |
+| `STRIPE_WEBHOOK_SECRET` | ✅ | Stripe webhook signing secret |
+| `STRIPE_BASIC_PRICE_ID` | ✅ | Stripe price ID for the Basic plan |
+| `STRIPE_PRO_PRICE_ID` | ✅ | Stripe price ID for the Pro plan |
+| `RESEND_API_KEY` | ⚠️ | Resend API key for sending confirmation emails. Not required when `ALLOW_DISPOSABLE_EMAILS=true`. |
+| `ALLOW_DISPOSABLE_EMAILS` | — | Set to `"true"` to bypass Resend during development/testing. The confirmation URL is returned directly in the API response instead of being emailed, so the full signup flow can be tested without a real inbox or a Resend API key. **⚠️ This bypasses email verification entirely. Never enable in production — doing so would allow anyone to create an account without confirming ownership of their email address.** |
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
