@@ -7,7 +7,6 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM_EMAIL = process.env.FROM_EMAIL || "Timedshot <noreply@timedshot.com>"
 
 const VALID_PLANS = new Set(["trial", "basic", "pro"])
@@ -44,9 +43,23 @@ export async function POST(req: Request) {
     // When ALLOW_DISPOSABLE_EMAILS is set, skip Resend and return the
     // confirmation URL directly so testers can complete the flow without a
     // real inbox (useful for disposable / temporary email addresses).
+    // RESEND_API_KEY is not required in this path.
     if (process.env.ALLOW_DISPOSABLE_EMAILS === "true") {
       return NextResponse.json({ ok: true, confirmationUrl })
     }
+
+    // Lazily initialize the Resend client so that a missing RESEND_API_KEY
+    // only causes an error on the code path that actually sends email.
+    // This allows the app to build and run with ALLOW_DISPOSABLE_EMAILS=true
+    // without needing RESEND_API_KEY to be set at all.
+    if (!process.env.RESEND_API_KEY) {
+      console.error("RESEND_API_KEY is not configured")
+      return NextResponse.json(
+        { error: "Email service is not configured. Please contact support." },
+        { status: 500 }
+      )
+    }
+    const resend = new Resend(process.env.RESEND_API_KEY)
 
     const html = `
 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
