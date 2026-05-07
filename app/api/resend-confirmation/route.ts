@@ -28,10 +28,10 @@ export async function POST(req: Request) {
     // admin API and send it through Resend.
     if (process.env.RESEND_API_KEY) {
       const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-        type: "signup",
+        type: "magiclink",
         email,
         options: { redirectTo: emailRedirectTo },
-      } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
+      })
 
       if (linkError) {
         return NextResponse.json({ error: linkError.message }, { status: 400 })
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "We couldn't send a confirmation email. Please try again or contact support." }, { status: 500 })
       }
 
-      return NextResponse.json({ ok: true })
+      return NextResponse.json({ ok: true, emailSent: true })
     }
 
     // ── Fallback path – Supabase native SMTP ────────────────────────────────
@@ -105,7 +105,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, emailSent: true })
 
   } catch (err: any) {
     console.error("Resend confirmation API error:", err)
