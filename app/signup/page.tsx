@@ -8,6 +8,7 @@ export default function SignupPage() {
 
   const searchParams = useSearchParams()
   const plan = searchParams.get("plan") || "trial"
+  const safePlan = plan === "basic" || plan === "pro" ? plan : "trial"
   const isConfirmed = searchParams.get("confirmed") === "true"
 
   const [email, setEmail] = useState("")
@@ -36,7 +37,7 @@ export default function SignupPage() {
         id: user.id,
         email: user.email,
         subscribed: false,
-        plan: "trial",
+        plan: safePlan,
         trial_ends_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
       })
 
@@ -47,11 +48,11 @@ export default function SignupPage() {
         return
       }
 
-      if (plan === "basic" || plan === "pro") {
+      if (safePlan === "basic" || safePlan === "pro") {
         const res = await fetch("/api/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: user.email, plan, userId: user.id }),
+          body: JSON.stringify({ email: user.email, plan: safePlan, userId: user.id }),
         })
         const data = await res.json()
 
@@ -70,7 +71,7 @@ export default function SignupPage() {
       setError("Something went wrong")
       setLoading(false)
     }
-  }, [plan])
+  }, [safePlan])
 
   // When the user returns from clicking their confirmation email link,
   // first check whether a session is already present (detectSessionInUrl
@@ -128,8 +129,9 @@ export default function SignupPage() {
 
       const data = await res.json()
 
-      if (data.error && !data.error.includes("already registered")) {
-        setError(data.error)
+      const emailSent = data.emailSent === true || Boolean(data.confirmationUrl)
+      if (!res.ok || data.error || !emailSent) {
+        setError(data.error || "Failed to send confirmation email. Please try again.")
         setLoading(false)
         return
       }
@@ -180,7 +182,7 @@ export default function SignupPage() {
 
       const data = await res.json()
 
-      if (data.error) {
+      if (!res.ok || data.error || data.emailSent !== true) {
         setResendMessage("Failed to resend. Please try again.")
       } else {
         setResendMessage("Confirmation email resent! Check your inbox.")

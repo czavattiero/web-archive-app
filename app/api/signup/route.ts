@@ -24,10 +24,10 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
   // also go through the reliable Resend path.
   if (process.env.RESEND_API_KEY) {
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "signup",
+      type: "magiclink",
       email,
       options: { redirectTo: emailRedirectTo },
-    } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
+    })
 
     if (linkError) return { error: linkError }
 
@@ -79,15 +79,16 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
       return { error: { message: "We couldn't send a confirmation email. Please try again or contact support." } }
     }
 
-    return { error: null }
+    return { error: null, emailSent: true }
   }
 
   const supabasePublic = createSupabasePublicClient()
-  return supabasePublic.auth.resend({
+  const { error } = await supabasePublic.auth.resend({
     type: "signup",
     email,
     options: { emailRedirectTo },
   })
+  return { error, emailSent: !error }
 }
 
 function isAlreadyRegisteredError(message?: string) {
@@ -123,7 +124,7 @@ export async function POST(req: Request) {
       if (linkError) {
         if (isAlreadyRegisteredError(linkError.message)) {
           const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
-          if (!resendError) return NextResponse.json({ ok: true })
+          if (!resendError) return NextResponse.json({ ok: true, emailSent: true })
           return NextResponse.json({ error: errorMessage(resendError, "Failed to resend confirmation email") }, { status: 400 })
         }
         return NextResponse.json({ error: linkError.message }, { status: 400 })
@@ -177,7 +178,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "We couldn't send a confirmation email. Please try again or contact support." }, { status: 500 })
       }
 
-      return NextResponse.json({ ok: true })
+      return NextResponse.json({ ok: true, emailSent: true })
     }
 
     // ── Fallback mode – Supabase native SMTP ─────────────────────────────────
@@ -196,13 +197,13 @@ export async function POST(req: Request) {
     if (signUpError) {
       if (isAlreadyRegisteredError(signUpError.message)) {
         const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
-        if (!resendError) return NextResponse.json({ ok: true })
+        if (!resendError) return NextResponse.json({ ok: true, emailSent: true })
         return NextResponse.json({ error: errorMessage(resendError, "Failed to resend confirmation email") }, { status: 400 })
       }
       return NextResponse.json({ error: signUpError.message }, { status: 400 })
     }
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, emailSent: true })
 
   } catch (err: any) {
     console.error("Signup API error:", err)
