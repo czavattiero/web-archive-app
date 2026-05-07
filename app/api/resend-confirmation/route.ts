@@ -24,9 +24,9 @@ export async function POST(req: Request) {
     const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/signup?confirmed=true&plan=${safePlan}`
 
     // ── Resend path ──────────────────────────────────────────────────────────
-    // When RESEND_API_KEY is configured and not in disposable-email test mode,
-    // generate a confirmation link via the admin API and send it through Resend.
-    if (process.env.RESEND_API_KEY && process.env.ALLOW_DISPOSABLE_EMAILS !== "true") {
+    // When RESEND_API_KEY is configured, generate a confirmation link via the
+    // admin API and send it through Resend.
+    if (process.env.RESEND_API_KEY) {
       const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
         type: "signup",
         email,
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
     }
 
     // ── Fallback path – Supabase native SMTP ────────────────────────────────
-    // Used when ALLOW_DISPOSABLE_EMAILS=true or no RESEND_API_KEY is configured.
+    // Used when RESEND_API_KEY is not configured.
     const supabasePublic = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!

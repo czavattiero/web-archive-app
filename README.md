@@ -34,8 +34,8 @@ Copy `.env.local.example` to `.env.local` and fill in the values:
 | `STRIPE_WEBHOOK_SECRET` | ✅ | Stripe webhook signing secret |
 | `STRIPE_BASIC_PRICE_ID` | ✅ | Stripe price ID for the Basic plan |
 | `STRIPE_PRO_PRICE_ID` | ✅ | Stripe price ID for the Pro plan |
-| `RESEND_API_KEY` | ⚠️ | Resend API key for sending confirmation emails. Not required when `ALLOW_DISPOSABLE_EMAILS=true`. |
-| `ALLOW_DISPOSABLE_EMAILS` | — | Set to `"true"` to enable full end-to-end email confirmation testing with temporary/disposable addresses (e.g. Mailinator). When `"true"`, Supabase sends a **real** confirmation email to the provided address via its built-in SMTP (no Resend API key needed), and confirmation happens through that email. **Never enable in production.** |
+| `RESEND_API_KEY` | ⚠️ | Resend API key for sending confirmation emails. When set, signup and resend-confirmation flows use Resend. |
+| `ALLOW_DISPOSABLE_EMAILS` | — | Optional app-level toggle to permit disposable email addresses in validation logic. It does **not** control whether emails are sent via Resend or Supabase SMTP. |
 
 ## Learn More
 
