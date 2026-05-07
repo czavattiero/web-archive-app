@@ -171,15 +171,22 @@ export default function SignupPage() {
     setResendLoading(true)
     setResendMessage("")
 
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email: submittedEmail,
-    })
+    try {
+      const res = await fetch("/api/resend-confirmation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: submittedEmail, plan }),
+      })
 
-    if (error) {
+      const data = await res.json()
+
+      if (data.error) {
+        setResendMessage("Failed to resend. Please try again.")
+      } else {
+        setResendMessage("Confirmation email resent! Check your inbox.")
+      }
+    } catch {
       setResendMessage("Failed to resend. Please try again.")
-    } else {
-      setResendMessage("Confirmation email resent! Check your inbox.")
     }
 
     setResendLoading(false)
