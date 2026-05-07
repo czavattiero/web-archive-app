@@ -33,7 +33,9 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
 
     const confirmationUrl = data?.properties?.action_link
     if (!confirmationUrl) {
-      return { error: { message: "Failed to generate confirmation link" } }
+      console.warn("generateLink returned empty action_link, falling back to Supabase SMTP")
+      const supabasePublic = createSupabasePublicClient()
+      return supabasePublic.auth.resend({ type: "signup", email, options: { emailRedirectTo } })
     }
 
     const resend = new Resend(process.env.RESEND_API_KEY)
@@ -75,8 +77,9 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
     })
 
     if (emailError) {
-      console.error("Failed to send confirmation email via Resend:", emailError)
-      return { error: { message: "We couldn't send a confirmation email. Please try again or contact support." } }
+      console.error("Resend send failed, details:", JSON.stringify(emailError))
+      const supabasePublic = createSupabasePublicClient()
+      return supabasePublic.auth.resend({ type: "signup", email, options: { emailRedirectTo } })
     }
 
     return { error: null }
@@ -131,7 +134,13 @@ export async function POST(req: Request) {
 
       const confirmationUrl = data?.properties?.action_link
       if (!confirmationUrl) {
-        return NextResponse.json({ error: "Failed to generate confirmation link" }, { status: 500 })
+        console.warn("generateLink returned empty action_link, falling back to Supabase SMTP")
+        const supabasePublic = createSupabasePublicClient()
+        const { error: fallbackError } = await supabasePublic.auth.signUp({ email, password, options: { emailRedirectTo } })
+        if (fallbackError && !isAlreadyRegisteredError(fallbackError.message)) {
+          return NextResponse.json({ error: fallbackError.message }, { status: 500 })
+        }
+        return NextResponse.json({ ok: true })
       }
 
       const resend = new Resend(process.env.RESEND_API_KEY)
@@ -173,8 +182,13 @@ export async function POST(req: Request) {
       })
 
       if (emailError) {
-        console.error("Failed to send confirmation email via Resend:", emailError)
-        return NextResponse.json({ error: "We couldn't send a confirmation email. Please try again or contact support." }, { status: 500 })
+        console.error("Resend send failed, details:", JSON.stringify(emailError))
+        const supabasePublic = createSupabasePublicClient()
+        const { error: fallbackError } = await supabasePublic.auth.signUp({ email, password, options: { emailRedirectTo } })
+        if (fallbackError && !isAlreadyRegisteredError(fallbackError.message)) {
+          return NextResponse.json({ error: `Email delivery failed (Resend: ${(emailError as any).message || (emailError as any).name}; fallback: ${fallbackError.message}). Please try again.` }, { status: 500 })
+        }
+        return NextResponse.json({ ok: true })
       }
 
       return NextResponse.json({ ok: true })
