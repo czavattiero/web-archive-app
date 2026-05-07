@@ -27,7 +27,7 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
       type: "signup",
       email,
       options: { redirectTo: emailRedirectTo },
-    } as any)
+    } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
 
     if (linkError) return { error: linkError }
 

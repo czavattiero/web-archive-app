@@ -31,7 +31,7 @@ export async function POST(req: Request) {
         type: "signup",
         email,
         options: { redirectTo: emailRedirectTo },
-      } as any)
+      } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
 
       if (linkError) {
         return NextResponse.json({ error: linkError.message }, { status: 400 })
