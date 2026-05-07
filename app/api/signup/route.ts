@@ -24,10 +24,10 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
   // retries for already-registered users also go through the reliable Resend path.
   if (process.env.RESEND_API_KEY && process.env.ALLOW_DISPOSABLE_EMAILS !== "true") {
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
+      type: "signup",
       email,
       options: { redirectTo: emailRedirectTo },
-    })
+    } as any)
 
     if (linkError) return { error: linkError }
 
