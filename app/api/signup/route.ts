@@ -24,10 +24,10 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
   // also go through the reliable Resend path.
   if (process.env.RESEND_API_KEY) {
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
+      type: "signup",
       email,
       options: { redirectTo: emailRedirectTo },
-    })
+    } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
 
     if (linkError) return { error: linkError }
 
@@ -132,7 +132,13 @@ export async function POST(req: Request) {
 
       const confirmationUrl = data?.properties?.action_link
       if (!confirmationUrl) {
-        return NextResponse.json({ error: "Failed to generate confirmation link" }, { status: 500 })
+        console.error("Resend failed (empty action_link), attempting Supabase SMTP fallback")
+        const supabasePublic = createSupabasePublicClient()
+        const { error: fallbackError } = await supabasePublic.auth.signUp({ email, password, options: { emailRedirectTo } })
+        if (fallbackError && !isAlreadyRegisteredError(fallbackError.message)) {
+          return NextResponse.json({ error: `Email delivery failed (no confirmation link; SMTP: ${fallbackError.message}). Please try again.` }, { status: 500 })
+        }
+        return NextResponse.json({ ok: true, emailSent: true })
       }
 
       const resend = new Resend(process.env.RESEND_API_KEY)
@@ -174,8 +180,15 @@ export async function POST(req: Request) {
       })
 
       if (emailError) {
-        console.error("Failed to send confirmation email via Resend:", emailError)
-        return NextResponse.json({ error: "We couldn't send a confirmation email. Please try again or contact support." }, { status: 500 })
+        console.error("Resend failed, attempting Supabase SMTP fallback. Resend error:", JSON.stringify(emailError))
+        const supabasePublic = createSupabasePublicClient()
+        const { error: fallbackError } = await supabasePublic.auth.signUp({ email, password, options: { emailRedirectTo } })
+        if (fallbackError && !isAlreadyRegisteredError(fallbackError.message)) {
+          return NextResponse.json({
+            error: `Email delivery failed (Resend: ${(emailError as any).message ?? "unknown"}; SMTP: ${fallbackError.message}). Please try again.`
+          }, { status: 500 })
+        }
+        return NextResponse.json({ ok: true, emailSent: true })
       }
 
       return NextResponse.json({ ok: true, emailSent: true })
