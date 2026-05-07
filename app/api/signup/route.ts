@@ -20,9 +20,9 @@ function createSupabasePublicClient() {
 }
 
 async function resendSignupConfirmationEmail(email: string, emailRedirectTo: string) {
-  // Use Resend when available (and not in disposable-email test mode) so that
-  // retries for already-registered users also go through the reliable Resend path.
-  if (process.env.RESEND_API_KEY && process.env.ALLOW_DISPOSABLE_EMAILS !== "true") {
+  // Use Resend when available so that retries for already-registered users
+  // also go through the reliable Resend path.
+  if (process.env.RESEND_API_KEY) {
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "signup",
       email,
@@ -110,33 +110,6 @@ export async function POST(req: Request) {
 
     const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/signup?confirmed=true&plan=${safePlan}`
 
-    // ── Test mode ────────────────────────────────────────────────────────────
-    // When ALLOW_DISPOSABLE_EMAILS=true:
-    //   1. Call signUp() so Supabase sends a real confirmation email to the
-    //      provided address (including Mailinator / disposable inboxes).
-    //   2. Return success and let users confirm via the email they receive.
-    // RESEND_API_KEY is not required in this path.
-    if (process.env.ALLOW_DISPOSABLE_EMAILS === "true") {
-      const supabasePublic = createSupabasePublicClient()
-
-      const { error: signUpError } = await supabasePublic.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo },
-      })
-
-      if (signUpError) {
-        if (isAlreadyRegisteredError(signUpError.message)) {
-          const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
-          if (!resendError) return NextResponse.json({ ok: true })
-          return NextResponse.json({ error: errorMessage(resendError, "Failed to resend confirmation email") }, { status: 400 })
-        }
-        return NextResponse.json({ error: signUpError.message }, { status: 400 })
-      }
-
-      return NextResponse.json({ ok: true })
-    }
-
     // ── Production mode – Resend ──────────────────────────────────────────────
     // When RESEND_API_KEY is configured, send a custom branded email via Resend.
     if (process.env.RESEND_API_KEY) {
@@ -208,7 +181,7 @@ export async function POST(req: Request) {
     }
 
     // ── Fallback mode – Supabase native SMTP ─────────────────────────────────
-    // Neither ALLOW_DISPOSABLE_EMAILS nor RESEND_API_KEY is set.
+    // Used when RESEND_API_KEY is not set.
     // Use the public Supabase client's signUp() which triggers Supabase's own
     // built-in confirmation email. Works out-of-the-box on every Supabase
     // hosted project with no extra configuration.
