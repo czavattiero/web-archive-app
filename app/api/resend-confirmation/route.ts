@@ -28,10 +28,10 @@ export async function POST(req: Request) {
     // generate a confirmation link via the admin API and send it through Resend.
     if (process.env.RESEND_API_KEY && process.env.ALLOW_DISPOSABLE_EMAILS !== "true") {
       const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-        type: "magiclink",
+        type: "signup",
         email,
         options: { redirectTo: emailRedirectTo },
-      })
+      } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
 
       if (linkError) {
         return NextResponse.json({ error: linkError.message }, { status: 400 })
