@@ -20,8 +20,11 @@ export async function POST(req: Request) {
     }
 
     const safePlan = VALID_PLANS.has(plan) ? plan : "trial"
-
-    const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/signup?confirmed=true&plan=${safePlan}`
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || ""
+    if (!siteUrl) {
+      console.warn("NEXT_PUBLIC_SITE_URL is not set; email redirect links will be relative URLs.")
+    }
+    const emailRedirectTo = `${siteUrl}/signup?confirmed=true&plan=${safePlan}`
 
     // ── Resend path ──────────────────────────────────────────────────────────
     // When RESEND_API_KEY is configured, generate a confirmation link via the

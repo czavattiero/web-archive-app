@@ -75,8 +75,21 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
     })
 
     if (emailError) {
-      console.error("Failed to send confirmation email via Resend:", emailError)
-      return { error: { message: "We couldn't send a confirmation email. Please try again or contact support." } }
+      console.error("Failed to send confirmation email via Resend, attempting Supabase SMTP fallback:", JSON.stringify(emailError))
+      const supabasePublic = createSupabasePublicClient()
+      const { error: fallbackError } = await supabasePublic.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo },
+      })
+      if (fallbackError) {
+        return {
+          error: {
+            message: `We couldn't send a confirmation email (Resend: ${(emailError as any).message ?? "unknown"}; SMTP: ${fallbackError.message}). Please try again or contact support.`
+          }
+        }
+      }
+      return { error: null, emailSent: true }
     }
 
     return { error: null, emailSent: true }
@@ -108,8 +121,11 @@ export async function POST(req: Request) {
     }
 
     const safePlan = VALID_PLANS.has(plan) ? plan : "trial"
-
-    const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/signup?confirmed=true&plan=${safePlan}`
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || ""
+    if (!siteUrl) {
+      console.warn("NEXT_PUBLIC_SITE_URL is not set; email redirect links will be relative URLs.")
+    }
+    const emailRedirectTo = `${siteUrl}/signup?confirmed=true&plan=${safePlan}`
 
     // ── Production mode – Resend ──────────────────────────────────────────────
     // When RESEND_API_KEY is configured, send a custom branded email via Resend.
@@ -134,7 +150,11 @@ export async function POST(req: Request) {
       if (!confirmationUrl) {
         console.error("Resend failed (empty action_link), attempting Supabase SMTP fallback")
         const supabasePublic = createSupabasePublicClient()
-        const { error: fallbackError } = await supabasePublic.auth.signUp({ email, password, options: { emailRedirectTo } })
+        const { error: fallbackError } = await supabasePublic.auth.resend({
+          type: "signup",
+          email,
+          options: { emailRedirectTo },
+        })
         if (fallbackError && !isAlreadyRegisteredError(fallbackError.message)) {
           return NextResponse.json({ error: `Email delivery failed (no confirmation link; SMTP: ${fallbackError.message}). Please try again.` }, { status: 500 })
         }
@@ -182,7 +202,11 @@ export async function POST(req: Request) {
       if (emailError) {
         console.error("Resend failed, attempting Supabase SMTP fallback. Resend error:", JSON.stringify(emailError))
         const supabasePublic = createSupabasePublicClient()
-        const { error: fallbackError } = await supabasePublic.auth.signUp({ email, password, options: { emailRedirectTo } })
+        const { error: fallbackError } = await supabasePublic.auth.resend({
+          type: "signup",
+          email,
+          options: { emailRedirectTo },
+        })
         if (fallbackError && !isAlreadyRegisteredError(fallbackError.message)) {
           return NextResponse.json({
             error: `Email delivery failed (Resend: ${(emailError as any).message ?? "unknown"}; SMTP: ${fallbackError.message}). Please try again.`
