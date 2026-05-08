@@ -228,18 +228,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: signUpError.message }, { status: 400 })
     }
 
-    // signUp() sent the email via Supabase SMTP. Also generate a magic-link URL
-    // as a fallback in case the email doesn't arrive (rate limits, spam, etc.).
-    // generateLink() may rotate the signup token — either the email link or this
-    // fallback URL will work; whichever the user clicks first confirms the account.
-    const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
-      type: "signup",
-      email,
-      options: { redirectTo: emailRedirectTo },
-    } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
-    const fallbackUrl = linkData?.properties?.action_link
-
-    return NextResponse.json({ ok: true, ...(fallbackUrl ? { confirmationUrl: fallbackUrl } : {}) })
+    return NextResponse.json({ ok: true })
   } catch (err: any) {
     console.error("Signup API error:", err)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
