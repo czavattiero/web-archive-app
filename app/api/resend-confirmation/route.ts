@@ -134,15 +134,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    // Also generate a fallback URL in case the email doesn't arrive
-    const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
-      type: "signup",
-      email,
-      options: { redirectTo: emailRedirectTo },
-    } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
-    const fallbackUrl = linkData?.properties?.action_link
-
-    return NextResponse.json({ ok: true, ...(fallbackUrl ? { confirmationUrl: fallbackUrl } : {}) })
+    return NextResponse.json({ ok: true })
   } catch (err: any) {
     console.error("Resend confirmation API error:", err)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })

@@ -119,7 +119,6 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
   }
 
   // No RESEND_API_KEY — use supabase auth.resend() for SMTP email
-  // AND generate a magic link URL as a fallback.
   const supabasePublic = createSupabasePublicClient()
   const { error } = await supabasePublic.auth.resend({
     type: "signup",
@@ -128,14 +127,7 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
   })
   if (error) return { error }
 
-  // Also get a fallback URL in case the email doesn't arrive
-  const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
-    type: "signup",
-    email,
-    options: { redirectTo: emailRedirectTo },
-  } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
-  const fallbackUrl = linkData?.properties?.action_link
-  return { error: null, confirmationUrl: fallbackUrl }
+  return { error: null }
 }
 
 function isAlreadyRegisteredError(message?: string) {
