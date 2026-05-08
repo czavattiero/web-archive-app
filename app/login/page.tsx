@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+  const [loginError, setLoginError] = useState("")
 
   useEffect(() => {
     async function checkSession() {
@@ -31,6 +32,7 @@ export default function LoginPage() {
   async function handleLogin(e: any) {
     e.preventDefault()
     setLoading(true)
+    setLoginError("")
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -38,7 +40,7 @@ export default function LoginPage() {
     })
 
     if (error) {
-      alert(error.message)
+      setLoginError(error.message)
       setLoading(false)
       return
     }
@@ -171,6 +173,27 @@ export default function LoginPage() {
           </button>
 
         </form>
+
+        {loginError && (
+          <div style={{
+            marginTop: 14,
+            padding: "12px 16px",
+            background: "#FEF3C7",
+            borderRadius: 10,
+            border: "1px solid #F59E0B",
+            fontSize: 13,
+            color: "#92400E",
+          }}>
+            <p style={{ margin: "0 0 6px 0", fontWeight: 600 }}>{loginError}</p>
+            <p style={{ margin: 0 }}>
+              Check your password and try again, or use{" "}
+              <a href="/forgot-password" style={{ color: "#6A11CB", fontWeight: 600 }}>
+                Forgot password?
+              </a>{" "}
+              to reset your credentials.
+            </p>
+          </div>
+        )}
 
         <p style={{
           fontSize: 13,

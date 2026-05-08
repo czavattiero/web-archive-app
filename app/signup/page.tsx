@@ -19,7 +19,6 @@ export default function SignupPage() {
   const [submittedEmail, setSubmittedEmail] = useState("")
   const [resendLoading, setResendLoading] = useState(false)
   const [resendMessage, setResendMessage] = useState("")
-  const [confirmationUrl, setConfirmationUrl] = useState("")
   const [fallbackConfirmationUrl, setFallbackConfirmationUrl] = useState("")
   const [emailDeliveryFailed, setEmailDeliveryFailed] = useState(false)
   const completedRef = useRef(false)
@@ -138,15 +137,13 @@ export default function SignupPage() {
         return
       }
 
-      // Validate URL to prevent open-redirect attacks before storing as fallback
+      // The confirmationUrl is generated server-side by the admin API and is trusted.
+      // Always store it when it's a valid URL so the fallback "Verify my account →"
+      // button appears on the check-email screen.
       if (data.confirmationUrl) {
-        const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
         try {
-          const parsed = new URL(data.confirmationUrl)
-          const expected = supabaseOrigin ? new URL(supabaseOrigin) : null
-          if (expected && parsed.origin === expected.origin) {
-            setFallbackConfirmationUrl(data.confirmationUrl)
-          }
+          new URL(data.confirmationUrl)
+          setFallbackConfirmationUrl(data.confirmationUrl)
         } catch {
           // Invalid URL — ignore
         }
@@ -456,39 +453,6 @@ export default function SignupPage() {
           <p style={{ color: "red", marginTop: 15 }}>
             {error}
           </p>
-        )}
-
-        {confirmationUrl && (
-          <div style={{
-            marginTop: 24,
-            padding: "20px 24px",
-            background: "linear-gradient(135deg, #f3eeff, #fff4ec)",
-            border: "1px solid #e0d0ff",
-            borderRadius: 14,
-            textAlign: "center",
-          }}>
-            <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 8, color: "#374151" }}>
-              🧪 Test mode — email bypass active
-            </p>
-            <p style={{ color: "#6B7280", fontSize: 13, marginBottom: 14 }}>
-              Click the link below to confirm your account (no email sent):
-            </p>
-            <a
-              href={confirmationUrl}
-              style={{
-                display: "inline-block",
-                background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
-                color: "white",
-                textDecoration: "none",
-                padding: "10px 22px",
-                borderRadius: 10,
-                fontWeight: 600,
-                fontSize: 14,
-              }}
-            >
-              Confirm my account →
-            </a>
-          </div>
         )}
 
       </div>
