@@ -53,6 +53,7 @@ export default function LoginPage() {
         minHeight: "100vh",
         background: "linear-gradient(to bottom, #ffffff, #f7f8fb)",
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         fontFamily: "system-ui, sans-serif",
@@ -60,20 +61,21 @@ export default function LoginPage() {
       }}
     >
 
+      {/* LOGO */}
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <img className="dashboard-logo" src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160 }} />
+      </div>
+
       <div
         style={{
-          width: 420,
+          maxWidth: 420,
+          width: "100%",
           background: "white",
           padding: 40,
           borderRadius: 20,
           boxShadow: "0 25px 60px rgba(0,0,0,0.12)",
         }}
       >
-
-        {/* LOGO */}
-        <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <img src="/screenly-logo.png" alt="Screenly" style={{ height: 80 }} />
-        </div>
 
         {/* TITLE */}
         <h1 style={{

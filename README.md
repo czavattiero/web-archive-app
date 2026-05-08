@@ -20,6 +20,23 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment Variables
+
+Copy `.env.local.example` to `.env.local` and fill in the values:
+
+| Variable | Required | Description |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anonymous/public key |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Supabase service role key (server-side only) |
+| `NEXT_PUBLIC_SITE_URL` | ✅ | Full URL of the site (e.g. `http://localhost:3000`) |
+| `STRIPE_SECRET_KEY` | ✅ | Stripe secret key for payment processing |
+| `STRIPE_WEBHOOK_SECRET` | ✅ | Stripe webhook signing secret |
+| `STRIPE_BASIC_PRICE_ID` | ✅ | Stripe price ID for the Basic plan |
+| `STRIPE_PRO_PRICE_ID` | ✅ | Stripe price ID for the Pro plan |
+| `RESEND_API_KEY` | ⚠️ | Resend API key for sending confirmation emails. When set, signup and resend-confirmation flows use Resend. |
+| `ALLOW_DISPOSABLE_EMAILS` | — | Optional app-level toggle to permit disposable email addresses in validation logic. It does **not** control whether emails are sent via Resend or Supabase SMTP. |
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

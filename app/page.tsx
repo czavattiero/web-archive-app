@@ -2,263 +2,398 @@
 
 export default function Home() {
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "linear-gradient(to bottom, #ffffff, #f7f8fb)",
-        fontFamily: "system-ui, sans-serif",
-        padding: "50px 100px",
-        color: "#1F2937",
-      }}
-    >
-      {/* HEADER */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <img
-          src="/screenly-logo.png"
-          alt="Screenly"
-          style={{ height: 100 }}
-        />
+    <main style={{
+      minHeight: "100vh",
+      background: "#ffffff",
+      fontFamily: "'Inter', system-ui, sans-serif",
+      color: "#111827",
+    }}>
 
-        <a href="/login">
-          <button
-            style={{
-              background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
-              color: "white",
-              border: "none",
-              padding: "12px 26px",
-              borderRadius: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
+      {/* NAVIGATION */}
+      <nav className="landing-nav" style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
+        background: "#ffffff",
+        borderBottom: "1px solid #E5E7EB",
+        height: 120,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}>
+        <img src="/Timedshot-logo.png" alt="Timedshot logo" className="logo-pulse" style={{ height: 120 }} />
+        <div className="nav-actions" style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <a href="/login" style={{ fontSize: 14, fontWeight: 500, color: "#374151", textDecoration: "none" }}>
             Log in
-          </button>
-        </a>
-      </div>
+          </a>
+          <a href="/signup?plan=trial">
+            <button style={{
+              background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
+              color: "#fff",
+              border: "none",
+              padding: "9px 20px",
+              borderRadius: 8,
+              fontWeight: 600,
+              fontSize: 14,
+              cursor: "pointer",
+            }}>
+              Start Free
+            </button>
+          </a>
+        </div>
+      </nav>
 
       {/* HERO */}
-      <section
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1.2fr 1fr",
-          gap: 80,
-          alignItems: "center",
-          marginTop: 80,
-        }}
-      >
+      <section className="hero-section" style={{
+        maxWidth: 1200,
+        margin: "0 auto",
+      }}>
+        {/* LEFT */}
         <div>
-          <h1 style={{ fontSize: 52, fontWeight: 800 }}>
-            Automated screenshots with timestamp.
+          <h1 className="hero-heading" style={{
+            fontSize: 52,
+            fontWeight: 800,
+            lineHeight: 1.15,
+            color: "#111827",
+            margin: 0,
+          }}>
+            Automated screenshots<br />with timestamp.
           </h1>
 
-          <p
-            style={{
-              fontSize: 18,
-              color: "#6B7280",
-              marginTop: 20,
-              maxWidth: 520,
-              lineHeight: 1.6,
-            }}
-          >
+          <p style={{
+            fontSize: 18,
+            color: "#6B7280",
+            marginTop: 20,
+            lineHeight: 1.7,
+            maxWidth: 480,
+          }}>
             No manual screenshots. No gaps. No uncertainty.
           </p>
 
-          <div style={{ marginTop: 30 }}>
-            <a href="/signup">
-              <button
-                style={{
-                  background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
-                  color: "white",
-                  padding: "16px 30px",
-                  borderRadius: 14,
-                  border: "none",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
+          <div style={{ marginTop: 36, display: "flex", alignItems: "center", gap: 16 }}>
+            <a href="/signup?plan=trial">
+              <button style={{
+                background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
+                color: "#fff",
+                padding: "14px 32px",
+                borderRadius: 10,
+                border: "none",
+                fontWeight: 700,
+                fontSize: 16,
+                cursor: "pointer",
+              }}>
                 Start Free
               </button>
             </a>
+            <span style={{ fontSize: 13, color: "#9CA3AF" }}>
+              15-day free trial · No credit card required
+            </span>
           </div>
         </div>
 
-        <div>
+        {/* RIGHT — dashboard screenshot */}
+        <div style={{
+          borderRadius: 16,
+          overflow: "hidden",
+          boxShadow: "0 25px 60px rgba(106,17,203,0.15)",
+          border: "1px solid #E5E7EB",
+        }}>
           <img
             src="/dashboard-preview.png"
-            style={{
-              width: "100%",
-              borderRadius: 16,
-              boxShadow: "0 30px 70px rgba(0,0,0,0.2)",
-            }}
+            alt="Timedshot dashboard"
+            style={{ width: "100%", display: "block" }}
           />
         </div>
       </section>
 
       {/* HOW IT WORKS */}
-      <section style={{ marginTop: 120, textAlign: "center" }}>
-        <h2 style={{ fontSize: 32, fontWeight: 800 }}>How it works</h2>
+      <section className="how-section" style={{
+        maxWidth: 1100,
+        margin: "0 auto",
+        textAlign: "center",
+      }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: "#6A11CB", letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>
+          How it works
+        </p>
+        <h2 className="section-heading" style={{ fontSize: 36, fontWeight: 800, color: "#111827", margin: 0 }}>
+          Three steps to timestamped proof
+        </h2>
 
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: 80,
-            marginTop: 50,
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 40 }}>🔗</div>
-            <h3>Add URL</h3>
-            <p style={{ color: "#6B7280" }}>
-              Paste your URL
-            </p>
-          </div>
+        <div className="steps-grid" style={{
+        }}>
+          {[
+            {
+              number: "01",
+              icon: "🔗",
+              title: "Add URL",
+              desc: "Paste your URL",
+            },
+            {
+              number: "02",
+              icon: "⚡",
+              title: "We capture it",
+              desc: "Automatic timestamped screenshots",
+            },
+            {
+              number: "03",
+              icon: "📄",
+              title: "Download proof",
+              desc: "Timestamped PDFs available for 62 days",
+            },
+          ].map((step) => (
+            <div key={step.number} style={{
+              background: "#F9FAFB",
+              borderRadius: 16,
+              padding: "32px 28px",
+              border: "1px solid #E5E7EB",
+              position: "relative" as const,
+            }}>
+              <div style={{
+                position: "absolute" as const,
+                top: 24,
+                right: 24,
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#C4B5FD",
+                letterSpacing: 1,
+              }}>
+                {step.number}
+              </div>
+              <div style={{ fontSize: 36, marginBottom: 16 }}>{step.icon}</div>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: "0 0 8px" }}>
+                {step.title}
+              </h3>
+              <p style={{ fontSize: 14, color: "#6B7280", margin: 0, lineHeight: 1.6 }}>
+                {step.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-          <div>
-            <div style={{ fontSize: 40 }}>⚡</div>
-            <h3>We capture it</h3>
-            <p style={{ color: "#6B7280" }}>
-              Automatic timestamped screenshots
-            </p>
-          </div>
+      {/* DEMO */}
+      <section className="demo-section" style={{
+        background: "#F9FAFB",
+        borderTop: "1px solid #E5E7EB",
+        borderBottom: "1px solid #E5E7EB",
+        textAlign: "center",
+      }}>
+        <div style={{ maxWidth: 800, margin: "0 auto" }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: "#6A11CB", letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>
+            See it in action
+          </p>
+          <h2 className="section-heading" style={{ fontSize: 36, fontWeight: 800, color: "#111827", marginBottom: 12 }}>
+            Watch how Timedshot works
+          </h2>
+          <p style={{ fontSize: 16, color: "#6B7280", marginBottom: 48, lineHeight: 1.6 }}>
+            From adding a URL to downloading your timestamped PDF — in under 2 minutes.
+          </p>
 
-          <div>
-            <div style={{ fontSize: 40 }}>📄</div>
-            <h3>Download proof</h3>
-            <p style={{ color: "#6B7280" }}>
-              Timestamped PDFs available for 62 days
-            </p>
+          {/* Arcade interactive demo */}
+          <div style={{
+            position: "relative" as const,
+            width: "100%",
+            paddingBottom: "calc(56.25% + 41px)",
+            borderRadius: 16,
+            overflow: "hidden",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
+            border: "1px solid #E5E7EB",
+          }}>
+            <iframe
+              src="https://demo.arcade.software/JqUGB4hlwxA2yV2n9nAg?embed&embed_mobile=tab&embed_desktop=inline&show_copy_link=true"
+              title="Timedshot Demo"
+              style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+              allow="clipboard-write"
+              allowFullScreen
+            />
           </div>
         </div>
       </section>
 
       {/* PRICING */}
-      <section style={{ marginTop: 140, textAlign: "center" }}>
-        <h2 style={{ fontSize: 32, fontWeight: 800 }}>Simple pricing</h2>
+      <section className="pricing-section" style={{
+        maxWidth: 1100,
+        margin: "0 auto",
+        textAlign: "center",
+      }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: "#6A11CB", letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 }}>
+          Pricing
+        </p>
+        <h2 className="section-heading" style={{ fontSize: 36, fontWeight: 800, color: "#111827", margin: "0 0 8px" }}>
+          Simple pricing
+        </h2>
+        <p style={{ fontSize: 16, color: "#6B7280", marginBottom: 56 }}>
+          Start free. Upgrade when you're ready.
+        </p>
 
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: 40,
-            marginTop: 50,
-          }}
-        >
+        <div className="pricing-grid" style={{
+        }}>
           {/* BASIC */}
-          <div style={card}>
-            <h3>Basic</h3>
-            <p style={price}>$15</p>
-            <p style={muted}>per month</p>
-
-            <ul style={list}>
-              <li>10 URLs</li>
-              <li>Scheduled captures</li>
-              <li>PDF downloads</li>
+          <div style={{
+            background: "#fff",
+            border: "1px solid #E5E7EB",
+            borderRadius: 20,
+            padding: "36px 32px",
+            textAlign: "left",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+          }}>
+            <h3 style={{ fontSize: 20, fontWeight: 700, color: "#111827", margin: "0 0 4px" }}>Basic</h3>
+            <p style={{ fontSize: 13, color: "#9CA3AF", margin: "0 0 24px" }}>For individuals getting started</p>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 4 }}>
+              <span style={{ fontSize: 42, fontWeight: 800, color: "#111827" }}>$12</span>
+            </div>
+            <p style={{ fontSize: 13, color: "#6B7280", margin: "0 0 28px" }}>CAD / month</p>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column" as const, gap: 12 }}>
+              {"Up to 15 URLs every 30 days".split(',').map(f => (
+                <li key={f} style={{ display: "flex", gap: 10, fontSize: 14, color: "#374151", alignItems: "flex-start" }}>
+                  <span style={{ color: "#6A11CB", fontWeight: 700, flexShrink: 0 }}>✓</span> {f}
+                </li>
+              ))}
             </ul>
-
-            <a href="/signup?plan=basic">
-              <button style={btnPrimary}>Choose Basic</button>
+            <a href="/signup?plan=basic" style={{ display: "block" }}>
+              <button style={{
+                width: "100%",
+                background: "#F3F4F6",
+                color: "#111827",
+                border: "1px solid #E5E7EB",
+                padding: "12px",
+                borderRadius: 10,
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: "pointer",
+              }}>
+                Choose Basic
+              </button>
             </a>
           </div>
 
-          {/* PRO */}
-          <div style={{ ...card, border: "2px solid #6A11CB" }}>
-            <h3>Professional</h3>
-            <p style={price}>$30</p>
-            <p style={muted}>per month</p>
-
-            <ul style={list}>
-              <li>20–50 URLs</li>
-              <li>Scheduled captures</li>
-              <li>PDF downloads</li>
+          {/* PROFESSIONAL — highlighted */}
+          <div style={{
+            background: "linear-gradient(145deg, #6A11CB, #8B5CF6)",
+            border: "none",
+            borderRadius: 20,
+            padding: "36px 32px",
+            textAlign: "left",
+            boxShadow: "0 12px 40px rgba(106,17,203,0.35)",
+            color: "#fff",
+            position: "relative" as const,
+          }}>
+            <div style={{
+              position: "absolute" as const,
+              top: -14,
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "linear-gradient(135deg, #FF7A00, #FF9A3C)",
+              color: "#fff",
+              fontSize: 12,
+              fontWeight: 700,
+              padding: "4px 16px",
+              borderRadius: 999,
+              whiteSpace: "nowrap" as const,
+            }}>
+              Most Popular
+            </div>
+            <h3 style={{ fontSize: 20, fontWeight: 700, color: "#fff", margin: "0 0 4px" }}>Professional</h3>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", margin: "0 0 24px" }}>For power users and teams</p>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 4 }}>
+              <span style={{ fontSize: 42, fontWeight: 800, color: "#fff" }}>$25</span>
+            </div>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", margin: "0 0 28px" }}>CAD / month</p>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column" as const, gap: 12 }}>
+              {"Up to 40 URLs every 30 days".split(',').map(f => (
+                <li key={f} style={{ display: "flex", gap: 10, fontSize: 14, color: "rgba(255,255,255,0.9)", alignItems: "flex-start" }}>
+                  <span style={{ color: "#FCD34D", fontWeight: 700, flexShrink: 0 }}>✓</span> {f}
+                </li>
+              ))}
             </ul>
-
-            <a href="/signup?plan=pro">
-              <button style={btnGradient}>Choose Professional</button>
+            <a href="/signup?plan=pro" style={{ display: "block" }}>
+              <button style={{
+                width: "100%",
+                background: "#fff",
+                color: "#6A11CB",
+                border: "none",
+                padding: "12px",
+                borderRadius: 10,
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: "pointer",
+              }}>
+                Choose Professional
+              </button>
             </a>
           </div>
 
-          {/* CUSTOM PLAN */}
-          <div style={card}>
-            <h3>Custom</h3>
-            <p style={price}>Custom</p>
-            <p style={muted}>enterprise</p>
-
-            <ul style={list}>
-              <li>Unlimited URLs</li>
-              <li>Scheduled captures</li>
-              <li>PDF downloads</li>
+          {/* ENTERPRISE */}
+          <div style={{
+            background: "#fff",
+            border: "1px solid #E5E7EB",
+            borderRadius: 20,
+            padding: "36px 32px",
+            textAlign: "left",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+          }}>
+            <h3 style={{ fontSize: 20, fontWeight: 700, color: "#111827", margin: "0 0 4px" }}>Enterprise</h3>
+            <p style={{ fontSize: 13, color: "#9CA3AF", margin: "0 0 24px" }}>For large teams and organizations</p>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 4 }}>
+              <span style={{ fontSize: 42, fontWeight: 800, color: "#111827" }}>Custom</span>
+            </div>
+            <p style={{ fontSize: 13, color: "#6B7280", margin: "0 0 28px" }}>custom pricing</p>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column" as const, gap: 12 }}>
+              {"Unlimited URLs,Scheduled captures,PDF downloads".split(',').map(f => (
+                <li key={f} style={{ display: "flex", gap: 10, fontSize: 14, color: "#374151", alignItems: "flex-start" }}>
+                  <span style={{ color: "#6A11CB", fontWeight: 700, flexShrink: 0 }}>✓</span> {f}
+                </li>
+              ))}
             </ul>
-
-            <p style={{ marginTop: 20, fontWeight: 600 }}>
-              Contact:
-            </p>
-            <p style={{ color: "#6A11CB" }}>
-              support@screenly.app
-            </p>
+            <div style={{ borderTop: "1px solid #F3F4F6", paddingTop: 20 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 4px" }}>Contact us:</p>
+              <a href="mailto:support@timedshot.ca" style={{ fontSize: 14, color: "#6A11CB", fontWeight: 600, textDecoration: "none" }}>
+                support@timedshot.ca
+              </a>
+            </div>
           </div>
         </div>
       </section>
 
+      {/* CTA BANNER */}
+      <section className="cta-section" style={{
+        background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
+        textAlign: "center",
+      }}>
+        <h2 className="section-heading" style={{ fontSize: 36, fontWeight: 800, color: "#fff", margin: "0 0 16px" }}>
+          Ready to capture your first screenshot?
+        </h2>
+        <p style={{ fontSize: 16, color: "rgba(255,255,255,0.8)", margin: "0 0 36px" }}>
+          15-day free trial · No credit card required
+        </p>
+        <a href="/signup?plan=trial">
+          <button style={{
+            background: "#fff",
+            color: "#6A11CB",
+            border: "none",
+            padding: "14px 36px",
+            borderRadius: 10,
+            fontWeight: 700,
+            fontSize: 16,
+            cursor: "pointer",
+          }}>
+            Start Free
+          </button>
+        </a>
+      </section>
+
       {/* FOOTER */}
-      <footer
-        style={{
-          marginTop: 120,
-          textAlign: "center",
-          color: "#9CA3AF",
-        }}
-      >
-        © 2026 Screenly
+      <footer className="landing-footer" style={{
+        background: "#111827",
+      }}>
+        <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 56, filter: "brightness(0) invert(1)", opacity: 0.7 }} />
+        <p style={{ fontSize: 13, color: "#6B7280", margin: 0 }}>© 2026 Timedshot. All rights reserved.</p>
+        <div style={{ display: "flex", gap: 24 }}>
+          <a href="/login" style={{ fontSize: 13, color: "#6B7280", textDecoration: "none" }}>Log in</a>
+          <a href="mailto:support@timedshot.ca" style={{ fontSize: 13, color: "#6B7280", textDecoration: "none" }}>Contact</a>
+        </div>
       </footer>
+
     </main>
   )
-}
-
-/* STYLES */
-const card = {
-  background: "#fff",
-  padding: 40,
-  borderRadius: 16,
-  width: 280,
-  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-}
-
-const price = {
-  fontSize: 36,
-  fontWeight: 800,
-}
-
-const muted = {
-  color: "#6B7280",
-}
-
-const list = {
-  listStyle: "none",
-  padding: 0,
-  marginTop: 20,
-  lineHeight: 1.8,
-}
-
-const btnPrimary = {
-  marginTop: 20,
-  background: "#6A11CB",
-  color: "#fff",
-  padding: "12px 20px",
-  borderRadius: 10,
-  border: "none",
-}
-
-const btnGradient = {
-  marginTop: 20,
-  background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
-  color: "#fff",
-  padding: "12px 20px",
-  borderRadius: 10,
-  border: "none",
 }

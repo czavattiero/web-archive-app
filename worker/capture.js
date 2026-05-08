@@ -2,6 +2,7 @@ import dotenv from "dotenv"
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
 import { DateTime } from "luxon"
+import { CLOUDFLARE_BLOCK_PATTERN } from "./cloudflareDetection.js"
 
 dotenv.config()
 
@@ -15,6 +16,8 @@ function calculateNextCapture(scheduleType) {
   let next = now.plus({ days: 1 }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
 
   switch (scheduleType) {
+    case "custom":
+      return null
     case "weekly":
       next = now.plus({ days: 7 }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
       break
@@ -46,19 +49,15 @@ async function captureWithRetry(page, url, maxRetries = 3) {
 
       const content = await page.content()
 
-      if (
-        content.includes("security verification") ||
-        content.includes("Checking your browser") ||
-        content.includes("Access denied")
-      ) {
-        console.log(`⚠️ Block detected (attempt ${attempt})`)
+      if (CLOUDFLARE_BLOCK_PATTERN.test(content)) {
+        console.log(`⚠️ Cloudflare block detected (attempt ${attempt})`)
 
         if (attempt < maxRetries) {
           console.log("🔁 Retrying...")
           await page.waitForTimeout(5000)
           continue
         } else {
-          throw new Error("Blocked by Cloudflare after retries")
+          throw new Error("Blocked by Cloudflare")
         }
       }
 
@@ -73,6 +72,96 @@ async function captureWithRetry(page, url, maxRetries = 3) {
       }
 
       await page.waitForTimeout(5000)
+    }
+  }
+}
+
+const EXTENDED_RETRY_DELAYS = [
+  5 * 60 * 1000,   // 5 minutes
+  10 * 60 * 1000,  // 10 minutes
+  15 * 60 * 1000,  // 15 minutes
+]
+const MAX_RETRIES = EXTENDED_RETRY_DELAYS.length // 3
+
+async function handleRetry(item, captureMode) {
+  const { data: urlRecord, error: fetchError } = await supabase
+    .from("urls")
+    .select("retry_count")
+    .eq("id", item.id)
+    .single()
+
+  if (fetchError) {
+    console.error("❌ Failed to fetch retry_count for URL", item.id, fetchError.message)
+    return
+  }
+
+  const currentRetries = urlRecord?.retry_count ?? 0
+  const newRetryCount = currentRetries + 1
+
+  if (newRetryCount <= MAX_RETRIES) {
+    const delayMs = EXTENDED_RETRY_DELAYS[currentRetries]
+    const delayMin = delayMs / (60 * 1000)
+    const retryAt = new Date(Date.now() + delayMs).toISOString()
+    const { error: updateError } = await supabase
+      .from("urls")
+      .update({
+        retry_count: newRetryCount,
+        next_capture_at: retryAt,
+        status: "active",
+      })
+      .eq("id", item.id)
+    if (updateError) {
+      console.error("❌ Failed to schedule retry for URL", item.id, updateError.message)
+    } else {
+      console.log(`🔁 Extended retry ${newRetryCount}/${MAX_RETRIES} in ${delayMin} min scheduled for: ${retryAt}`)
+    }
+  } else {
+    // All retries exhausted — schedule next capture per the URL's schedule type
+    let nextCaptureAt
+    let nextStatus
+
+    if (item.schedule_type === "custom") {
+      if (captureMode === "IMMEDIATE") {
+        // IMMEDIATE capture failed — still schedule the chosen-date capture
+        if (item.schedule_value) {
+          const parsedDate = DateTime.fromISO(item.schedule_value, { zone: "America/Edmonton" })
+          if (parsedDate.isValid) {
+            nextCaptureAt = parsedDate
+              .set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
+              .toUTC()
+              .toISO()
+            nextStatus = "active"
+          } else {
+            nextCaptureAt = null
+            nextStatus = "completed"
+          }
+        } else {
+          nextCaptureAt = null
+          nextStatus = "completed"
+        }
+      } else {
+        // SCHEDULED capture failed — this was the chosen-date capture, we're done
+        nextCaptureAt = null
+        nextStatus = "completed"
+      }
+    } else {
+      // Recurring schedule — compute next capture date and stay active
+      nextCaptureAt = calculateNextCapture(item.schedule_type)
+      nextStatus = "active"
+    }
+
+    const { error: updateError } = await supabase
+      .from("urls")
+      .update({
+        retry_count: 0,
+        next_capture_at: nextCaptureAt,
+        status: nextStatus,
+      })
+      .eq("id", item.id)
+    if (updateError) {
+      console.error("❌ Failed to schedule next capture for URL", item.id, updateError.message)
+    } else {
+      console.log(`⚠️ All retries exhausted for ${item.url}. Next capture: ${nextCaptureAt}`)
     }
   }
 }
@@ -222,6 +311,8 @@ async function runWorker() {
           error: "Page load failed: " + err.message,
         })
 
+        await handleRetry(item, captureMode)
+
         await page.close()
         continue
       }
@@ -272,6 +363,8 @@ async function runWorker() {
           error: "Upload failed: " + uploadError.message,
         })
 
+        await handleRetry(item, captureMode)
+
         await page.close()
         continue
       }
@@ -287,10 +380,39 @@ async function runWorker() {
       })
 
       // Update URL: set last_captured_at and next_capture_at
+      let nextCaptureAt
+      let nextStatus
+
+      if (item.schedule_type === "custom") {
+        if (captureMode === "IMMEDIATE") {
+          // First snapshot done — still need to capture on the user's chosen date
+          const parsedDate = DateTime.fromISO(item.schedule_value, { zone: "America/Edmonton" })
+          if (!parsedDate.isValid) {
+            console.error(`❌ Invalid schedule_value "${item.schedule_value}" for URL ${item.id} — marking completed`)
+            nextCaptureAt = null
+            nextStatus = "completed"
+          } else {
+            nextCaptureAt = parsedDate
+              .set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
+              .toUTC()
+              .toISO()
+            nextStatus = "active"
+          }
+        } else {
+          // SCHEDULED mode — this was the chosen-date capture, we're done
+          nextCaptureAt = null
+          nextStatus = "completed"
+        }
+      } else {
+        nextCaptureAt = calculateNextCapture(item.schedule_type)
+        nextStatus = "active"
+      }
+
       const updateData = {
         last_captured_at: new Date().toISOString(),
-        next_capture_at: calculateNextCapture(item.schedule_type),
-        status: "active",
+        next_capture_at: nextCaptureAt,
+        status: nextStatus,
+        retry_count: 0,
       }
 
       await supabase
@@ -309,6 +431,8 @@ async function runWorker() {
         status: "failed",
         error: err.message,
       })
+
+      await handleRetry(item, captureMode)
     }
 
     await page.close()

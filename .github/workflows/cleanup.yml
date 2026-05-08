@@ -1,17 +1,15 @@
-name: Web Archive Capture Worker
+name: Web Archive Cleanup Worker
 
 on:
   schedule:
-    - cron: "0 14 * * *"   # Daily at 14:00 UTC (≈ 08:00 Alberta MDT)
+    - cron: "0 15 * * *"   # Daily at 15:00 UTC (≈ 09:00 Alberta MDT)
   workflow_dispatch:
-    inputs:
-      capture_mode:
-        description: 'IMMEDIATE (new URLs) or SCHEDULED (due URLs)'
-        required: false
-        default: "SCHEDULED"
+
+permissions:
+  contents: read
 
 jobs:
-  capture:
+  cleanup:
     runs-on: ubuntu-latest
 
     steps:
@@ -32,12 +30,10 @@ jobs:
       - name: Lint worker files
         run: npx eslint worker/
 
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
-
-      - name: Run capture worker
+      - name: Run cleanup worker
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          CAPTURE_MODE: ${{ github.event.inputs.capture_mode || 'SCHEDULED' }}
-        run: node worker/capture.js
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
+        run: node worker/cleanup.js

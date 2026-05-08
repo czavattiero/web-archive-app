@@ -3,6 +3,7 @@ import path from "path"
 import { fileURLToPath } from "url"
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
+import { CLOUDFLARE_BLOCK_PATTERN } from "./cloudflareDetection.js"
 
 // Resolve project root
 const __filename = fileURLToPath(import.meta.url)
@@ -17,6 +18,80 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
+
+const MAX_RETRIES = 3
+const RETRY_DELAY_MS = 60 * 60 * 1000 // 1 hour
+
+async function handleRetry(url) {
+  const { data: urlRecord, error: fetchError } = await supabase
+    .from("urls")
+    .select("retry_count")
+    .eq("id", url.id)
+    .single()
+
+  if (fetchError) {
+    console.error("❌ Failed to fetch retry_count for URL", url.id, fetchError.message)
+    return
+  }
+
+  const currentRetries = urlRecord?.retry_count ?? 0
+  const newRetryCount = currentRetries + 1
+
+  if (newRetryCount < MAX_RETRIES) {
+    const retryAt = new Date(Date.now() + RETRY_DELAY_MS).toISOString()
+    const { error: updateError } = await supabase
+      .from("urls")
+      .update({
+        retry_count: newRetryCount,
+        next_capture_at: retryAt,
+        status: "active",
+      })
+      .eq("id", url.id)
+    if (updateError) {
+      console.error("❌ Failed to schedule retry for URL", url.id, updateError.message)
+    } else {
+      console.log(`🔁 Retry ${newRetryCount}/${MAX_RETRIES} scheduled for: ${retryAt}`)
+    }
+  } else {
+    // All retries exhausted — schedule next capture per the URL's schedule type
+    const baseTime = new Date(url.next_capture_at || Date.now())
+    let nextCapture
+
+    switch (url.schedule_type) {
+      case "custom":
+        nextCapture = null
+        break
+      case "weekly":
+        nextCapture = new Date(baseTime.getTime() + 7 * 86400000)
+        break
+      case "biweekly":
+        nextCapture = new Date(baseTime.getTime() + 14 * 86400000)
+        break
+      case "29days":
+        nextCapture = new Date(baseTime.getTime() + 29 * 86400000)
+        break
+      case "30days":
+        nextCapture = new Date(baseTime.getTime() + 30 * 86400000)
+        break
+      default:
+        nextCapture = new Date(baseTime.getTime() + 7 * 86400000)
+    }
+
+    const { error: updateError } = await supabase
+      .from("urls")
+      .update({
+        retry_count: 0,
+        next_capture_at: nextCapture,
+        status: nextCapture === null ? "completed" : "active",
+      })
+      .eq("id", url.id)
+    if (updateError) {
+      console.error("❌ Failed to schedule next capture for URL", url.id, updateError.message)
+    } else {
+      console.log(`⚠️ All retries exhausted for URL ${url.id}. Next capture: ${nextCapture}`)
+    }
+  }
+}
 
 async function run() {
 
@@ -59,6 +134,13 @@ async function run() {
       })
 
       await page.waitForTimeout(3000)
+
+      const content = await page.content()
+
+      if (CLOUDFLARE_BLOCK_PATTERN.test(content)) {
+        console.log(`⚠️ Cloudflare block detected for ${url.url}`)
+        throw new Error("Blocked by Cloudflare")
+      }
 
       // Scroll to load dynamic content
       await page.evaluate(() => {
@@ -121,6 +203,7 @@ async function run() {
 
       if (uploadError) {
         console.error("❌ Upload error:", uploadError)
+        await handleRetry(url)
         continue
       }
 
@@ -147,6 +230,10 @@ async function run() {
 
       switch (url.schedule_type) {
 
+        case "custom":
+          nextCapture = null
+          break
+
         case "weekly":
           nextCapture = new Date(baseTime.getTime() + 7 * 86400000)
           break
@@ -170,7 +257,11 @@ async function run() {
 
       await supabase
         .from("urls")
-        .update({ next_capture_at: nextCapture })
+        .update({
+          next_capture_at: nextCapture,
+          status: nextCapture === null ? "completed" : "active",
+          retry_count: 0,
+        })
         .eq("id", url.id)
 
       console.log("📅 Next capture scheduled:", nextCapture)
@@ -184,6 +275,8 @@ async function run() {
         captured_at: new Date(),
         status: "failed"
       })
+
+      await handleRetry(url)
 
     }
 

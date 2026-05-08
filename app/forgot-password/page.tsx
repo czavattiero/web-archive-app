@@ -17,7 +17,7 @@ export default function ForgotPasswordPage() {
     setMessage("")
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: "http://localhost:3000/reset-password",
+      redirectTo: `${window.location.origin}/reset-password`,
     })
 
     if (error) {
@@ -42,7 +42,8 @@ export default function ForgotPasswordPage() {
     }}>
 
       <div style={{
-        width: 420,
+        maxWidth: 420,
+        width: "100%",
         background: "white",
         padding: 40,
         borderRadius: 20,
@@ -51,7 +52,7 @@ export default function ForgotPasswordPage() {
 
         {/* LOGO */}
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <img src="/screenly-logo.png" style={{ height: 80 }} />
+          <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160 }} />
         </div>
 
         {/* TITLE */}
