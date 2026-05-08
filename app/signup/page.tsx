@@ -20,6 +20,7 @@ export default function SignupPage() {
   const [resendLoading, setResendLoading] = useState(false)
   const [resendMessage, setResendMessage] = useState("")
   const [confirmationUrl, setConfirmationUrl] = useState("")
+  const [fallbackConfirmationUrl, setFallbackConfirmationUrl] = useState("")
   const completedRef = useRef(false)
 
   // Shared post-confirmation setup: upsert profile then redirect.
@@ -149,6 +150,7 @@ export default function SignupPage() {
             // Store the URL so it remains visible as a fallback if the redirect
             // is blocked or the tester wants to inspect/copy it.
             setConfirmationUrl(data.confirmationUrl)
+            setFallbackConfirmationUrl(data.confirmationUrl)
             setLoading(false)
             window.location.href = data.confirmationUrl
             return
@@ -156,6 +158,10 @@ export default function SignupPage() {
         } catch {
           // Invalid URL - fall through to show check-email screen
         }
+      }
+
+      if (data.confirmationUrl) {
+        setFallbackConfirmationUrl(data.confirmationUrl)
       }
 
       setSubmittedEmail(email)
@@ -186,6 +192,9 @@ export default function SignupPage() {
         setResendMessage("Failed to resend. Please try again.")
       } else {
         setResendMessage("Confirmation email resent! Check your inbox.")
+        if (data.confirmationUrl) {
+          setFallbackConfirmationUrl(data.confirmationUrl)
+        }
       }
     } catch {
       setResendMessage("Failed to resend. Please try again.")
@@ -315,6 +324,36 @@ export default function SignupPage() {
             }}>
               {resendMessage}
             </p>
+          )}
+
+          {fallbackConfirmationUrl && (
+            <div style={{
+              marginTop: 20,
+              padding: "16px 20px",
+              background: "#f9fafb",
+              border: "1px solid #E5E7EB",
+              borderRadius: 12,
+              textAlign: "center",
+            }}>
+              <p style={{ color: "#6B7280", fontSize: 13, marginBottom: 10 }}>
+                Didn&apos;t receive the email? Verify your account directly:
+              </p>
+              <a
+                href={fallbackConfirmationUrl}
+                style={{
+                  display: "inline-block",
+                  background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
+                  color: "white",
+                  textDecoration: "none",
+                  padding: "10px 22px",
+                  borderRadius: 10,
+                  fontWeight: 600,
+                  fontSize: 14,
+                }}
+              >
+                Verify my account →
+              </a>
+            </div>
           )}
 
         </div>
