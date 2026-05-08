@@ -125,7 +125,7 @@ async function sendViaResendWithFallback(
 async function resendSignupConfirmationEmail(email: string, emailRedirectTo: string): Promise<{ error: { message?: string } | null }> {
   if (process.env.RESEND_API_KEY) {
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "signup" as "magiclink",
+      type: "signup" as any,
       email,
       options: { redirectTo: emailRedirectTo },
     })
