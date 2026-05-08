@@ -91,7 +91,7 @@ async function sendViaResendWithFallback(
   return { error: null }
 }
 
-async function resendSignupConfirmationEmail(email: string, emailRedirectTo: string) {
+async function resendSignupConfirmationEmail(email: string, emailRedirectTo: string): Promise<{ error: { message?: string } | null; confirmationUrl?: string }> {
   if (process.env.RESEND_API_KEY) {
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "signup",
@@ -99,7 +99,7 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
       options: { redirectTo: emailRedirectTo },
     } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
 
-    if (linkError) return { error: linkError }
+    if (linkError) return { error: linkError, confirmationUrl: undefined }
 
     const confirmationUrl = data?.properties?.action_link
     if (!confirmationUrl) {
@@ -111,19 +111,31 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
         email,
         options: { emailRedirectTo },
       })
-      return { error: error ?? null }
+      return { error: error ?? null, confirmationUrl: undefined }
     }
 
-    return sendViaResendWithFallback(email, confirmationUrl, emailRedirectTo)
+    const { error: sendError } = await sendViaResendWithFallback(email, confirmationUrl, emailRedirectTo)
+    return { error: sendError, confirmationUrl: sendError ? undefined : confirmationUrl }
   }
 
+  // No RESEND_API_KEY — use supabase auth.resend() for SMTP email
+  // AND generate a magic link URL as a fallback.
   const supabasePublic = createSupabasePublicClient()
   const { error } = await supabasePublic.auth.resend({
     type: "signup",
     email,
     options: { emailRedirectTo },
   })
-  return { error: error ?? null }
+  if (error) return { error, confirmationUrl: undefined }
+
+  // Also get a fallback URL in case the email doesn't arrive
+  const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+    type: "signup",
+    email,
+    options: { redirectTo: emailRedirectTo },
+  } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
+  const fallbackUrl = linkData?.properties?.action_link
+  return { error: null, confirmationUrl: fallbackUrl ?? undefined }
 }
 
 function isAlreadyRegisteredError(message?: string) {
@@ -156,8 +168,8 @@ export async function POST(req: Request) {
 
       if (linkError) {
         if (isAlreadyRegisteredError(linkError.message)) {
-          const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
-          if (!resendError) return NextResponse.json({ ok: true })
+          const { error: resendError, confirmationUrl: resendUrl } = await resendSignupConfirmationEmail(email, emailRedirectTo)
+          if (!resendError) return NextResponse.json({ ok: true, ...(resendUrl ? { confirmationUrl: resendUrl } : {}) })
           return NextResponse.json(
             { error: errorMessage(resendError, "Failed to resend confirmation email") },
             { status: 400 }
@@ -187,7 +199,10 @@ export async function POST(req: Request) {
 
       const { error: sendError } = await sendViaResendWithFallback(email, confirmationUrl, emailRedirectTo)
       if (sendError) {
-        return NextResponse.json({ error: sendError.message }, { status: 500 })
+        // Email delivery failed completely, but we still have a valid confirmation URL — return it
+        // so the user can verify directly via the fallback button rather than seeing a hard error.
+        console.error("All email delivery failed:", sendError.message)
+        return NextResponse.json({ ok: true, confirmationUrl, emailDeliveryFailed: true })
       }
 
       return NextResponse.json({ ok: true, confirmationUrl })
@@ -203,8 +218,8 @@ export async function POST(req: Request) {
 
     if (signUpError) {
       if (isAlreadyRegisteredError(signUpError.message)) {
-        const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
-        if (!resendError) return NextResponse.json({ ok: true })
+        const { error: resendError, confirmationUrl: resendUrl } = await resendSignupConfirmationEmail(email, emailRedirectTo)
+        if (!resendError) return NextResponse.json({ ok: true, ...(resendUrl ? { confirmationUrl: resendUrl } : {}) })
         return NextResponse.json(
           { error: errorMessage(resendError, "Failed to resend confirmation email") },
           { status: 400 }
@@ -213,7 +228,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: signUpError.message }, { status: 400 })
     }
 
-    return NextResponse.json({ ok: true })
+    // signUp() sent the email via Supabase SMTP. Also generate a magic-link URL
+    // as a fallback in case the email doesn't arrive (rate limits, spam, etc.).
+    // generateLink() may rotate the signup token — either the email link or this
+    // fallback URL will work; whichever the user clicks first confirms the account.
+    const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+      type: "signup",
+      email,
+      options: { redirectTo: emailRedirectTo },
+    } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
+    const fallbackUrl = linkData?.properties?.action_link
+
+    return NextResponse.json({ ok: true, ...(fallbackUrl ? { confirmationUrl: fallbackUrl } : {}) })
   } catch (err: any) {
     console.error("Signup API error:", err)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
