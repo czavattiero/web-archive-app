@@ -99,7 +99,7 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
       options: { redirectTo: emailRedirectTo },
     } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
 
-    if (linkError) return { error: linkError, confirmationUrl: undefined }
+    if (linkError) return { error: linkError }
 
     const confirmationUrl = data?.properties?.action_link
     if (!confirmationUrl) {
@@ -111,7 +111,7 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
         email,
         options: { emailRedirectTo },
       })
-      return { error: error ?? null, confirmationUrl: undefined }
+      return { error: error ?? null }
     }
 
     const { error: sendError } = await sendViaResendWithFallback(email, confirmationUrl, emailRedirectTo)
@@ -126,7 +126,7 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
     email,
     options: { emailRedirectTo },
   })
-  if (error) return { error, confirmationUrl: undefined }
+  if (error) return { error }
 
   // Also get a fallback URL in case the email doesn't arrive
   const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
@@ -135,7 +135,7 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
     options: { redirectTo: emailRedirectTo },
   } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
   const fallbackUrl = linkData?.properties?.action_link
-  return { error: null, confirmationUrl: fallbackUrl ?? undefined }
+  return { error: null, confirmationUrl: fallbackUrl }
 }
 
 function isAlreadyRegisteredError(message?: string) {
