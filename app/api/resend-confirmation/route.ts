@@ -7,7 +7,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const FROM_EMAIL = process.env.FROM_EMAIL || "Timedshot <noreply@timedshot.com>"
+const FROM_EMAIL = process.env.FROM_EMAIL || "Timedshot <noreply@timedshot.ca>"
 
 const VALID_PLANS = new Set(["trial", "basic", "pro"])
 
@@ -62,6 +62,7 @@ export async function POST(req: Request) {
 
     // ── Resend path ───────────────────────────────────────────────────────────
     if (process.env.RESEND_API_KEY) {
+      console.log("ResendConfirmation: RESEND_API_KEY is set — using Resend path")
       const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
         type: "magiclink",
         email,
@@ -69,13 +70,15 @@ export async function POST(req: Request) {
       })
 
       if (linkError) {
+        console.error("ResendConfirmation: generateLink failed:", linkError.message)
         return NextResponse.json({ error: linkError.message }, { status: 400 })
       }
 
+      console.log("ResendConfirmation: generateLink succeeded")
       const confirmationUrl = data?.properties?.action_link
       if (!confirmationUrl) {
         // generateLink returned no URL — fall back to Supabase SMTP resend
-        console.warn("generateLink returned empty action_link, falling back to Supabase SMTP")
+        console.warn("ResendConfirmation: generateLink returned empty action_link, falling back to Supabase SMTP")
         const supabasePublic = createSupabasePublicClient()
         const { error: fallbackError } = await supabasePublic.auth.resend({
           type: "signup",
@@ -83,11 +86,13 @@ export async function POST(req: Request) {
           options: { emailRedirectTo },
         })
         if (fallbackError) {
+          console.error("ResendConfirmation: Supabase SMTP fallback failed:", fallbackError.message)
           return NextResponse.json(
             { error: `Email delivery failed. Please try again.` },
             { status: 500 }
           )
         }
+        console.log("ResendConfirmation: confirmation email sent via Supabase SMTP fallback")
         return NextResponse.json({ ok: true })
       }
 
@@ -102,7 +107,7 @@ export async function POST(req: Request) {
 
       if (emailError) {
         // Resend failed — fall back to Supabase SMTP
-        console.error("Resend send failed, falling back to Supabase SMTP:", JSON.stringify(emailError))
+        console.error("ResendConfirmation: Resend send failed, falling back to Supabase SMTP:", JSON.stringify(emailError))
         const supabasePublic = createSupabasePublicClient()
         const { error: fallbackError } = await supabasePublic.auth.resend({
           type: "signup",
@@ -116,13 +121,16 @@ export async function POST(req: Request) {
             { status: 500 }
           )
         }
+        console.log("ResendConfirmation: confirmation email sent via Supabase SMTP fallback after Resend failure")
         return NextResponse.json({ ok: true })
       }
 
+      console.log("ResendConfirmation: confirmation email sent successfully via Resend")
       return NextResponse.json({ ok: true, confirmationUrl })
     }
 
     // ── Fallback path – Supabase native SMTP ─────────────────────────────────
+    console.log("ResendConfirmation: RESEND_API_KEY not set — using Supabase SMTP fallback")
     const supabasePublic = createSupabasePublicClient()
     const { error } = await supabasePublic.auth.resend({
       type: "signup",
