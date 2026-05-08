@@ -200,35 +200,44 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: createError.message }, { status: 400 })
     }
 
-    // ── Step 2: Generate a signup confirmation link for the post-signup redirect ─
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "signup",
-      email,
-      password,
-      options: { redirectTo: emailRedirectTo },
-    })
-
-    if (linkError) {
-      console.warn("generateLink failed after createUser:", linkError.message)
-      return NextResponse.json({ ok: true })
-    }
-
-    const confirmationUrl = linkData?.properties?.action_link
-
-    // ── Step 3: Send confirmation email via Resend (non-blocking) ─────────────
-    if (process.env.RESEND_API_KEY && confirmationUrl) {
-      const resend = new Resend(process.env.RESEND_API_KEY)
-      const { error: emailError } = await resend.emails.send({
-        from: FROM_EMAIL,
-        to: email,
-        subject: "Confirm your email – Timedshot",
-        html: buildEmailHtml(confirmationUrl),
+    // ── Step 2: Try Resend path first when available; otherwise use Supabase SMTP ─
+    if (process.env.RESEND_API_KEY) {
+      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: "signup",
+        email,
+        password,
+        options: { redirectTo: emailRedirectTo },
       })
 
-      if (emailError) {
-        console.error("Confirmation email send failed:", JSON.stringify(emailError))
-        return NextResponse.json({ ok: true })
+      if (linkError) {
+        console.warn("generateLink failed after createUser, falling back to Supabase SMTP:", linkError.message)
+      } else {
+        const confirmationUrl = linkData?.properties?.action_link
+        if (confirmationUrl) {
+          const { error: sendError } = await sendViaResendWithFallback(email, confirmationUrl, emailRedirectTo)
+          if (sendError) {
+            return NextResponse.json(
+              { error: errorMessage(sendError, "Failed to send confirmation email") },
+              { status: 500 }
+            )
+          }
+          return NextResponse.json({ ok: true })
+        }
+        console.warn("generateLink returned empty action_link after createUser, falling back to Supabase SMTP")
       }
+    }
+
+    const supabasePublic = createSupabasePublicClient()
+    const { error: resendError } = await supabasePublic.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo },
+    })
+    if (resendError) {
+      return NextResponse.json(
+        { error: errorMessage(resendError, "Failed to send confirmation email") },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ ok: true })
