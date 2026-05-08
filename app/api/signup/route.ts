@@ -122,7 +122,7 @@ async function sendViaResendWithFallback(
   return { error: null }
 }
 
-async function resendSignupConfirmationEmail(email: string, emailRedirectTo: string): Promise<{ error: { message?: string } | null; confirmationUrl?: string }> {
+async function resendSignupConfirmationEmail(email: string, emailRedirectTo: string): Promise<{ error: { message?: string } | null }> {
   if (process.env.RESEND_API_KEY) {
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
@@ -146,7 +146,7 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
     }
 
     const { error: sendError } = await sendViaResendWithFallback(email, confirmationUrl, emailRedirectTo)
-    return { error: sendError, confirmationUrl: sendError ? undefined : confirmationUrl }
+    return { error: sendError }
   }
 
   // No RESEND_API_KEY — use supabase auth.resend() for SMTP email
@@ -180,20 +180,18 @@ export async function POST(req: Request) {
     const safePlan = VALID_PLANS.has(plan) ? plan : "trial"
     const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/signup?confirmed=true&plan=${safePlan}`
 
-    // ── Step 1: Create user as already confirmed ──────────────────────────────
-    // Using email_confirm: true decouples account creation from email delivery.
-    // Users can always sign in with their password even if the welcome email fails.
+    // ── Step 1: Create user as unconfirmed; email click completes verification ─
     const { error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true,
+      email_confirm: false,
     })
 
     if (createError) {
       if (isAlreadyRegisteredError(createError.message)) {
-        // User already exists — resend a magic link so they can sign in
-        const { error: resendError, confirmationUrl: resendUrl } = await resendSignupConfirmationEmail(email, emailRedirectTo)
-        if (!resendError) return NextResponse.json({ ok: true, ...(resendUrl ? { confirmationUrl: resendUrl } : {}) })
+        // User already exists — resend a signup confirmation email
+        const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
+        if (!resendError) return NextResponse.json({ ok: true })
         return NextResponse.json(
           { error: errorMessage(resendError, "Failed to resend confirmation email") },
           { status: 400 }
@@ -202,40 +200,38 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: createError.message }, { status: 400 })
     }
 
-    // ── Step 2: Generate a one-time magic link for the post-signup redirect ───
+    // ── Step 2: Generate a signup confirmation link for the post-signup redirect ─
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
+      type: "signup",
       email,
+      password,
       options: { redirectTo: emailRedirectTo },
     })
 
     if (linkError) {
-      // Magic link generation failed, but user is confirmed and can log in with password
       console.warn("generateLink failed after createUser:", linkError.message)
       return NextResponse.json({ ok: true })
     }
 
     const confirmationUrl = linkData?.properties?.action_link
 
-    // ── Step 3: Send welcome email via Resend (non-blocking) ─────────────────
-    // If Resend is not configured or email delivery fails, auth still works —
-    // the user can sign in at /login with their password.
+    // ── Step 3: Send confirmation email via Resend (non-blocking) ─────────────
     if (process.env.RESEND_API_KEY && confirmationUrl) {
       const resend = new Resend(process.env.RESEND_API_KEY)
       const { error: emailError } = await resend.emails.send({
         from: FROM_EMAIL,
         to: email,
-        subject: "Welcome to Timedshot — access your account",
-        html: buildWelcomeEmailHtml(confirmationUrl),
+        subject: "Confirm your email – Timedshot",
+        html: buildEmailHtml(confirmationUrl),
       })
 
       if (emailError) {
-        console.error("Welcome email send failed:", JSON.stringify(emailError))
-        return NextResponse.json({ ok: true, confirmationUrl, emailDeliveryFailed: true })
+        console.error("Confirmation email send failed:", JSON.stringify(emailError))
+        return NextResponse.json({ ok: true })
       }
     }
 
-    return NextResponse.json({ ok: true, ...(confirmationUrl ? { confirmationUrl } : {}) })
+    return NextResponse.json({ ok: true })
   } catch (err: any) {
     console.error("Signup API error:", err)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
