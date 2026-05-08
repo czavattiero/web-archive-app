@@ -19,26 +19,8 @@ function createSupabasePublicClient() {
   )
 }
 
-async function resendSignupConfirmationEmail(email: string, emailRedirectTo: string) {
-  // Use Resend when available so that retries for already-registered users
-  // also go through the reliable Resend path.
-  if (process.env.RESEND_API_KEY) {
-    const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "signup",
-      email,
-      options: { redirectTo: emailRedirectTo },
-    } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
-
-    if (linkError) return { error: linkError }
-
-    const confirmationUrl = data?.properties?.action_link
-    if (!confirmationUrl) {
-      return { error: { message: "Failed to generate confirmation link" } }
-    }
-
-    const resend = new Resend(process.env.RESEND_API_KEY)
-
-    const html = `
+function buildEmailHtml(confirmationUrl: string) {
+  return `
 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
   <div style="text-align:center;margin-bottom:32px;">
     <div style="background:linear-gradient(135deg,#6A11CB,#FF7A00);display:inline-block;padding:12px 28px;border-radius:12px;">
@@ -66,33 +48,73 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
     If you didn't create a Timedshot account, you can safely ignore this email.
   </p>
 </div>`
+}
 
-    const { error: emailError } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to: email,
-      subject: "Confirm your email – Timedshot",
-      html,
-    })
+/**
+ * Send a Resend email then fall back to supabasePublic.auth.resend() if Resend
+ * fails.  Returns { error: null } on success or { error: { message } } if both
+ * paths fail.
+ */
+async function sendViaResendWithFallback(
+  email: string,
+  confirmationUrl: string,
+  emailRedirectTo: string
+) {
+  const resend = new Resend(process.env.RESEND_API_KEY!)
+  const { error: emailError } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: email,
+    subject: "Confirm your email – Timedshot",
+    html: buildEmailHtml(confirmationUrl),
+  })
 
-    if (emailError) {
-      console.error("Failed to send confirmation email via Resend, attempting Supabase SMTP fallback:", JSON.stringify(emailError))
+  if (!emailError) return { error: null }
+
+  // Resend failed — fall back to Supabase SMTP
+  console.error("Resend send failed, falling back to Supabase SMTP:", JSON.stringify(emailError))
+  const supabasePublic = createSupabasePublicClient()
+  const { error: fallbackError } = await supabasePublic.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo },
+  })
+
+  if (fallbackError) {
+    const resendMsg = (emailError as any).message ?? "unknown"
+    return {
+      error: {
+        message: `Email delivery failed (Resend: ${resendMsg}; Supabase SMTP: ${fallbackError.message}). Please try again.`,
+      },
+    }
+  }
+
+  return { error: null }
+}
+
+async function resendSignupConfirmationEmail(email: string, emailRedirectTo: string) {
+  if (process.env.RESEND_API_KEY) {
+    const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: "signup",
+      email,
+      options: { redirectTo: emailRedirectTo },
+    } as unknown as Parameters<typeof supabaseAdmin.auth.admin.generateLink>[0])
+
+    if (linkError) return { error: linkError }
+
+    const confirmationUrl = data?.properties?.action_link
+    if (!confirmationUrl) {
+      // generateLink returned no URL — fall through to Supabase SMTP resend
+      console.warn("generateLink returned empty action_link for resend, falling back to Supabase SMTP")
       const supabasePublic = createSupabasePublicClient()
-      const { error: fallbackError } = await supabasePublic.auth.resend({
+      const { error } = await supabasePublic.auth.resend({
         type: "signup",
         email,
         options: { emailRedirectTo },
       })
-      if (fallbackError) {
-        return {
-          error: {
-            message: `We couldn't send a confirmation email (Resend: ${(emailError as any).message ?? "unknown"}; SMTP: ${fallbackError.message}). Please try again or contact support.`
-          }
-        }
-      }
-      return { error: null, emailSent: true }
+      return { error: error ?? null }
     }
 
-    return { error: null, emailSent: true }
+    return sendViaResendWithFallback(email, confirmationUrl, emailRedirectTo)
   }
 
   const supabasePublic = createSupabasePublicClient()
@@ -101,7 +123,7 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
     email,
     options: { emailRedirectTo },
   })
-  return { error, emailSent: !error }
+  return { error: error ?? null }
 }
 
 function isAlreadyRegisteredError(message?: string) {
@@ -121,14 +143,9 @@ export async function POST(req: Request) {
     }
 
     const safePlan = VALID_PLANS.has(plan) ? plan : "trial"
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || ""
-    if (!siteUrl) {
-      console.warn("NEXT_PUBLIC_SITE_URL is not set; email redirect links will be relative URLs.")
-    }
-    const emailRedirectTo = `${siteUrl}/signup?confirmed=true&plan=${safePlan}`
+    const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/signup?confirmed=true&plan=${safePlan}`
 
     // ── Production mode – Resend ──────────────────────────────────────────────
-    // When RESEND_API_KEY is configured, send a custom branded email via Resend.
     if (process.env.RESEND_API_KEY) {
       const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
         type: "signup",
@@ -140,91 +157,44 @@ export async function POST(req: Request) {
       if (linkError) {
         if (isAlreadyRegisteredError(linkError.message)) {
           const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
-          if (!resendError) return NextResponse.json({ ok: true, emailSent: true })
-          return NextResponse.json({ error: errorMessage(resendError, "Failed to resend confirmation email") }, { status: 400 })
+          if (!resendError) return NextResponse.json({ ok: true })
+          return NextResponse.json(
+            { error: errorMessage(resendError, "Failed to resend confirmation email") },
+            { status: 400 }
+          )
         }
         return NextResponse.json({ error: linkError.message }, { status: 400 })
       }
 
       const confirmationUrl = data?.properties?.action_link
       if (!confirmationUrl) {
-        console.error("Resend failed (empty action_link), attempting Supabase SMTP fallback")
+        // generateLink succeeded but returned no URL — fall back to Supabase signUp
+        console.warn("generateLink returned empty action_link, falling back to Supabase SMTP signUp")
         const supabasePublic = createSupabasePublicClient()
-        const { error: fallbackError } = await supabasePublic.auth.resend({
-          type: "signup",
+        const { error: fallbackError } = await supabasePublic.auth.signUp({
           email,
+          password,
           options: { emailRedirectTo },
         })
         if (fallbackError && !isAlreadyRegisteredError(fallbackError.message)) {
-          return NextResponse.json({ error: `Email delivery failed (no confirmation link; SMTP: ${fallbackError.message}). Please try again.` }, { status: 500 })
+          return NextResponse.json(
+            { error: `Email delivery failed (no confirmation link; SMTP: ${fallbackError.message}). Please try again.` },
+            { status: 500 }
+          )
         }
-        return NextResponse.json({ ok: true, emailSent: true })
+        return NextResponse.json({ ok: true })
       }
 
-      const resend = new Resend(process.env.RESEND_API_KEY)
-
-      const html = `
-<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
-  <div style="text-align:center;margin-bottom:32px;">
-    <div style="background:linear-gradient(135deg,#6A11CB,#FF7A00);display:inline-block;padding:12px 28px;border-radius:12px;">
-      <span style="color:white;font-size:22px;font-weight:700;letter-spacing:-0.5px;">Timedshot</span>
-    </div>
-  </div>
-  <h2 style="font-size:24px;font-weight:700;margin-bottom:12px;color:#111;">Confirm your email</h2>
-  <p style="font-size:15px;color:#555;margin-bottom:28px;">
-    Thanks for signing up! Click the button below to verify your email address and activate your account.
-  </p>
-  <div style="text-align:center;margin-bottom:32px;">
-    <a href="${confirmationUrl}"
-       style="background:linear-gradient(135deg,#6A11CB,#FF7A00);color:white;text-decoration:none;padding:14px 32px;border-radius:12px;font-weight:600;font-size:15px;display:inline-block;">
-      Confirm my email
-    </a>
-  </div>
-  <p style="font-size:13px;color:#888;margin-bottom:8px;">
-    If the button doesn't work, copy and paste this link into your browser:
-  </p>
-  <p style="font-size:12px;word-break:break-all;color:#6A11CB;">
-    <a href="${confirmationUrl}" style="color:#6A11CB;">${confirmationUrl}</a>
-  </p>
-  <hr style="border:none;border-top:1px solid #eee;margin:28px 0;">
-  <p style="font-size:12px;color:#aaa;text-align:center;">
-    If you didn't create a Timedshot account, you can safely ignore this email.
-  </p>
-</div>`
-
-      const { error: emailError } = await resend.emails.send({
-        from: FROM_EMAIL,
-        to: email,
-        subject: "Confirm your email – Timedshot",
-        html,
-      })
-
-      if (emailError) {
-        console.error("Resend failed, attempting Supabase SMTP fallback. Resend error:", JSON.stringify(emailError))
-        const supabasePublic = createSupabasePublicClient()
-        const { error: fallbackError } = await supabasePublic.auth.resend({
-          type: "signup",
-          email,
-          options: { emailRedirectTo },
-        })
-        if (fallbackError && !isAlreadyRegisteredError(fallbackError.message)) {
-          return NextResponse.json({
-            error: `Email delivery failed (Resend: ${(emailError as any).message ?? "unknown"}; SMTP: ${fallbackError.message}). Please try again.`
-          }, { status: 500 })
-        }
-        return NextResponse.json({ ok: true, emailSent: true })
+      const { error: sendError } = await sendViaResendWithFallback(email, confirmationUrl, emailRedirectTo)
+      if (sendError) {
+        return NextResponse.json({ error: sendError.message }, { status: 500 })
       }
 
-      return NextResponse.json({ ok: true, emailSent: true })
+      return NextResponse.json({ ok: true })
     }
 
     // ── Fallback mode – Supabase native SMTP ─────────────────────────────────
-    // Used when RESEND_API_KEY is not set.
-    // Use the public Supabase client's signUp() which triggers Supabase's own
-    // built-in confirmation email. Works out-of-the-box on every Supabase
-    // hosted project with no extra configuration.
     const supabasePublic = createSupabasePublicClient()
-
     const { error: signUpError } = await supabasePublic.auth.signUp({
       email,
       password,
@@ -234,14 +204,16 @@ export async function POST(req: Request) {
     if (signUpError) {
       if (isAlreadyRegisteredError(signUpError.message)) {
         const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
-        if (!resendError) return NextResponse.json({ ok: true, emailSent: true })
-        return NextResponse.json({ error: errorMessage(resendError, "Failed to resend confirmation email") }, { status: 400 })
+        if (!resendError) return NextResponse.json({ ok: true })
+        return NextResponse.json(
+          { error: errorMessage(resendError, "Failed to resend confirmation email") },
+          { status: 400 }
+        )
       }
       return NextResponse.json({ error: signUpError.message }, { status: 400 })
     }
 
-    return NextResponse.json({ ok: true, emailSent: true })
-
+    return NextResponse.json({ ok: true })
   } catch (err: any) {
     console.error("Signup API error:", err)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
