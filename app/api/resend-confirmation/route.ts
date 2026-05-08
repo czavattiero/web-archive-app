@@ -88,7 +88,7 @@ export async function POST(req: Request) {
             { status: 500 }
           )
         }
-        return NextResponse.json({ ok: true })
+        return NextResponse.json({ ok: true, confirmationUrl })
       }
 
       // Attempt Resend delivery
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true })
       }
 
-      return NextResponse.json({ ok: true })
+      return NextResponse.json({ ok: true, confirmationUrl })
     }
 
     // ── Fallback path – Supabase native SMTP ─────────────────────────────────

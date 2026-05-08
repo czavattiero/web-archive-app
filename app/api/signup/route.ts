@@ -190,7 +190,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: sendError.message }, { status: 500 })
       }
 
-      return NextResponse.json({ ok: true })
+      return NextResponse.json({ ok: true, confirmationUrl })
     }
 
     // ── Fallback mode – Supabase native SMTP ─────────────────────────────────
