@@ -129,8 +129,8 @@ export default function SignupPage() {
 
       const data = await res.json()
 
-      const emailSent = data.emailSent === true || Boolean(data.confirmationUrl)
-      if (!res.ok || data.error || !emailSent) {
+      const succeeded = data.ok === true || Boolean(data.confirmationUrl)
+      if (!res.ok || data.error || !succeeded) {
         setError(data.error || "Failed to send confirmation email. Please try again.")
         setLoading(false)
         return
@@ -182,7 +182,7 @@ export default function SignupPage() {
 
       const data = await res.json()
 
-      if (!res.ok || data.error || data.emailSent !== true) {
+      if (!res.ok || data.error || !data.ok) {
         setResendMessage("Failed to resend. Please try again.")
       } else {
         setResendMessage("Confirmation email resent! Check your inbox.")
