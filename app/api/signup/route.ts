@@ -180,27 +180,8 @@ export async function POST(req: Request) {
     const safePlan = VALID_PLANS.has(plan) ? plan : "trial"
     const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/signup?confirmed=true&plan=${safePlan}`
 
-    // ── Step 1: Create user as unconfirmed; email click completes verification ─
-    const { error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: false,
-    })
-
-    if (createError) {
-      if (isAlreadyRegisteredError(createError.message)) {
-        // User already exists — resend a signup confirmation email
-        const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
-        if (!resendError) return NextResponse.json({ ok: true })
-        return NextResponse.json(
-          { error: errorMessage(resendError, "Failed to resend confirmation email") },
-          { status: 400 }
-        )
-      }
-      return NextResponse.json({ error: createError.message }, { status: 400 })
-    }
-
-    // ── Step 2: Try Resend path first when available; otherwise use Supabase SMTP ─
+    // ── Resend path: generateLink atomically creates the user + generates a
+    //    confirmation link in one call, avoiding the double-create conflict. ──
     if (process.env.RESEND_API_KEY) {
       const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
         type: "signup",
@@ -210,32 +191,51 @@ export async function POST(req: Request) {
       })
 
       if (linkError) {
-        console.warn("generateLink failed after createUser, falling back to Supabase SMTP:", linkError.message)
-      } else {
-        const confirmationUrl = linkData?.properties?.action_link
-        if (confirmationUrl) {
-          const { error: sendError } = await sendViaResendWithFallback(email, confirmationUrl, emailRedirectTo)
-          if (sendError) {
-            return NextResponse.json(
-              { error: errorMessage(sendError, "Failed to send confirmation email") },
-              { status: 500 }
-            )
-          }
-          return NextResponse.json({ ok: true })
+        if (isAlreadyRegisteredError(linkError.message)) {
+          const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
+          if (!resendError) return NextResponse.json({ ok: true })
+          return NextResponse.json(
+            { error: errorMessage(resendError, "Failed to resend confirmation email") },
+            { status: 400 }
+          )
         }
-        console.warn("generateLink returned empty action_link after createUser, falling back to Supabase SMTP")
+        return NextResponse.json({ error: linkError.message }, { status: 400 })
       }
+
+      const confirmationUrl = linkData?.properties?.action_link
+      if (confirmationUrl) {
+        const { error: sendError } = await sendViaResendWithFallback(email, confirmationUrl, emailRedirectTo)
+        if (sendError) {
+          return NextResponse.json(
+            { error: errorMessage(sendError, "Failed to send confirmation email") },
+            { status: 500 }
+          )
+        }
+        return NextResponse.json({ ok: true })
+      }
+      console.warn("generateLink returned empty action_link, falling back to Supabase SMTP signup")
     }
 
+    // ── Supabase SMTP fallback: use signUp (not resend) since the user does
+    //    not exist yet in this path. ──
     const supabasePublic = createSupabasePublicClient()
-    const { error: resendError } = await supabasePublic.auth.resend({
-      type: "signup",
+    const { error: signUpError } = await supabasePublic.auth.signUp({
       email,
+      password,
       options: { emailRedirectTo },
     })
-    if (resendError) {
+
+    if (signUpError) {
+      if (isAlreadyRegisteredError(signUpError.message)) {
+        const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
+        if (!resendError) return NextResponse.json({ ok: true })
+        return NextResponse.json(
+          { error: errorMessage(resendError, "Failed to resend confirmation email") },
+          { status: 400 }
+        )
+      }
       return NextResponse.json(
-        { error: errorMessage(resendError, "Failed to send confirmation email") },
+        { error: errorMessage(signUpError, "Failed to send confirmation email") },
         { status: 500 }
       )
     }
