@@ -19,8 +19,6 @@ export default function SignupPage() {
   const [submittedEmail, setSubmittedEmail] = useState("")
   const [resendLoading, setResendLoading] = useState(false)
   const [resendMessage, setResendMessage] = useState("")
-  const [fallbackConfirmationUrl, setFallbackConfirmationUrl] = useState("")
-  const [emailDeliveryFailed, setEmailDeliveryFailed] = useState(false)
   const completedRef = useRef(false)
 
   // Shared post-confirmation setup: upsert profile then redirect.
@@ -130,27 +128,11 @@ export default function SignupPage() {
 
       const data = await res.json()
 
-      const succeeded = data.ok === true || Boolean(data.confirmationUrl)
+      const succeeded = data.ok === true
       if (!res.ok || data.error || !succeeded) {
         setError(data.error || "Failed to send confirmation email. Please try again.")
         setLoading(false)
         return
-      }
-
-      // The confirmationUrl is generated server-side by the admin API and is trusted.
-      // Always store it when it's a valid URL so the fallback "Verify my account →"
-      // button appears on the check-email screen.
-      if (data.confirmationUrl) {
-        try {
-          new URL(data.confirmationUrl)
-          setFallbackConfirmationUrl(data.confirmationUrl)
-        } catch {
-          // Invalid URL — ignore
-        }
-      }
-
-      if (data.emailDeliveryFailed) {
-        setEmailDeliveryFailed(true)
       }
 
       setSubmittedEmail(email)
@@ -181,9 +163,6 @@ export default function SignupPage() {
         setResendMessage("Failed to resend. Please try again.")
       } else {
         setResendMessage("Confirmation email resent! Check your inbox.")
-        if (data.confirmationUrl) {
-          setFallbackConfirmationUrl(data.confirmationUrl)
-        }
       }
     } catch {
       setResendMessage("Failed to resend. Please try again.")
@@ -313,41 +292,6 @@ export default function SignupPage() {
             }}>
               {resendMessage}
             </p>
-          )}
-
-          {fallbackConfirmationUrl && (
-            <div style={{
-              marginTop: 20,
-              padding: "16px 20px",
-              background: "#f9fafb",
-              border: "1px solid #E5E7EB",
-              borderRadius: 12,
-              textAlign: "center",
-            }}>
-              {emailDeliveryFailed && (
-                <p style={{ color: "#B45309", fontSize: 13, marginTop: 0, marginBottom: 12 }}>
-                  ⚠️ We couldn&apos;t send the confirmation email. Please use the button below to verify directly.
-                </p>
-              )}
-              <p style={{ color: "#6B7280", fontSize: 13, marginBottom: 10 }}>
-                Didn&apos;t receive the email? Verify your account directly:
-              </p>
-              <a
-                href={fallbackConfirmationUrl}
-                style={{
-                  display: "inline-block",
-                  background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
-                  color: "white",
-                  textDecoration: "none",
-                  padding: "10px 22px",
-                  borderRadius: 10,
-                  fontWeight: 600,
-                  fontSize: 14,
-                }}
-              >
-                Verify my account →
-              </a>
-            </div>
           )}
 
         </div>
