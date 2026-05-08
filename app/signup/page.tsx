@@ -21,6 +21,7 @@ export default function SignupPage() {
   const [resendMessage, setResendMessage] = useState("")
   const [confirmationUrl, setConfirmationUrl] = useState("")
   const [fallbackConfirmationUrl, setFallbackConfirmationUrl] = useState("")
+  const [emailDeliveryFailed, setEmailDeliveryFailed] = useState(false)
   const completedRef = useRef(false)
 
   // Shared post-confirmation setup: upsert profile then redirect.
@@ -137,31 +138,22 @@ export default function SignupPage() {
         return
       }
 
-      // Test mode: ALLOW_DISPOSABLE_EMAILS=true bypasses Resend and returns the
-      // confirmation URL directly so the flow can be tested without a real inbox.
-      // Validate the URL origin matches our Supabase instance before redirecting
-      // to prevent open-redirect attacks.
+      // Validate URL to prevent open-redirect attacks before storing as fallback
       if (data.confirmationUrl) {
         const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
         try {
           const parsed = new URL(data.confirmationUrl)
           const expected = supabaseOrigin ? new URL(supabaseOrigin) : null
           if (expected && parsed.origin === expected.origin) {
-            // Store the URL so it remains visible as a fallback if the redirect
-            // is blocked or the tester wants to inspect/copy it.
-            setConfirmationUrl(data.confirmationUrl)
             setFallbackConfirmationUrl(data.confirmationUrl)
-            setLoading(false)
-            window.location.href = data.confirmationUrl
-            return
           }
         } catch {
-          // Invalid URL - fall through to show check-email screen
+          // Invalid URL — ignore
         }
       }
 
-      if (data.confirmationUrl) {
-        setFallbackConfirmationUrl(data.confirmationUrl)
+      if (data.emailDeliveryFailed) {
+        setEmailDeliveryFailed(true)
       }
 
       setSubmittedEmail(email)
@@ -335,6 +327,11 @@ export default function SignupPage() {
               borderRadius: 12,
               textAlign: "center",
             }}>
+              {emailDeliveryFailed && (
+                <p style={{ color: "#B45309", fontSize: 13, marginTop: 0, marginBottom: 12 }}>
+                  ⚠️ We couldn&apos;t send the confirmation email. Please use the button below to verify directly.
+                </p>
+              )}
               <p style={{ color: "#6B7280", fontSize: 13, marginBottom: 10 }}>
                 Didn&apos;t receive the email? Verify your account directly:
               </p>
