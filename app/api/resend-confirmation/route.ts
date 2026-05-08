@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     if (process.env.RESEND_API_KEY) {
       console.log("ResendConfirmation: RESEND_API_KEY is set — using Resend path")
       const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-        type: "magiclink",
+        type: "signup" as "magiclink",
         email,
         options: { redirectTo: emailRedirectTo },
       })
