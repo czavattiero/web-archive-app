@@ -228,14 +228,14 @@ export async function POST(req: Request) {
     }
 
     const supabasePublic = createSupabasePublicClient()
-    const { error: resendError } = await supabasePublic.auth.resend({
+    const { error: fallbackError } = await supabasePublic.auth.resend({
       type: "signup",
       email,
       options: { emailRedirectTo },
     })
-    if (resendError) {
+    if (fallbackError) {
       return NextResponse.json(
-        { error: errorMessage(resendError, "Failed to send confirmation email") },
+        { error: errorMessage(fallbackError, "Failed to send confirmation email") },
         { status: 500 }
       )
     }
