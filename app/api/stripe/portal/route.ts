@@ -23,6 +23,7 @@ export async function POST(req: Request) {
   let customerId = profile?.stripe_customer_id
   let fallbackLookupFailed = false
   let multipleCustomersFound = false
+  let customerEmailMismatch = false
 
   if (!customerId && profile?.email) {
     try {
@@ -40,19 +41,19 @@ export async function POST(req: Request) {
           matchedCustomer.email?.trim().toLowerCase() === normalizedProfileEmail
         ) {
           customerId = matchedCustomer.id
+        } else {
+          customerEmailMismatch = true
         }
 
-        if (!customerId) {
-          return NextResponse.json({ error: "No Stripe customer" }, { status: 400 })
-        }
+        if (customerId) {
+          const { error: updateError } = await supabase
+            .from("profiles")
+            .update({ stripe_customer_id: customerId })
+            .eq("id", userId)
 
-        const { error: updateError } = await supabase
-          .from("profiles")
-          .update({ stripe_customer_id: customerId })
-          .eq("id", userId)
-
-        if (updateError) {
-          console.error("Failed to persist stripe_customer_id:", updateError)
+          if (updateError) {
+            console.error("Failed to persist stripe_customer_id:", updateError)
+          }
         }
       }
     } catch (error) {
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
   }
 
   if (!customerId) {
-    if (multipleCustomersFound) {
+    if (multipleCustomersFound || customerEmailMismatch) {
       return NextResponse.json(
         {
           error:
