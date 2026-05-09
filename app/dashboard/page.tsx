@@ -160,12 +160,6 @@ export default function Dashboard() {
   }
 
   async function handleManageBilling() {
-    // Trial users don't have a Stripe customer yet — send them to pick a plan
-    if (plan === "trial") {
-      router.push("/choose-plan")
-      return
-    }
-
     setBillingLoading(true)
     try {
       const response = await fetch("/api/stripe/portal", {
@@ -181,8 +175,7 @@ export default function Dashboard() {
       if (data.url) {
         window.location.href = data.url
       } else if (data.error === "No Stripe customer") {
-        // Subscribed plan but no Stripe record yet — redirect to choose-plan
-        router.push("/choose-plan")
+        alert("Could not find your billing account. Please contact support.")
       } else {
         alert("Failed to open billing portal")
       }
@@ -451,7 +444,7 @@ export default function Dashboard() {
               {plan !== "trial" && upgradeLoading ? "Loading..." : plan === "trial" ? "⚡ Choose a Plan" : "⚡ Upgrade to Pro"}
             </button>
           )}
-          {!isSubUser && (
+          {!isSubUser && plan !== "trial" && (
             <button 
               onClick={handleManageBilling} 
               disabled={billingLoading} 
