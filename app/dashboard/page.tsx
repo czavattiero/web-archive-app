@@ -435,11 +435,11 @@ export default function Dashboard() {
           )}
           {!isSubUser && plan !== "pro" && (
             <button
-              onClick={handleUpgrade}
-              disabled={upgradeLoading}
-              style={upgradeLoading ? { ...buttonUpgrade, opacity: 0.7 } : buttonUpgrade}
+              onClick={plan === "trial" ? () => router.push("/choose-plan") : handleUpgrade}
+              disabled={plan !== "trial" && !!upgradeLoading}
+              style={plan !== "trial" && upgradeLoading ? { ...buttonUpgrade, opacity: 0.7 } : buttonUpgrade}
             >
-              {upgradeLoading ? "Loading..." : plan === "trial" ? "⚡ Choose a Plan" : "⚡ Upgrade to Pro"}
+              {plan !== "trial" && upgradeLoading ? "Loading..." : plan === "trial" ? "⚡ Choose a Plan" : "⚡ Upgrade to Pro"}
             </button>
           )}
           {!isSubUser && (
@@ -475,8 +475,7 @@ export default function Dashboard() {
                 : `⏳ Free trial: ${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining`}
             </span>
             <button
-              onClick={handleUpgrade}
-              disabled={upgradeLoading}
+              onClick={() => router.push("/choose-plan")}
               style={{
                 background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
                 color: "#fff",
@@ -488,7 +487,7 @@ export default function Dashboard() {
                 cursor: "pointer",
               }}
             >
-              {upgradeLoading ? "Loading..." : "Choose a Plan"}
+              Choose a Plan
             </button>
           </div>
         )
