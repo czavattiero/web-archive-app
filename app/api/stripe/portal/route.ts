@@ -16,16 +16,33 @@ export async function POST(req: Request) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("stripe_customer_id")
+    .select("stripe_customer_id, email")
     .eq("id", userId)
     .single()
 
-  if (!profile?.stripe_customer_id) {
+  let customerId = profile?.stripe_customer_id
+
+  if (!customerId && profile?.email) {
+    const existingCustomers = await stripe.customers.list({
+      email: profile.email,
+      limit: 1,
+    })
+
+    if (existingCustomers.data.length > 0) {
+      customerId = existingCustomers.data[0].id
+      await supabase
+        .from("profiles")
+        .update({ stripe_customer_id: customerId })
+        .eq("id", userId)
+    }
+  }
+
+  if (!customerId) {
     return NextResponse.json({ error: "No Stripe customer" }, { status: 400 })
   }
 
   const session = await stripe.billingPortal.sessions.create({
-    customer: profile.stripe_customer_id,
+    customer: customerId,
     return_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
   })
 
