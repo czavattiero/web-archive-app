@@ -22,16 +22,30 @@ export async function POST(req: Request) {
 
   let customerId = profile?.stripe_customer_id
   let fallbackLookupFailed = false
+  let multipleCustomersFound = false
 
   if (!customerId && profile?.email) {
     try {
+      const normalizedProfileEmail = profile.email.trim().toLowerCase()
       const existingCustomers = await stripe.customers.list({
         email: profile.email,
-        limit: 1,
+        limit: 2,
       })
 
-      if (existingCustomers.data.length > 0) {
-        customerId = existingCustomers.data[0].id
+      if (existingCustomers.data.length > 1) {
+        multipleCustomersFound = true
+      } else if (existingCustomers.data.length === 1) {
+        const matchedCustomer = existingCustomers.data[0]
+        if (
+          matchedCustomer.email?.trim().toLowerCase() === normalizedProfileEmail
+        ) {
+          customerId = matchedCustomer.id
+        }
+
+        if (!customerId) {
+          return NextResponse.json({ error: "No Stripe customer" }, { status: 400 })
+        }
+
         const { error: updateError } = await supabase
           .from("profiles")
           .update({ stripe_customer_id: customerId })
@@ -48,6 +62,16 @@ export async function POST(req: Request) {
   }
 
   if (!customerId) {
+    if (multipleCustomersFound) {
+      return NextResponse.json(
+        {
+          error:
+            "Unable to determine your billing account automatically. Please contact support.",
+        },
+        { status: 409 }
+      )
+    }
+
     if (fallbackLookupFailed) {
       return NextResponse.json(
         {
