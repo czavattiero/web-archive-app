@@ -15,7 +15,7 @@ export default function SuccessPage() {
       const sessionId = params.get("session_id")
 
       if (!sessionId) {
-        router.push("/")
+        router.push("/dashboard")
         return
       }
 
@@ -34,7 +34,7 @@ export default function SuccessPage() {
       if (result.success) {
         router.push("/dashboard")
       } else {
-        router.push("/")
+        router.push("/dashboard")
       }
 
     }

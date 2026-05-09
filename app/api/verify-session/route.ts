@@ -62,6 +62,47 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false })
     }
 
+    const customerId = session.customer as string
+    const subscriptionId = session.subscription as string
+    const PLAN_BASIC = "basic"
+    const PLAN_PRO = "pro"
+
+    let plan = PLAN_BASIC
+    try {
+      const lineItems = await stripe.checkout.sessions.listLineItems(sessionId, { limit: 1 })
+      if (lineItems.data.length > 0) {
+        const firstLineItem = lineItems.data[0]
+        const priceId = firstLineItem.price?.id
+
+        if (!priceId) {
+          console.warn("Missing price ID in session line item:", sessionId)
+        } else if (priceId === process.env.STRIPE_PRO_PRICE_ID) {
+          plan = PLAN_PRO
+        } else {
+          console.warn("Unknown price ID in session line item:", priceId)
+        }
+      } else {
+        console.warn("No line items found for session:", sessionId)
+      }
+    } catch (lineItemsError) {
+      console.warn("Could not determine plan from line items:", lineItemsError)
+    }
+
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({
+        subscribed: true,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscriptionId,
+        plan,
+      })
+      .eq("id", userId)
+
+    if (profileError) {
+      console.error("Failed to update profile with subscription data:", profileError)
+      return NextResponse.json({ success: false })
+    }
+
     console.log("Subscription stored successfully")
 
     return NextResponse.json({ success: true })
