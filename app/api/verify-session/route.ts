@@ -64,13 +64,25 @@ export async function POST(req: Request) {
 
     const customerId = session.customer as string
     const subscriptionId = session.subscription as string
+    const PLAN_BASIC = "basic"
+    const PLAN_PRO = "pro"
 
-    let plan = "basic"
+    let plan = PLAN_BASIC
     try {
       const lineItems = await stripe.checkout.sessions.listLineItems(sessionId, { limit: 1 })
-      const priceId = lineItems.data[0]?.price?.id
-      if (priceId === process.env.STRIPE_PRO_PRICE_ID) {
-        plan = "pro"
+      if (lineItems.data.length > 0) {
+        const firstLineItem = lineItems.data[0]
+        const priceId = firstLineItem.price?.id
+
+        if (!priceId) {
+          console.warn("Missing price ID in session line item:", sessionId)
+        } else if (priceId === process.env.STRIPE_PRO_PRICE_ID) {
+          plan = PLAN_PRO
+        } else {
+          console.warn("Unknown price ID in session line item:", priceId)
+        }
+      } else {
+        console.warn("No line items found for session:", sessionId)
       }
     } catch (lineItemsError) {
       console.warn("Could not determine plan from line items:", lineItemsError)
@@ -87,7 +99,7 @@ export async function POST(req: Request) {
       .eq("id", userId)
 
     if (profileError) {
-      console.log("Profile update error:", profileError)
+      console.error("Failed to update profile with subscription data:", profileError)
       return NextResponse.json({ success: false })
     }
 
