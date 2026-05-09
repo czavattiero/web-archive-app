@@ -50,7 +50,10 @@ export async function POST(req: Request) {
   if (!customerId) {
     if (fallbackLookupFailed) {
       return NextResponse.json(
-        { error: "Failed to lookup Stripe customer" },
+        {
+          error:
+            "Unable to retrieve billing information. Please try again or contact support.",
+        },
         { status: 500 }
       )
     }
