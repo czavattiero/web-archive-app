@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     try {
       const normalizedProfileEmail = profile.email.trim().toLowerCase()
       const existingCustomers = await stripe.customers.list({
-        email: profile.email,
+        email: normalizedProfileEmail,
         limit: 2,
       })
 
