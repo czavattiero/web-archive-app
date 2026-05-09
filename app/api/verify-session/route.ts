@@ -62,6 +62,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false })
     }
 
+    const customerId = session.customer as string
+    const subscriptionId = session.subscription as string
+
+    let plan = "basic"
+    try {
+      const lineItems = await stripe.checkout.sessions.listLineItems(sessionId, { limit: 1 })
+      const priceId = lineItems.data[0]?.price?.id
+      if (priceId === process.env.STRIPE_PRO_PRICE_ID) {
+        plan = "pro"
+      }
+    } catch (lineItemsError) {
+      console.warn("Could not determine plan from line items:", lineItemsError)
+    }
+
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({
+        subscribed: true,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscriptionId,
+        plan,
+      })
+      .eq("id", userId)
+
+    if (profileError) {
+      console.log("Profile update error:", profileError)
+      return NextResponse.json({ success: false })
+    }
+
     console.log("Subscription stored successfully")
 
     return NextResponse.json({ success: true })
