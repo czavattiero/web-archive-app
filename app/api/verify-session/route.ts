@@ -88,14 +88,25 @@ export async function POST(req: Request) {
       console.warn("Could not determine plan from line items:", lineItemsError)
     }
 
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("subscription_started_at")
+      .eq("id", userId)
+      .maybeSingle()
+
+    const profileUpdateData: Record<string, unknown> = {
+      subscribed: true,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: subscriptionId,
+      plan,
+    }
+    if (!existingProfile?.subscription_started_at) {
+      profileUpdateData.subscription_started_at = new Date().toISOString()
+    }
+
     const { error: profileError } = await supabase
       .from("profiles")
-      .update({
-        subscribed: true,
-        stripe_customer_id: customerId,
-        stripe_subscription_id: subscriptionId,
-        plan,
-      })
+      .update(profileUpdateData)
       .eq("id", userId)
 
     if (profileError) {

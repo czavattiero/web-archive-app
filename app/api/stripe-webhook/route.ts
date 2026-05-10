@@ -79,14 +79,25 @@ export async function POST(req: Request) {
         }
       }
 
-      // ✅ Ensure profile is updated
+      // ✅ Ensure profile is updated (set subscription_started_at only on first payment)
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("subscription_started_at")
+        .eq("id", userId)
+        .maybeSingle()
+
+      const profileUpdate: Record<string, unknown> = {
+        stripe_customer_id: customerId,
+        subscribed: true,
+        plan,
+      }
+      if (!existingProfile?.subscription_started_at) {
+        profileUpdate.subscription_started_at = new Date().toISOString()
+      }
+
       await supabase
         .from("profiles")
-        .update({
-          stripe_customer_id: customerId,
-          subscribed: true,
-          plan,
-        })
+        .update(profileUpdate)
         .eq("id", userId)
 
       // ✅ Insert subscription
@@ -186,14 +197,25 @@ if (event.type === "invoice.payment_succeeded") {
     }
   )
 
-  // ✅ UPDATE PROFILE
+  // ✅ UPDATE PROFILE (set subscription_started_at only on first payment)
+  const { data: existingProfileInvoice } = await supabase
+    .from("profiles")
+    .select("subscription_started_at")
+    .eq("id", userId)
+    .maybeSingle()
+
+  const invoiceProfileUpdate: Record<string, unknown> = {
+    subscribed: true,
+    stripe_customer_id: customerId,
+    plan,
+  }
+  if (!existingProfileInvoice?.subscription_started_at) {
+    invoiceProfileUpdate.subscription_started_at = new Date().toISOString()
+  }
+
   await supabase
     .from("profiles")
-    .update({
-      subscribed: true,
-      stripe_customer_id: customerId,
-      plan,
-    })
+    .update(invoiceProfileUpdate)
     .eq("id", userId)
 }
     
