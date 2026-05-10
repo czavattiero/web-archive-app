@@ -582,14 +582,31 @@ export default function Dashboard() {
   const fromPaymentParam = searchParams.get("fromPayment") === "true"
 
   if (paymentProcessing) {
+    const maxRetriesReached = autoRetryCount >= MAX_AUTO_RETRIES
     return (
       <div style={paymentLoadingContainer}>
         <div style={{ maxWidth: 480, textAlign: "center" }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: "#111827", marginBottom: 12 }}>Still processing your subscription…</h2>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>{maxRetriesReached ? "❌" : "⏳"}</div>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: "#111827", marginBottom: 12 }}>
+            {maxRetriesReached
+              ? "Subscription confirmation is taking longer than expected"
+              : "Still processing your subscription…"}
+          </h2>
           <p style={{ color: "#6B7280", fontSize: 15, marginBottom: 28, lineHeight: 1.6 }}>
-            Your payment was received! We&apos;re waiting for the confirmation to come through. This usually takes just a moment.
+            {maxRetriesReached
+              ? "Your payment was received, but we couldn\u2019t confirm your subscription automatically. Please contact support and we\u2019ll get you sorted out right away."
+              : "Your payment was received! We\u2019re waiting for the confirmation to come through. This usually takes just a moment."}
           </p>
+          {maxRetriesReached && (
+            <div style={{ marginBottom: 20 }}>
+              <a
+                href="mailto:support@timedshot.com"
+                style={{ color: "#6A11CB", fontWeight: 600, fontSize: 15, textDecoration: "underline" }}
+              >
+                Contact Support
+              </a>
+            </div>
+          )}
           <button
             onClick={() => {
               setAutoRetryCount(0)

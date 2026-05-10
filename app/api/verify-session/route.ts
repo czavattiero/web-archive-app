@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
-import { createClient } from "@supabase/supabase-js"
+import { createClient, PostgrestError } from "@supabase/supabase-js"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16"
@@ -138,9 +138,35 @@ export async function POST(req: Request) {
       profileUpsertData.subscription_started_at = new Date().toISOString()
     }
 
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .upsert(profileUpsertData, { onConflict: "id" })
+    // Retry the profile upsert up to 3 times with a 500ms delay between attempts
+    let profileError: PostgrestError | null = null
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      }
+      const { error } = await supabase
+        .from("profiles")
+        .upsert(profileUpsertData, { onConflict: "id" })
+      profileError = error
+      if (!profileError) break
+      console.warn(`Profile upsert attempt ${attempt + 1} failed:`, error)
+    }
+
+    // If all upsert attempts failed, try a plain update as fallback
+    // (the profile row should already exist for every authenticated user)
+    if (profileError) {
+      const { id: excludedId, ...updateData } = profileUpsertData
+      void excludedId
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update(updateData)
+        .eq("id", userId)
+      if (!updateError) {
+        profileError = null
+      } else {
+        console.error("Profile update fallback also failed:", updateError)
+      }
+    }
 
     if (profileError) {
       console.error("Failed to upsert profile with subscription data:", profileError)
