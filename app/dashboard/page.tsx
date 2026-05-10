@@ -560,10 +560,10 @@ export default function Dashboard() {
               marginBottom: 16,
             }}>
               {plan === "pro"
-                ? `Professional plan · ${urlCount30d}/40 URLs in last 30 days`
+                ? `Professional plan · ${urlCount30d}/40 URLs`
                 : plan === "trial"
-                ? `Free trial · ${urlCount30d}/15 URLs in last 30 days`
-                : `Basic plan · ${urlCount30d}/15 URLs in last 30 days`}
+                ? `Free trial · ${urlCount30d}/15 URLs`
+                : `Basic plan · ${urlCount30d}/15 URLs`}
               {plan !== "pro" && urlCount30d >= BASIC_PLAN_WARNING_THRESHOLD && (
                 <span style={{ color: "#DC2626", marginLeft: 8 }}>
                   Approaching limit —{" "}
