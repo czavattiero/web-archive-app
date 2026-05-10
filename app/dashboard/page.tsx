@@ -584,6 +584,7 @@ export default function Dashboard() {
           </p>
           <button
             onClick={() => {
+              setAutoRetryCount(0)
               setPaymentProcessing(false)
               setRetryCount((c) => c + 1)
             }}
