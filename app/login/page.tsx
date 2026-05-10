@@ -32,31 +32,10 @@ export default function LoginPage() {
   }, [router, searchParams])
 
   async function goToDashboard() {
-    const { data: userData } = await supabase.auth.getUser()
-
-    if (userData.user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("plan, subscribed")
-        .eq("id", userData.user.id)
-        .maybeSingle()
-
-      // Subscribed users are valid paid users — always send to dashboard
-      // regardless of whether the plan field is stale (e.g., still "trial")
-      if (profile?.subscribed) {
-        router.push("/dashboard")
-        return
-      }
-
-      const isPaidPlan = profile?.plan === "basic" || profile?.plan === "pro"
-      if (isPaidPlan && !profile?.subscribed) {
-        router.push("/choose-plan")
-      } else {
-        router.push("/dashboard")
-      }
-      return
-    }
-
+    // Always navigate to dashboard — all billing gates (subscribed check,
+    // expired trial, unpaid paid-plan, etc.) are enforced there with retry
+    // logic. Duplicating the checks here creates stale-data races and misses
+    // the polling safety-net that the dashboard provides.
     router.push("/dashboard")
   }
 

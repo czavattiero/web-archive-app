@@ -60,7 +60,7 @@ export default function Dashboard() {
       // Fetch user plan (include parent_user_id to detect sub-users)
       const { data: profile } = await supabase
         .from("profiles")
-        .select("plan, subscribed, trial_ends_at, parent_user_id")
+        .select("plan, subscribed, trial_ends_at, parent_user_id, stripe_customer_id")
         .eq("id", data.user.id)
         .maybeSingle()
 
@@ -157,8 +157,34 @@ export default function Dashboard() {
             }
             // subscribed is now confirmed — continue to load the dashboard
           } else {
-            router.replace("/choose-plan")
-            return
+            // Not coming from the payment success page.
+            // If the user has a stripe_customer_id they have previously paid — their
+            // subscribed field may simply be stale (DB propagation lag or a failed
+            // verify-session call). Run a brief retry before giving up.
+            const SHORT_RETRIES = 3
+            const SHORT_RETRY_DELAY_MS = 500
+
+            let subscribed = false
+            if (profile?.stripe_customer_id) {
+              for (let i = 0; i < SHORT_RETRIES; i++) {
+                await new Promise((res) => setTimeout(res, SHORT_RETRY_DELAY_MS))
+                const { data: retryProfile } = await supabase
+                  .from("profiles")
+                  .select("subscribed")
+                  .eq("id", data.user.id)
+                  .maybeSingle()
+                if (retryProfile?.subscribed) {
+                  subscribed = true
+                  break
+                }
+              }
+            }
+
+            if (!subscribed) {
+              router.replace("/choose-plan")
+              return
+            }
+            // subscribed confirmed on retry — continue to load the dashboard
           }
         }
       }
