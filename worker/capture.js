@@ -11,7 +11,6 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
-const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM_EMAIL = process.env.FROM_EMAIL || "Timedshot <noreply@timedshot.ca>"
 
 function calculateNextCapture(scheduleType) {
@@ -429,6 +428,7 @@ async function runWorker() {
         console.warn("⚠️ RESEND_API_KEY not set — skipping capture email")
       } else {
         try {
+          const resend = new Resend(process.env.RESEND_API_KEY)
           const { data: userData, error: userError } =
             await supabase.auth.admin.getUserById(item.user_id)
 
@@ -438,7 +438,6 @@ async function runWorker() {
 
           const userEmail = userData.user.email
           const captureHostname = new URL(item.url).hostname
-          const pdfBytes = Buffer.from(pdfBuffer)
 
           const html = `
 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
@@ -468,7 +467,7 @@ async function runWorker() {
             to: userEmail,
             subject: `📄 Your capture is ready – ${captureHostname}`,
             html,
-            attachments: [{ filename: fileName, content: pdfBytes }],
+            attachments: [{ filename: fileName, content: pdfBuffer }],
           })
 
           if (emailError) {
