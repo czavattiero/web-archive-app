@@ -46,7 +46,7 @@ export default function SuccessPage() {
         }
 
         if (i < VERIFY_MAX_RETRIES - 1) {
-          await new Promise((res) => setTimeout(res, VERIFY_RETRY_DELAY_MS))
+          await new Promise((resolveDelay) => setTimeout(resolveDelay, VERIFY_RETRY_DELAY_MS))
         }
       }
 

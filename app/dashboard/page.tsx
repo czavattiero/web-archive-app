@@ -205,6 +205,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!paymentProcessing) return
     const retryInterval = setInterval(() => {
+      clearInterval(retryInterval)
       setPaymentProcessing(false)
       setLoading(true)
       setRetryCount((c) => c + 1)
