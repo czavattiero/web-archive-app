@@ -43,95 +43,81 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function init() {
-      const { data } = await supabase.auth.getUser()
+      try {
+        const { data } = await supabase.auth.getUser()
 
-      if (!data.user) {
-        router.replace("/signup")
-        return
-      }
-
-      // Guard: if the user accepted an invite but has not yet set their
-      // password, send them to /set-password before allowing dashboard access.
-      // This prevents the onboarding step from being skipped by navigating
-      // directly to /dashboard after clicking the invite link.
-      if (data.user.user_metadata?.needs_password_setup) {
-        router.replace("/set-password")
-        return
-      }
-
-      setUser(data.user)
-
-      // Fetch user plan (include parent_user_id to detect sub-users)
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("plan, subscribed, trial_ends_at, parent_user_id, stripe_customer_id")
-        .eq("id", data.user.id)
-        .maybeSingle()
-
-      // If this user was invited as a sub-user and hasn't been linked yet,
-      // link now (user_metadata.parent_user_id is set by the invite API)
-      const metaParentId = data.user.user_metadata?.parent_user_id
-      let parentUserId: string | null = profile?.parent_user_id || null
-
-      if (metaParentId && !parentUserId) {
-        // Treat the user as a sub-user immediately based on metadata,
-        // regardless of whether the link API call succeeds.
-        parentUserId = metaParentId
-        try {
-          await fetch("/api/sub-users/link", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: data.user.id, parentUserId: metaParentId }),
-          })
-        } catch (error) {
-          // best-effort — isSubUser is already set correctly
-          console.error("Failed to persist sub-user link:", error)
-        }
-      }
-
-      const isSubUserAccount = !!parentUserId
-      isSubUserRef.current = isSubUserAccount
-      setIsSubUser(isSubUserAccount)
-
-      setPlan(profile?.plan || "basic")
-      setTrialEndsAt(profile?.trial_ends_at || null)
-
-      // Sub-users are governed by their parent's billing — skip all billing redirects
-      if (!isSubUserAccount) {
-        // Subscribed users are valid paid users even if plan is stale (e.g., still "trial")
-        if (profile?.subscribed) {
-          setLoading(false)
-          fetchData(data.user)
+        if (!data.user) {
+          router.replace("/signup")
           return
         }
 
-        const isTrial = (profile?.plan === "trial" || !profile?.plan) && !profile?.subscribed
-        const trialExpired = profile?.trial_ends_at && new Date(profile.trial_ends_at) < new Date()
+        // Guard: if the user accepted an invite but has not yet set their
+        // password, send them to /set-password before allowing dashboard access.
+        // This prevents the onboarding step from being skipped by navigating
+        // directly to /dashboard after clicking the invite link.
+        if (data.user.user_metadata?.needs_password_setup) {
+          router.replace("/set-password")
+          return
+        }
 
-        // ✅ KEY FIX: Check fromPayment BEFORE applying any redirect gates.
-        // The profile may still show plan="trial" (stale) while verify-session is
-        // updating the DB asynchronously. Running the expired-trial redirect first
-        // would incorrectly bounce a user who just paid back to /choose-plan.
-        const fromPayment = searchParams.get("fromPayment") === "true"
-        if (fromPayment) {
-          // Retry polling for up to 8s to handle DB propagation lag or async verify-session
-          let subscribed = false
-          for (let i = 0; i < MAX_SUBSCRIPTION_RETRIES; i++) {
-            await new Promise((res) => setTimeout(res, RETRY_DELAY_MS))
-            const { data: retryProfile } = await supabase
-              .from("profiles")
-              .select("subscribed")
-              .eq("id", data.user.id)
-              .maybeSingle()
-            if (retryProfile?.subscribed) {
-              subscribed = true
-              break
-            }
+        setUser(data.user)
+
+        // Fetch user plan (include parent_user_id to detect sub-users)
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("plan, subscribed, trial_ends_at, parent_user_id, stripe_customer_id")
+          .eq("id", data.user.id)
+          .maybeSingle()
+
+        // If this user was invited as a sub-user and hasn't been linked yet,
+        // link now (user_metadata.parent_user_id is set by the invite API)
+        const metaParentId = data.user.user_metadata?.parent_user_id
+        let parentUserId: string | null = profile?.parent_user_id || null
+
+        if (metaParentId && !parentUserId) {
+          // Treat the user as a sub-user immediately based on metadata,
+          // regardless of whether the link API call succeeds.
+          parentUserId = metaParentId
+          try {
+            await fetch("/api/sub-users/link", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId: data.user.id, parentUserId: metaParentId }),
+            })
+          } catch (error) {
+            // best-effort — isSubUser is already set correctly
+            console.error("Failed to persist sub-user link:", error)
+          }
+        }
+
+        const isSubUserAccount = !!parentUserId
+        isSubUserRef.current = isSubUserAccount
+        setIsSubUser(isSubUserAccount)
+
+        setPlan(profile?.plan || "basic")
+        setTrialEndsAt(profile?.trial_ends_at || null)
+
+        // Sub-users are governed by their parent's billing — skip all billing redirects
+        if (!isSubUserAccount) {
+          // Subscribed users are valid paid users even if plan is stale (e.g., still "trial")
+          if (profile?.subscribed) {
+            setLoading(false)
+            fetchData(data.user)
+            return
           }
 
-          // If still not subscribed, try to trigger verify-session directly
-          // (handles case where success/page.tsx verify-session call failed)
-          if (!subscribed) {
+          const isTrial = (profile?.plan === "trial" || !profile?.plan) && !profile?.subscribed
+          const trialExpired = profile?.trial_ends_at && new Date(profile.trial_ends_at) < new Date()
+
+          // ✅ KEY FIX: Check fromPayment BEFORE applying any redirect gates.
+          // The profile may still show plan="trial" (stale) while verify-session is
+          // updating the DB asynchronously. Running the expired-trial redirect first
+          // would incorrectly bounce a user who just paid back to /choose-plan.
+          const fromPayment = searchParams.get("fromPayment") === "true"
+          if (fromPayment) {
+            let subscribed = false
+
+            // Call verify-session first to trigger the DB update when needed.
             const sessionId = searchParams.get("session_id")
             if (sessionId) {
               try {
@@ -145,58 +131,77 @@ export default function Dashboard() {
                   if (result.success) subscribed = true
                 }
               } catch (error) {
-                console.error("verify-session fallback failed on dashboard:", error)
+                console.error("verify-session call failed on dashboard:", error)
               }
             }
-          }
 
-          if (!subscribed) {
-            setPaymentProcessing(true)
-            return
-          }
-          // subscribed is now confirmed — continue to load the dashboard
-        } else {
-          // Not coming from the payment success page — apply standard billing gates.
-
-          // Expired trial owners must choose a plan
-          if (isTrial && trialExpired) {
-            router.replace("/choose-plan")
-            return
-          }
-
-          // basic/pro owners who haven't completed payment cannot use the dashboard
-          const isPaidPlan = profile?.plan === "basic" || profile?.plan === "pro"
-          if (isPaidPlan && !profile?.subscribed) {
-            // If the user has a stripe_customer_id they have previously paid — their
-            // subscribed field may simply be stale (DB propagation lag or a failed
-            // verify-session call). Run a brief retry before giving up.
-            let retrySubscribed = false
-            if (profile?.stripe_customer_id) {
-              for (let i = 0; i < SHORT_SUBSCRIPTION_RETRIES; i++) {
-                await new Promise((res) => setTimeout(res, SHORT_RETRY_DELAY_MS))
+            // Retry polling for up to 8s to handle DB propagation lag.
+            if (!subscribed) {
+              for (let i = 0; i < MAX_SUBSCRIPTION_RETRIES; i++) {
+                await new Promise((res) => setTimeout(res, RETRY_DELAY_MS))
                 const { data: retryProfile } = await supabase
                   .from("profiles")
                   .select("subscribed")
                   .eq("id", data.user.id)
                   .maybeSingle()
                 if (retryProfile?.subscribed) {
-                  retrySubscribed = true
+                  subscribed = true
                   break
                 }
               }
             }
 
-            if (!retrySubscribed) {
+            if (!subscribed) {
+              setPaymentProcessing(true)
+              return
+            }
+            // subscribed is now confirmed — continue to load the dashboard
+          } else {
+            // Not coming from the payment success page — apply standard billing gates.
+
+            // Expired trial owners must choose a plan
+            if (isTrial && trialExpired) {
               router.replace("/choose-plan")
               return
             }
-            // subscribed confirmed on retry — continue to load the dashboard
+
+            // basic/pro owners who haven't completed payment cannot use the dashboard
+            const isPaidPlan = profile?.plan === "basic" || profile?.plan === "pro"
+            if (isPaidPlan && !profile?.subscribed) {
+              // If the user has a stripe_customer_id they have previously paid — their
+              // subscribed field may simply be stale (DB propagation lag or a failed
+              // verify-session call). Run a brief retry before giving up.
+              let retrySubscribed = false
+              if (profile?.stripe_customer_id) {
+                for (let i = 0; i < SHORT_SUBSCRIPTION_RETRIES; i++) {
+                  await new Promise((res) => setTimeout(res, SHORT_RETRY_DELAY_MS))
+                  const { data: retryProfile } = await supabase
+                    .from("profiles")
+                    .select("subscribed")
+                    .eq("id", data.user.id)
+                    .maybeSingle()
+                  if (retryProfile?.subscribed) {
+                    retrySubscribed = true
+                    break
+                  }
+                }
+              }
+
+              if (!retrySubscribed) {
+                router.replace("/choose-plan")
+                return
+              }
+              // subscribed confirmed on retry — continue to load the dashboard
+            }
           }
         }
-      }
 
-      setLoading(false)
-      fetchData(data.user)
+        setLoading(false)
+        fetchData(data.user)
+      } catch (err) {
+        console.error("Dashboard init error:", err)
+        setLoading(false)
+      }
     }
 
     init()
@@ -207,7 +212,6 @@ export default function Dashboard() {
     const retryInterval = setInterval(() => {
       clearInterval(retryInterval)
       setPaymentProcessing(false)
-      setLoading(true)
       setRetryCount((c) => c + 1)
     }, 3000)
     return () => clearInterval(retryInterval)
