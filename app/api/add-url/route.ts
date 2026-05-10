@@ -43,26 +43,24 @@ export async function POST(req: Request) {
 
   const plan: string = planProfile?.plan || "basic"
 
-  // Check trial expiry (only applies to owner accounts, not sub-users)
-  if (!profile?.parent_user_id) {
-    const isTrial = planProfile?.plan === "trial" && !planProfile?.subscribed
-    const trialExpired = isTrial && planProfile?.trial_ends_at && new Date(planProfile.trial_ends_at) < new Date()
+  // Check trial expiry and payment — applies to all users (planProfile is the parent's profile for sub-users)
+  const isTrial = planProfile?.plan === "trial" && !planProfile?.subscribed
+  const trialExpired = isTrial && planProfile?.trial_ends_at && new Date(planProfile.trial_ends_at) < new Date()
 
-    if (trialExpired) {
-      return NextResponse.json(
-        { error: "Your free trial has expired. Please choose a plan to continue.", trialExpired: true },
-        { status: 403 }
-      )
-    }
+  if (trialExpired) {
+    return NextResponse.json(
+      { error: "The account's free trial has expired. Please choose a plan to continue.", trialExpired: true },
+      { status: 403 }
+    )
+  }
 
-    // basic/pro owners must have completed payment before adding URLs
-    const isPaidPlan = planProfile?.plan === "basic" || planProfile?.plan === "pro"
-    if (isPaidPlan && !planProfile?.subscribed) {
-      return NextResponse.json(
-        { error: "Payment required. Please complete your subscription to add URLs.", paymentRequired: true },
-        { status: 403 }
-      )
-    }
+  // basic/pro accounts must have completed payment before adding URLs
+  const isPaidPlan = planProfile?.plan === "basic" || planProfile?.plan === "pro"
+  if (isPaidPlan && !planProfile?.subscribed) {
+    return NextResponse.json(
+      { error: "Payment required. Please complete your subscription to add URLs.", paymentRequired: true },
+      { status: 403 }
+    )
   }
 
   const limit = PLAN_LIMITS[plan] ?? 15
