@@ -48,7 +48,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false })
     }
 
-    const { error } = await supabase
+    const { error: subscriptionError } = await supabase
       .from("subscriptions")
       .upsert({
         user_id: userId,
@@ -57,9 +57,10 @@ export async function POST(req: Request) {
         status: "active"
       })
 
-    if (error) {
-      console.log("Supabase error:", error)
-      return NextResponse.json({ success: false })
+    if (subscriptionError) {
+      // Log but do not treat as a hard failure — profiles.subscribed is the
+      // authoritative field checked by all downstream guards.
+      console.warn("Subscriptions upsert error (non-fatal):", subscriptionError)
     }
 
     const customerId = session.customer as string
