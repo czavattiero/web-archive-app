@@ -579,9 +579,11 @@ export default function Dashboard() {
     return urlData?.url?.toLowerCase().includes(search.toLowerCase())
   })
 
+  const fromPaymentParam = searchParams.get("fromPayment") === "true"
+
   if (paymentProcessing) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#F9FAFB", fontFamily: "'Inter', system-ui, sans-serif", padding: 40 }}>
+      <div style={paymentLoadingContainer}>
         <div style={{ maxWidth: 480, textAlign: "center" }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: "#111827", marginBottom: 12 }}>Still processing your subscription…</h2>
@@ -603,7 +605,22 @@ export default function Dashboard() {
     )
   }
 
-  if (loading) return <div style={{ padding: 40 }}>Loading...</div>
+  if (loading) {
+    if (fromPaymentParam) {
+      return (
+        <div style={paymentLoadingContainer}>
+          <div style={{ maxWidth: 480, textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: "#111827", marginBottom: 12 }}>Activating your subscription…</h2>
+            <p style={{ color: "#6B7280", fontSize: 15, lineHeight: 1.6 }}>
+              Please wait while we confirm your payment.
+            </p>
+          </div>
+        </div>
+      )
+    }
+    return <div style={{ padding: 40 }}>Loading...</div>
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: "#F9FAFB", fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -1021,4 +1038,15 @@ const linkStyle = {
   fontWeight: 600,
   fontSize: 13,
   textDecoration: "none",
+}
+
+const paymentLoadingContainer: React.CSSProperties = {
+  minHeight: "100vh",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "#F9FAFB",
+  fontFamily: "'Inter', system-ui, sans-serif",
+  padding: 40,
 }
