@@ -12,6 +12,7 @@ const RETRY_DELAY_MS = 1000
 const SHORT_SUBSCRIPTION_RETRIES = 3
 const SHORT_RETRY_DELAY_MS = 500
 const DASHBOARD_INIT_TIMEOUT_MS = 30000
+const MAX_AUTO_RETRIES = 3
 
 export default function Dashboard() {
   const router = useRouter()
@@ -20,6 +21,7 @@ export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [paymentProcessing, setPaymentProcessing] = useState(false)
+  const [autoRetryCount, setAutoRetryCount] = useState(0)
   const [retryCount, setRetryCount] = useState(0)
   const [billingLoading, setBillingLoading] = useState(false)
   const [plan, setPlan] = useState<string>("basic")
@@ -255,13 +257,15 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!paymentProcessing) return
+    if (autoRetryCount >= MAX_AUTO_RETRIES) return
     const retryInterval = setInterval(() => {
       clearInterval(retryInterval)
       setPaymentProcessing(false)
+      setAutoRetryCount((c) => c + 1)
       setRetryCount((c) => c + 1)
     }, 3000)
     return () => clearInterval(retryInterval)
-  }, [paymentProcessing])
+  }, [paymentProcessing, autoRetryCount])
 
   useEffect(() => {
     if (!user) return
