@@ -31,6 +31,28 @@ export default function LoginPage() {
     checkSession()
   }, [router, searchParams])
 
+  async function goToDashboard() {
+    const { data: userData } = await supabase.auth.getUser()
+
+    if (userData.user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("plan, subscribed")
+        .eq("id", userData.user.id)
+        .maybeSingle()
+
+      const isPaidPlan = profile?.plan === "basic" || profile?.plan === "pro"
+      if (isPaidPlan && !profile?.subscribed) {
+        router.push("/choose-plan")
+      } else {
+        router.push("/dashboard")
+      }
+      return
+    }
+
+    router.push("/dashboard")
+  }
+
   async function handleLogin(e: any) {
     e.preventDefault()
     setLoading(true)
@@ -47,7 +69,7 @@ export default function LoginPage() {
       return
     }
 
-    router.push("/dashboard")
+    await goToDashboard()
     setLoading(false)
   }
 
@@ -95,7 +117,7 @@ export default function LoginPage() {
             </p>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
               <button
-                onClick={() => router.push("/dashboard")}
+                onClick={goToDashboard}
                 style={{
                   background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
                   color: "#fff",
