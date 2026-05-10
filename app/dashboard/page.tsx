@@ -251,7 +251,7 @@ export default function Dashboard() {
       cancelled = true
       if (timeoutId) clearTimeout(timeoutId)
     }
-  }, [router, searchParams, retryCount])
+  }, [router, retryCount])
 
   useEffect(() => {
     if (!paymentProcessing) return
