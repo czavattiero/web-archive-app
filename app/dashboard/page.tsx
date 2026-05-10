@@ -11,6 +11,7 @@ const MAX_SUBSCRIPTION_RETRIES = 8
 const RETRY_DELAY_MS = 1000
 const SHORT_SUBSCRIPTION_RETRIES = 3
 const SHORT_RETRY_DELAY_MS = 500
+const DASHBOARD_INIT_TIMEOUT_MS = 30000
 
 export default function Dashboard() {
   const router = useRouter()
@@ -224,7 +225,13 @@ export default function Dashboard() {
 
     async function initWithTimeout() {
       const timeoutPromise = new Promise<void>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("Dashboard init timed out after 30s")), 30000)
+        timeoutId = setTimeout(
+          () => {
+            if (cancelled) return
+            reject(new Error("Dashboard init timed out after 30 seconds"))
+          },
+          DASHBOARD_INIT_TIMEOUT_MS
+        )
       })
 
       try {
