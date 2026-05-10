@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { getQuotaWindowStart } from "../../../lib/quotaWindow"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
   // Get user plan (include parent_user_id to detect sub-users)
   const { data: profile } = await supabaseAdmin
     .from("profiles")
-    .select("plan, subscribed, trial_ends_at, parent_user_id")
+    .select("plan, subscribed, trial_ends_at, parent_user_id, subscription_started_at")
     .eq("id", userId)
     .maybeSingle()
 
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
   if (profile?.parent_user_id) {
     const { data: parentProfile } = await supabaseAdmin
       .from("profiles")
-      .select("plan, subscribed, trial_ends_at")
+      .select("plan, subscribed, trial_ends_at, subscription_started_at")
       .eq("id", ownerId)
       .maybeSingle()
     planProfile = parentProfile
@@ -73,16 +74,15 @@ export async function POST(req: Request) {
     .eq("parent_user_id", ownerId)
   const accountUserIds: string[] = [ownerId, ...(accountSubUsers || []).map((u: any) => u.id)]
 
-  // Count URLs added in the last 30 days across the whole account, excluding
+  // Count URLs added since the start of the current quota period across the whole account, excluding
   // those with ONLY failed captures (failed-only URLs do not consume a slot)
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const quotaWindowStart = getQuotaWindowStart(planProfile?.subscription_started_at)
 
   const { data: recentUrls } = await supabaseAdmin
     .from("urls")
     .select("id")
     .in("user_id", accountUserIds)
-    .gte("created_at", thirtyDaysAgo.toISOString())
+    .gte("created_at", quotaWindowStart.toISOString())
 
   const recentUrlIds = (recentUrls || []).map((u: any) => u.id)
 
@@ -121,9 +121,9 @@ export async function POST(req: Request) {
     const planLabel = plan === "pro" ? "Pro" : "Basic"
     return NextResponse.json(
       {
-        error: `You've reached the ${planLabel} plan limit of ${limit} URLs per 30 days. ${
+        error: `You've reached the ${planLabel} plan limit of ${limit} URLs per billing period. ${
           plan !== "pro"
-            ? "Upgrade to Pro for up to 40 URLs per 30 days."
+            ? "Upgrade to Pro for up to 40 URLs per billing period."
             : ""
         }`,
         limitReached: true,
