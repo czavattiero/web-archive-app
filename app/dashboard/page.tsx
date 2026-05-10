@@ -13,6 +13,7 @@ const SHORT_SUBSCRIPTION_RETRIES = 3
 const SHORT_RETRY_DELAY_MS = 500
 const DASHBOARD_INIT_TIMEOUT_MS = 30000
 const MAX_AUTO_RETRIES = 3
+const VERIFY_REQUEST_TIMEOUT_MS = 8000
 
 export default function Dashboard() {
   const router = useRouter()
@@ -131,11 +132,14 @@ export default function Dashboard() {
 
             // Call verify-session first to trigger the DB update when needed.
             if (sessionId) {
+              const controller = new AbortController()
+              const abortTimeoutId = setTimeout(() => controller.abort(), VERIFY_REQUEST_TIMEOUT_MS)
               try {
                 const res = await fetch("/api/verify-session", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ session_id: sessionId }),
+                  signal: controller.signal,
                 })
                 if (cancelled) return
                 if (res.ok) {
@@ -146,6 +150,8 @@ export default function Dashboard() {
               } catch (error) {
                 if (cancelled) return
                 console.error("verify-session call failed on dashboard:", error)
+              } finally {
+                clearTimeout(abortTimeoutId)
               }
             }
 
@@ -253,7 +259,7 @@ export default function Dashboard() {
       cancelled = true
       if (timeoutId) clearTimeout(timeoutId)
     }
-  }, [router, retryCount])
+  }, [router, retryCount, searchParams])
 
   useEffect(() => {
     if (!paymentProcessing) return
