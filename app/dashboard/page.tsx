@@ -9,6 +9,8 @@ import DisclaimerModal from "../components/DisclaimerModal"
 
 const MAX_SUBSCRIPTION_RETRIES = 8
 const RETRY_DELAY_MS = 1000
+const SHORT_SUBSCRIPTION_RETRIES = 3
+const SHORT_RETRY_DELAY_MS = 500
 
 export default function Dashboard() {
   const router = useRouter()
@@ -161,12 +163,9 @@ export default function Dashboard() {
             // If the user has a stripe_customer_id they have previously paid — their
             // subscribed field may simply be stale (DB propagation lag or a failed
             // verify-session call). Run a brief retry before giving up.
-            const SHORT_RETRIES = 3
-            const SHORT_RETRY_DELAY_MS = 500
-
-            let subscribed = false
+            let retrySubscribed = false
             if (profile?.stripe_customer_id) {
-              for (let i = 0; i < SHORT_RETRIES; i++) {
+              for (let i = 0; i < SHORT_SUBSCRIPTION_RETRIES; i++) {
                 await new Promise((res) => setTimeout(res, SHORT_RETRY_DELAY_MS))
                 const { data: retryProfile } = await supabase
                   .from("profiles")
@@ -174,13 +173,13 @@ export default function Dashboard() {
                   .eq("id", data.user.id)
                   .maybeSingle()
                 if (retryProfile?.subscribed) {
-                  subscribed = true
+                  retrySubscribed = true
                   break
                 }
               }
             }
 
-            if (!subscribed) {
+            if (!retrySubscribed) {
               router.replace("/choose-plan")
               return
             }
