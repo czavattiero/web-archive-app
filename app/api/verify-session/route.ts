@@ -95,23 +95,23 @@ export async function POST(req: Request) {
       .eq("id", userId)
       .maybeSingle()
 
-    const profileUpdateData: Record<string, unknown> = {
+    const profileUpsertData: Record<string, unknown> = {
+      id: userId,
       subscribed: true,
       stripe_customer_id: customerId,
       stripe_subscription_id: subscriptionId,
       plan,
     }
     if (!existingProfile?.subscription_started_at) {
-      profileUpdateData.subscription_started_at = new Date().toISOString()
+      profileUpsertData.subscription_started_at = new Date().toISOString()
     }
 
     const { error: profileError } = await supabase
       .from("profiles")
-      .update(profileUpdateData)
-      .eq("id", userId)
+      .upsert(profileUpsertData, { onConflict: "id" })
 
     if (profileError) {
-      console.error("Failed to update profile with subscription data:", profileError)
+      console.error("Failed to upsert profile with subscription data:", profileError)
       return NextResponse.json({ success: false })
     }
 
