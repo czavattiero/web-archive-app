@@ -168,7 +168,7 @@ export default function Home() {
                 {step.number}
               </div>
               <div style={{
-                background: `${step.accent}15`,
+                background: `rgba(${step.accentRgb}, 0.08)`,
                 borderRadius: "50%",
                 width: 56,
                 height: 56,
