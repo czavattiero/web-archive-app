@@ -99,7 +99,6 @@ export async function POST(req: Request) {
       id: userId,
       subscribed: true,
       stripe_customer_id: customerId,
-      stripe_subscription_id: subscriptionId,
       plan,
     }
     if (!existingProfile?.subscription_started_at) {
