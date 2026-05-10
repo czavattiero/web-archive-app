@@ -98,7 +98,7 @@ export default function DisclaimerModal({ userId, onClose }: DisclaimerModalProp
           <li style={{ marginBottom: 8 }}>
             <strong>Some platforms are more restrictive than others.</strong> URLs from sites such as{" "}
             <strong>Indeed</strong> and <strong>Glassdoor</strong> are more likely to fail due to
-            stricter anti-scraping and blocking mechanisms.
+            blocking mechanisms.
           </li>
         </ul>
 
