@@ -95,9 +95,6 @@ export default function Dashboard() {
       setPlan(profile?.plan || "basic")
       setTrialEndsAt(profile?.trial_ends_at || null)
 
-      const isTrial = (profile?.plan === "trial" || !profile?.plan) && !profile?.subscribed
-      const trialExpired = profile?.trial_ends_at && new Date(profile.trial_ends_at) < new Date()
-
       // Sub-users are governed by their parent's billing — skip all billing redirects
       if (!isSubUserAccount) {
         // Subscribed users are valid paid users even if plan is stale (e.g., still "trial")
@@ -107,60 +104,68 @@ export default function Dashboard() {
           return
         }
 
-        // Expired trial owners must choose a plan
-        if (isTrial && trialExpired) {
-          router.replace("/choose-plan")
-          return
-        }
+        const isTrial = (profile?.plan === "trial" || !profile?.plan) && !profile?.subscribed
+        const trialExpired = profile?.trial_ends_at && new Date(profile.trial_ends_at) < new Date()
 
-        // basic/pro owners who haven't completed payment cannot use the dashboard
-        const isPaidPlan = profile?.plan === "basic" || profile?.plan === "pro"
-        if (isPaidPlan && !profile?.subscribed) {
-          const fromPayment = searchParams.get("fromPayment") === "true"
-          if (fromPayment) {
-            // Retry polling for up to 8s to handle DB propagation lag or async verify-session
-            let subscribed = false
-            for (let i = 0; i < MAX_SUBSCRIPTION_RETRIES; i++) {
-              await new Promise((res) => setTimeout(res, RETRY_DELAY_MS))
-              const { data: retryProfile } = await supabase
-                .from("profiles")
-                .select("subscribed")
-                .eq("id", data.user.id)
-                .maybeSingle()
-              if (retryProfile?.subscribed) {
-                subscribed = true
-                break
-              }
+        // ✅ KEY FIX: Check fromPayment BEFORE applying any redirect gates.
+        // The profile may still show plan="trial" (stale) while verify-session is
+        // updating the DB asynchronously. Running the expired-trial redirect first
+        // would incorrectly bounce a user who just paid back to /choose-plan.
+        const fromPayment = searchParams.get("fromPayment") === "true"
+        if (fromPayment) {
+          // Retry polling for up to 8s to handle DB propagation lag or async verify-session
+          let subscribed = false
+          for (let i = 0; i < MAX_SUBSCRIPTION_RETRIES; i++) {
+            await new Promise((res) => setTimeout(res, RETRY_DELAY_MS))
+            const { data: retryProfile } = await supabase
+              .from("profiles")
+              .select("subscribed")
+              .eq("id", data.user.id)
+              .maybeSingle()
+            if (retryProfile?.subscribed) {
+              subscribed = true
+              break
             }
+          }
 
-            // If still not subscribed, try to trigger verify-session directly
-            // (handles case where success/page.tsx verify-session call failed)
-            if (!subscribed) {
-              const sessionId = searchParams.get("session_id")
-              if (sessionId) {
-                try {
-                  const res = await fetch("/api/verify-session", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ session_id: sessionId }),
-                  })
-                  if (res.ok) {
-                    const result = await res.json()
-                    if (result.success) subscribed = true
-                  }
-                } catch (error) {
-                  console.error("verify-session fallback failed on dashboard:", error)
+          // If still not subscribed, try to trigger verify-session directly
+          // (handles case where success/page.tsx verify-session call failed)
+          if (!subscribed) {
+            const sessionId = searchParams.get("session_id")
+            if (sessionId) {
+              try {
+                const res = await fetch("/api/verify-session", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ session_id: sessionId }),
+                })
+                if (res.ok) {
+                  const result = await res.json()
+                  if (result.success) subscribed = true
                 }
+              } catch (error) {
+                console.error("verify-session fallback failed on dashboard:", error)
               }
             }
+          }
 
-            if (!subscribed) {
-              setPaymentProcessing(true)
-              return
-            }
-            // subscribed is now confirmed — continue to load the dashboard
-          } else {
-            // Not coming from the payment success page.
+          if (!subscribed) {
+            setPaymentProcessing(true)
+            return
+          }
+          // subscribed is now confirmed — continue to load the dashboard
+        } else {
+          // Not coming from the payment success page — apply standard billing gates.
+
+          // Expired trial owners must choose a plan
+          if (isTrial && trialExpired) {
+            router.replace("/choose-plan")
+            return
+          }
+
+          // basic/pro owners who haven't completed payment cannot use the dashboard
+          const isPaidPlan = profile?.plan === "basic" || profile?.plan === "pro"
+          if (isPaidPlan && !profile?.subscribed) {
             // If the user has a stripe_customer_id they have previously paid — their
             // subscribed field may simply be stale (DB propagation lag or a failed
             // verify-session call). Run a brief retry before giving up.
