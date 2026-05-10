@@ -41,6 +41,13 @@ export default function LoginPage() {
         .eq("id", userData.user.id)
         .maybeSingle()
 
+      // Subscribed users are valid paid users — always send to dashboard
+      // regardless of whether the plan field is stale (e.g., still "trial")
+      if (profile?.subscribed) {
+        router.push("/dashboard")
+        return
+      }
+
       const isPaidPlan = profile?.plan === "basic" || profile?.plan === "pro"
       if (isPaidPlan && !profile?.subscribed) {
         router.push("/choose-plan")
