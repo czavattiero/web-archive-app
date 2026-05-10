@@ -56,7 +56,6 @@ export default function Dashboard() {
       }
 
       setUser(data.user)
-      setLoading(false)
 
       // Fetch user plan (include parent_user_id to detect sub-users)
       const { data: profile } = await supabase
@@ -98,6 +97,13 @@ export default function Dashboard() {
 
       // Sub-users are governed by their parent's billing — skip all billing redirects
       if (!isSubUserAccount) {
+        // Subscribed users are valid paid users even if plan is stale (e.g., still "trial")
+        if (profile?.subscribed) {
+          setLoading(false)
+          fetchData(data.user)
+          return
+        }
+
         // Expired trial owners must choose a plan
         if (isTrial && trialExpired) {
           router.replace("/choose-plan")
@@ -157,6 +163,7 @@ export default function Dashboard() {
         }
       }
 
+      setLoading(false)
       fetchData(data.user)
     }
 
