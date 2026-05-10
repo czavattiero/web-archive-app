@@ -35,16 +35,49 @@ export async function POST(req: Request) {
     }
 
     if (session.payment_status !== "paid") {
-      console.log("Payment not completed:", session.payment_status)
-      return NextResponse.json({ success: false })
+      let subscriptionActive = false
+      if (session.subscription) {
+        try {
+          const subscriptionId =
+            typeof session.subscription === "string"
+              ? session.subscription
+              : session.subscription.id
+          const sub = await stripe.subscriptions.retrieve(subscriptionId)
+          subscriptionActive = sub.status === "active" || sub.status === "trialing"
+        } catch (subErr) {
+          console.warn("Could not retrieve subscription for payment_status fallback:", subErr)
+        }
+      }
+      if (!subscriptionActive) {
+        console.log("Payment not completed and subscription not active:", session.payment_status)
+        return NextResponse.json({ success: false })
+      }
+      console.log("payment_status not 'paid' yet but subscription is active — proceeding")
     }
 
-    const userId = session.metadata?.user_id
+    let userId = session.metadata?.user_id
 
     console.log("USER ID:", userId)
 
+    if (!userId && session.customer) {
+      const customerId = session.customer as string
+      try {
+        const { data: profileByCustomer } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("stripe_customer_id", customerId)
+          .maybeSingle()
+        if (profileByCustomer?.id) {
+          userId = profileByCustomer.id
+          console.log("Resolved userId via stripe_customer_id fallback:", userId)
+        }
+      } catch (lookupErr) {
+        console.warn("stripe_customer_id profile lookup failed:", lookupErr)
+      }
+    }
+
     if (!userId) {
-      console.log("User ID missing from metadata")
+      console.log("User ID missing from metadata and could not be resolved via customer ID")
       return NextResponse.json({ success: false })
     }
 
