@@ -36,7 +36,13 @@ export default function LoginPage() {
     // expired trial, unpaid paid-plan, etc.) are enforced there with retry
     // logic. Duplicating the checks here creates stale-data races and misses
     // the polling safety-net that the dashboard provides.
-    router.push("/dashboard")
+    const fromPayment = searchParams.get("fromPayment")
+    const sessionId = searchParams.get("session_id")
+    const params = new URLSearchParams()
+    if (fromPayment) params.set("fromPayment", fromPayment)
+    if (sessionId) params.set("session_id", sessionId)
+    const qs = params.toString()
+    router.push(qs ? `/dashboard?${qs}` : "/dashboard")
   }
 
   async function handleLogin(e: any) {
