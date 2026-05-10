@@ -11,6 +11,7 @@ const MAX_SUBSCRIPTION_RETRIES = 8
 const RETRY_DELAY_MS = 1000
 const SHORT_SUBSCRIPTION_RETRIES = 3
 const SHORT_RETRY_DELAY_MS = 500
+const DASHBOARD_INIT_TIMEOUT_MS = 30000
 
 export default function Dashboard() {
   const router = useRouter()
@@ -42,11 +43,19 @@ export default function Dashboard() {
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(true)
 
   useEffect(() => {
+    let cancelled = false
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+    const fromPayment = searchParams.get("fromPayment") === "true"
+    const sessionId = searchParams.get("session_id")
+
     async function init() {
       try {
         const { data } = await supabase.auth.getUser()
+        if (cancelled) return
 
         if (!data.user) {
+          if (cancelled) return
           router.replace("/signup")
           return
         }
@@ -56,10 +65,12 @@ export default function Dashboard() {
         // This prevents the onboarding step from being skipped by navigating
         // directly to /dashboard after clicking the invite link.
         if (data.user.user_metadata?.needs_password_setup) {
+          if (cancelled) return
           router.replace("/set-password")
           return
         }
 
+        if (cancelled) return
         setUser(data.user)
 
         // Fetch user plan (include parent_user_id to detect sub-users)
@@ -68,6 +79,7 @@ export default function Dashboard() {
           .select("plan, subscribed, trial_ends_at, parent_user_id, stripe_customer_id")
           .eq("id", data.user.id)
           .maybeSingle()
+        if (cancelled) return
 
         // If this user was invited as a sub-user and hasn't been linked yet,
         // link now (user_metadata.parent_user_id is set by the invite API)
@@ -84,12 +96,15 @@ export default function Dashboard() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ userId: data.user.id, parentUserId: metaParentId }),
             })
+            if (cancelled) return
           } catch (error) {
+            if (cancelled) return
             // best-effort — isSubUser is already set correctly
             console.error("Failed to persist sub-user link:", error)
           }
         }
 
+        if (cancelled) return
         const isSubUserAccount = !!parentUserId
         isSubUserRef.current = isSubUserAccount
         setIsSubUser(isSubUserAccount)
@@ -109,16 +124,10 @@ export default function Dashboard() {
           const isTrial = (profile?.plan === "trial" || !profile?.plan) && !profile?.subscribed
           const trialExpired = profile?.trial_ends_at && new Date(profile.trial_ends_at) < new Date()
 
-          // ✅ KEY FIX: Check fromPayment BEFORE applying any redirect gates.
-          // The profile may still show plan="trial" (stale) while verify-session is
-          // updating the DB asynchronously. Running the expired-trial redirect first
-          // would incorrectly bounce a user who just paid back to /choose-plan.
-          const fromPayment = searchParams.get("fromPayment") === "true"
           if (fromPayment) {
             let subscribed = false
 
             // Call verify-session first to trigger the DB update when needed.
-            const sessionId = searchParams.get("session_id")
             if (sessionId) {
               try {
                 const res = await fetch("/api/verify-session", {
@@ -126,11 +135,14 @@ export default function Dashboard() {
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ session_id: sessionId }),
                 })
+                if (cancelled) return
                 if (res.ok) {
                   const result = await res.json()
+                  if (cancelled) return
                   if (result.success) subscribed = true
                 }
               } catch (error) {
+                if (cancelled) return
                 console.error("verify-session call failed on dashboard:", error)
               }
             }
@@ -139,11 +151,13 @@ export default function Dashboard() {
             if (!subscribed) {
               for (let i = 0; i < MAX_SUBSCRIPTION_RETRIES; i++) {
                 await new Promise((res) => setTimeout(res, RETRY_DELAY_MS))
+                if (cancelled) return
                 const { data: retryProfile } = await supabase
                   .from("profiles")
                   .select("subscribed")
                   .eq("id", data.user.id)
                   .maybeSingle()
+                if (cancelled) return
                 if (retryProfile?.subscribed) {
                   subscribed = true
                   break
@@ -152,6 +166,7 @@ export default function Dashboard() {
             }
 
             if (!subscribed) {
+              if (cancelled) return
               setPaymentProcessing(true)
               return
             }
@@ -175,11 +190,13 @@ export default function Dashboard() {
               if (profile?.stripe_customer_id) {
                 for (let i = 0; i < SHORT_SUBSCRIPTION_RETRIES; i++) {
                   await new Promise((res) => setTimeout(res, SHORT_RETRY_DELAY_MS))
+                  if (cancelled) return
                   const { data: retryProfile } = await supabase
                     .from("profiles")
                     .select("subscribed")
                     .eq("id", data.user.id)
                     .maybeSingle()
+                  if (cancelled) return
                   if (retryProfile?.subscribed) {
                     retrySubscribed = true
                     break
@@ -196,15 +213,44 @@ export default function Dashboard() {
           }
         }
 
+        if (cancelled) return
         setLoading(false)
         fetchData(data.user)
       } catch (err) {
+        if (cancelled) return
         console.error("Dashboard init error:", err)
         setLoading(false)
       }
     }
 
-    init()
+    async function initWithTimeout() {
+      const timeoutPromise = new Promise<void>((_, reject) => {
+        timeoutId = setTimeout(
+          () => {
+            if (cancelled) return
+            reject(new Error("Dashboard init timed out after 30 seconds"))
+          },
+          DASHBOARD_INIT_TIMEOUT_MS
+        )
+      })
+
+      try {
+        await Promise.race([init(), timeoutPromise])
+      } catch (err) {
+        if (cancelled) return
+        console.error("Dashboard init error or timeout:", err)
+        setLoading(false)
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId)
+      }
+    }
+
+    initWithTimeout()
+
+    return () => {
+      cancelled = true
+      if (timeoutId) clearTimeout(timeoutId)
+    }
   }, [router, searchParams, retryCount])
 
   useEffect(() => {
@@ -535,7 +581,6 @@ export default function Dashboard() {
           <button
             onClick={() => {
               setPaymentProcessing(false)
-              setLoading(true)
               setRetryCount((c) => c + 1)
             }}
             style={{ background: "linear-gradient(135deg, #6A11CB, #FF7A00)", color: "#fff", border: "none", padding: "12px 28px", borderRadius: 8, fontWeight: 600, fontSize: 15, cursor: "pointer" }}
