@@ -7,7 +7,7 @@ import { DateTime } from "luxon"
 import DisclaimerBanner from "../components/DisclaimerBanner"
 import DisclaimerModal from "../components/DisclaimerModal"
 
-const MAX_SUBSCRIPTION_RETRIES = 5
+const MAX_SUBSCRIPTION_RETRIES = 8
 const RETRY_DELAY_MS = 1000
 
 export default function Dashboard() {
@@ -109,7 +109,7 @@ export default function Dashboard() {
         if (isPaidPlan && !profile?.subscribed) {
           const fromPayment = searchParams.get("fromPayment") === "true"
           if (fromPayment) {
-            // Retry a few times to handle DB propagation lag after Stripe payment
+            // Retry polling for up to 8s to handle DB propagation lag or async verify-session
             let subscribed = false
             for (let i = 0; i < MAX_SUBSCRIPTION_RETRIES; i++) {
               await new Promise((res) => setTimeout(res, RETRY_DELAY_MS))
@@ -123,6 +123,28 @@ export default function Dashboard() {
                 break
               }
             }
+
+            // If still not subscribed, try to trigger verify-session directly
+            // (handles case where success/page.tsx verify-session call failed)
+            if (!subscribed) {
+              const sessionId = searchParams.get("session_id")
+              if (sessionId) {
+                try {
+                  const res = await fetch("/api/verify-session", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ session_id: sessionId }),
+                  })
+                  if (res.ok) {
+                    const result = await res.json()
+                    if (result.success) subscribed = true
+                  }
+                } catch (error) {
+                  console.error("verify-session fallback failed on dashboard:", error)
+                }
+              }
+            }
+
             if (!subscribed) {
               router.replace("/choose-plan")
               return
