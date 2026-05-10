@@ -132,26 +132,36 @@ export default function Dashboard() {
 
             // Call verify-session first to trigger the DB update when needed.
             if (sessionId) {
-              const controller = new AbortController()
-              const abortTimeoutId = setTimeout(() => controller.abort(), VERIFY_REQUEST_TIMEOUT_MS)
-              try {
-                const res = await fetch("/api/verify-session", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ session_id: sessionId }),
-                  signal: controller.signal,
-                })
-                if (cancelled) return
-                if (res.ok) {
-                  const result = await res.json()
+              const verifiedKey = `verified_session_${sessionId}`
+              const alreadyVerified = sessionStorage.getItem(verifiedKey) === "true"
+
+              if (!alreadyVerified) {
+                const controller = new AbortController()
+                const abortTimeoutId = setTimeout(() => controller.abort(), VERIFY_REQUEST_TIMEOUT_MS)
+                try {
+                  const res = await fetch("/api/verify-session", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ session_id: sessionId }),
+                    signal: controller.signal,
+                  })
                   if (cancelled) return
-                  if (result.success) subscribed = true
+                  if (res.ok) {
+                    const result = await res.json()
+                    if (cancelled) return
+                    if (result.success) {
+                      subscribed = true
+                      sessionStorage.setItem(verifiedKey, "true")
+                    }
+                  }
+                } catch (error) {
+                  if (cancelled) return
+                  console.error("verify-session call failed on dashboard:", error)
+                } finally {
+                  clearTimeout(abortTimeoutId)
                 }
-              } catch (error) {
-                if (cancelled) return
-                console.error("verify-session call failed on dashboard:", error)
-              } finally {
-                clearTimeout(abortTimeoutId)
+              } else {
+                subscribed = true
               }
             }
 
