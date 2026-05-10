@@ -18,6 +18,7 @@ export default function Dashboard() {
 
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [paymentProcessing, setPaymentProcessing] = useState(false)
   const [billingLoading, setBillingLoading] = useState(false)
   const [plan, setPlan] = useState<string>("basic")
   const [upgradeLoading, setUpgradeLoading] = useState(false)
@@ -154,7 +155,7 @@ export default function Dashboard() {
             }
 
             if (!subscribed) {
-              router.replace("/choose-plan")
+              setPaymentProcessing(true)
               return
             }
             // subscribed is now confirmed — continue to load the dashboard
@@ -500,6 +501,26 @@ export default function Dashboard() {
     const urlData = getUrlById(c.url_id)
     return urlData?.url?.toLowerCase().includes(search.toLowerCase())
   })
+
+  if (paymentProcessing) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#F9FAFB", fontFamily: "'Inter', system-ui, sans-serif", padding: 40 }}>
+        <div style={{ maxWidth: 480, textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: "#111827", marginBottom: 12 }}>Still processing your subscription…</h2>
+          <p style={{ color: "#6B7280", fontSize: 15, marginBottom: 28, lineHeight: 1.6 }}>
+            Your payment was received! We&apos;re waiting for the confirmation to come through. This usually takes just a moment.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ background: "linear-gradient(135deg, #6A11CB, #FF7A00)", color: "#fff", border: "none", padding: "12px 28px", borderRadius: 8, fontWeight: 600, fontSize: 15, cursor: "pointer" }}
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>
 
