@@ -222,11 +222,11 @@ export default function Dashboard() {
       }
     }
 
-    const timeoutPromise = new Promise<void>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error("Dashboard init timed out after 30s")), 30000)
-    })
+    async function initWithTimeout() {
+      const timeoutPromise = new Promise<void>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("Dashboard init timed out after 30s")), 30000)
+      })
 
-    ;(async () => {
       try {
         await Promise.race([init(), timeoutPromise])
       } catch (err) {
@@ -236,7 +236,9 @@ export default function Dashboard() {
       } finally {
         if (timeoutId) clearTimeout(timeoutId)
       }
-    })()
+    }
+
+    initWithTimeout()
 
     return () => {
       cancelled = true
