@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [paymentProcessing, setPaymentProcessing] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
   const [billingLoading, setBillingLoading] = useState(false)
   const [plan, setPlan] = useState<string>("basic")
   const [upgradeLoading, setUpgradeLoading] = useState(false)
@@ -199,7 +200,17 @@ export default function Dashboard() {
     }
 
     init()
-  }, [router, searchParams])
+  }, [router, searchParams, retryCount])
+
+  useEffect(() => {
+    if (!paymentProcessing) return
+    const retryInterval = setInterval(() => {
+      setPaymentProcessing(false)
+      setLoading(true)
+      setRetryCount((c) => c + 1)
+    }, 3000)
+    return () => clearInterval(retryInterval)
+  }, [paymentProcessing])
 
   useEffect(() => {
     if (!user) return
@@ -517,7 +528,11 @@ export default function Dashboard() {
             Your payment was received! We&apos;re waiting for the confirmation to come through. This usually takes just a moment.
           </p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              setPaymentProcessing(false)
+              setLoading(true)
+              setRetryCount((c) => c + 1)
+            }}
             style={{ background: "linear-gradient(135deg, #6A11CB, #FF7A00)", color: "#fff", border: "none", padding: "12px 28px", borderRadius: 8, fontWeight: 600, fontSize: 15, cursor: "pointer" }}
           >
             Try again
