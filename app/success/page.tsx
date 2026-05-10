@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 
 const VERIFY_MAX_RETRIES = 5
 const VERIFY_RETRY_DELAY_MS = 2000
+const VERIFY_REQUEST_TIMEOUT_MS = 8000
 
 export default function SuccessPage() {
 
@@ -24,6 +25,8 @@ export default function SuccessPage() {
 
       let confirmed = false
       for (let i = 0; i < VERIFY_MAX_RETRIES; i++) {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), VERIFY_REQUEST_TIMEOUT_MS)
         try {
           const res = await fetch("/api/verify-session", {
             method: "POST",
@@ -32,7 +35,8 @@ export default function SuccessPage() {
             },
             body: JSON.stringify({
               session_id: sessionId
-            })
+            }),
+            signal: controller.signal,
           })
           if (res.ok) {
             const result = await res.json()
@@ -43,6 +47,8 @@ export default function SuccessPage() {
           }
         } catch (error) {
           console.error(`verify-session attempt ${i + 1} failed:`, error)
+        } finally {
+          clearTimeout(timeoutId)
         }
 
         if (i < VERIFY_MAX_RETRIES - 1) {
@@ -59,7 +65,8 @@ export default function SuccessPage() {
 
     verify()
 
-  }, [params, router])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="flex items-center justify-center h-screen">
