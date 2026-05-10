@@ -127,25 +127,33 @@ export default function Home() {
               icon: "🔗",
               title: "Add URL",
               desc: "Paste your URL",
+              accent: "#6A11CB",
+              accentRgb: "106,17,203",
             },
             {
               number: "02",
               icon: "⚡",
               title: "We capture it",
               desc: "Automatic timestamped screenshots",
+              accent: "#FF7A00",
+              accentRgb: "255,122,0",
             },
             {
               number: "03",
               icon: "📄",
               title: "Download proof",
               desc: "Timestamped PDFs available for 62 days",
+              accent: "#10B981",
+              accentRgb: "16,185,129",
             },
           ].map((step) => (
             <div key={step.number} style={{
-              background: "#F9FAFB",
+              background: "#FFFFFF",
               borderRadius: 16,
               padding: "32px 28px",
               border: "1px solid #E5E7EB",
+              borderTop: `4px solid ${step.accent}`,
+              boxShadow: `0 8px 32px rgba(${step.accentRgb}, 0.15)`,
               position: "relative" as const,
             }}>
               <div style={{
@@ -154,12 +162,24 @@ export default function Home() {
                 right: 24,
                 fontSize: 11,
                 fontWeight: 700,
-                color: "#C4B5FD",
+                color: step.accent,
                 letterSpacing: 1,
               }}>
                 {step.number}
               </div>
-              <div style={{ fontSize: 36, marginBottom: 16 }}>{step.icon}</div>
+              <div style={{
+                background: `${step.accent}15`,
+                borderRadius: "50%",
+                width: 56,
+                height: 56,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 36,
+                marginBottom: 16,
+              }}>
+                {step.icon}
+              </div>
               <h3 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: "0 0 8px" }}>
                 {step.title}
               </h3>
