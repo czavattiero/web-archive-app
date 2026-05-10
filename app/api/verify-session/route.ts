@@ -34,7 +34,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false })
     }
 
-    if (session.payment_status !== "paid") {
+    let paymentConfirmed = session.payment_status === "paid"
+
+    if (!paymentConfirmed) {
       let subscriptionActive = false
       if (session.subscription) {
         try {
@@ -53,6 +55,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: false })
       }
       console.log("payment_status not 'paid' yet but subscription is active — proceeding")
+      paymentConfirmed = true
     }
 
     let userId = session.metadata?.user_id
@@ -169,8 +172,24 @@ export async function POST(req: Request) {
     }
 
     if (profileError) {
+      const { error: minimalUpdateError } = await supabase
+        .from("profiles")
+        .update({ subscribed: true, plan })
+        .eq("id", userId)
+      if (!minimalUpdateError) {
+        console.log(`Full profile upsert failed but minimal update (subscribed + plan) succeeded for user ${userId}`)
+        profileError = null
+      } else {
+        console.error("Minimal profile update also failed:", minimalUpdateError)
+      }
+    }
+
+    if (profileError) {
       console.error("Failed to upsert profile with subscription data:", profileError)
-      return NextResponse.json({ success: false })
+      // Payment IS confirmed by Stripe — returning false here causes an infinite
+      // retry loop on the dashboard. Return success so the UI moves forward;
+      // the stripe-webhook will handle the profile update asynchronously.
+      return NextResponse.json({ success: paymentConfirmed, profileUpdateFailed: true })
     }
 
     console.log("Subscription stored successfully")
