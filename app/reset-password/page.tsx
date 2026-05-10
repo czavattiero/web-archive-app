@@ -54,7 +54,7 @@ export default function ResetPasswordPage() {
 
         {/* LOGO */}
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160, width: "auto" }} />
+          <img src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160, width: 160 }} />
         </div>
 
         <h1 style={{
