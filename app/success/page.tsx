@@ -32,7 +32,7 @@ export default function SuccessPage() {
       const result = await res.json()
 
       if (result.success) {
-        router.push("/dashboard")
+        router.push("/dashboard?fromPayment=true")
       } else {
         router.push("/dashboard")
       }

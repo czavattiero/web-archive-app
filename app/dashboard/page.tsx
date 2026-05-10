@@ -1,14 +1,18 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 import { DateTime } from "luxon"
 import DisclaimerBanner from "../components/DisclaimerBanner"
 import DisclaimerModal from "../components/DisclaimerModal"
 
+const MAX_SUBSCRIPTION_RETRIES = 5
+const RETRY_DELAY_MS = 1000
+
 export default function Dashboard() {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -103,8 +107,31 @@ export default function Dashboard() {
         // basic/pro owners who haven't completed payment cannot use the dashboard
         const isPaidPlan = profile?.plan === "basic" || profile?.plan === "pro"
         if (isPaidPlan && !profile?.subscribed) {
-          router.replace("/choose-plan")
-          return
+          const fromPayment = searchParams.get("fromPayment") === "true"
+          if (fromPayment) {
+            // Retry a few times to handle DB propagation lag after Stripe payment
+            let subscribed = false
+            for (let i = 0; i < MAX_SUBSCRIPTION_RETRIES; i++) {
+              await new Promise((res) => setTimeout(res, RETRY_DELAY_MS))
+              const { data: retryProfile } = await supabase
+                .from("profiles")
+                .select("subscribed")
+                .eq("id", data.user.id)
+                .maybeSingle()
+              if (retryProfile?.subscribed) {
+                subscribed = true
+                break
+              }
+            }
+            if (!subscribed) {
+              router.replace("/choose-plan")
+              return
+            }
+            // subscribed is now confirmed — continue to load the dashboard
+          } else {
+            router.replace("/choose-plan")
+            return
+          }
         }
       }
 
@@ -112,7 +139,7 @@ export default function Dashboard() {
     }
 
     init()
-  }, [router])
+  }, [router, searchParams])
 
   useEffect(() => {
     if (!user) return
