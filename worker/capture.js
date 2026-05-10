@@ -1,6 +1,7 @@
 import dotenv from "dotenv"
 import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
+import { Resend } from "resend"
 import { DateTime } from "luxon"
 import { CLOUDFLARE_BLOCK_PATTERN } from "./cloudflareDetection.js"
 
@@ -10,6 +11,8 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
+const FROM_EMAIL = process.env.FROM_EMAIL || "Timedshot <noreply@timedshot.ca>"
+let resendClient = null
 
 function calculateNextCapture(scheduleType) {
   const now = DateTime.now().setZone("America/Edmonton")
@@ -421,6 +424,64 @@ async function runWorker() {
         .eq("id", item.id)
 
       console.log("✅ URL updated - next capture:", updateData.next_capture_at)
+
+      if (!process.env.RESEND_API_KEY) {
+        console.warn("⚠️ RESEND_API_KEY not set — skipping capture email")
+      } else {
+        try {
+          if (!resendClient) {
+            resendClient = new Resend(process.env.RESEND_API_KEY)
+          }
+          const { data: userData, error: userError } =
+            await supabase.auth.admin.getUserById(item.user_id)
+
+          if (userError || !userData?.user?.email) {
+            throw new Error(userError?.message || `Missing email for user ${item.user_id}`)
+          }
+
+          const userEmail = userData.user.email
+          const captureHostname = new URL(item.url).hostname
+
+          const html = `
+<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
+  <div style="text-align:center;margin-bottom:32px;">
+    <div style="background:linear-gradient(135deg,#6A11CB,#FF7A00);display:inline-block;padding:12px 28px;border-radius:12px;">
+      <span style="color:white;font-size:22px;font-weight:700;letter-spacing:-0.5px;">Timedshot</span>
+    </div>
+  </div>
+  <h2 style="font-size:24px;font-weight:700;margin-bottom:12px;color:#111;">Your capture is ready 📄</h2>
+  <p style="font-size:15px;color:#555;margin-bottom:12px;">
+    We successfully captured <a href="${item.url}" style="color:#6A11CB;">${item.url}</a>.
+  </p>
+  <p style="font-size:15px;color:#555;margin-bottom:20px;">
+    Capture completed at <strong>${captureTimestamp}</strong> (America/Edmonton).
+  </p>
+  <p style="font-size:15px;color:#555;margin-bottom:28px;">
+    Your PDF is attached to this email.
+  </p>
+  <hr style="border:none;border-top:1px solid #eee;margin:28px 0;">
+  <p style="font-size:12px;color:#aaa;text-align:center;">
+    This is an automated message from Timedshot.
+  </p>
+</div>`
+
+          const { error: emailError } = await resendClient.emails.send({
+            from: FROM_EMAIL,
+            to: userEmail,
+            subject: `📄 Your capture is ready – ${captureHostname}`,
+            html,
+            attachments: [{ filename: fileName, content: pdfBuffer }],
+          })
+
+          if (emailError) {
+            throw new Error(emailError.message || JSON.stringify(emailError))
+          }
+
+          console.log(`✉️ Capture email sent to ${userEmail}`)
+        } catch (emailErr) {
+          console.error(`❌ Failed to send capture email: ${emailErr.message}`)
+        }
+      }
 
     } catch (err) {
       console.error("❌ Capture failed:", err.message)
