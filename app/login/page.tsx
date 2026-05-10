@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [loginError, setLoginError] = useState("")
+  const [existingUser, setExistingUser] = useState<{ email: string } | null>(null)
 
   useEffect(() => {
     async function checkSession() {
@@ -22,7 +23,8 @@ export default function LoginPage() {
       const fromSignup = searchParams.get("fromSignup")
 
       if (data.user && !fromSignup) {
-        router.push("/dashboard")
+        setExistingUser({ email: data.user.email ?? "" })
+        return
       }
     }
 
@@ -78,6 +80,56 @@ export default function LoginPage() {
           boxShadow: "0 25px 60px rgba(0,0,0,0.12)",
         }}
       >
+
+        {existingUser && (
+          <div style={{
+            background: "#EEF2FF",
+            border: "1px solid #C7D2FE",
+            borderRadius: 12,
+            padding: "16px 20px",
+            marginBottom: 20,
+            textAlign: "center",
+          }}>
+            <p style={{ margin: "0 0 12px", fontSize: 14, color: "#3730A3", fontWeight: 500 }}>
+              You are already signed in as <strong>{existingUser.email}</strong>
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button
+                onClick={() => router.push("/dashboard")}
+                style={{
+                  background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
+                  color: "#fff",
+                  border: "none",
+                  padding: "10px 20px",
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                }}
+              >
+                Continue to Dashboard
+              </button>
+              <button
+                onClick={async () => {
+                  await supabase.auth.signOut()
+                  setExistingUser(null)
+                }}
+                style={{
+                  background: "#fff",
+                  color: "#374151",
+                  border: "1.5px solid #E5E7EB",
+                  padding: "10px 20px",
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                }}
+              >
+                Sign in with a different account
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* TITLE */}
         <h1 style={{

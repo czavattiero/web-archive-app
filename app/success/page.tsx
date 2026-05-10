@@ -19,23 +19,20 @@ export default function SuccessPage() {
         return
       }
 
-      const res = await fetch("/api/verify-session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          session_id: sessionId
+      try {
+        await fetch("/api/verify-session", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            session_id: sessionId
+          })
         })
-      })
-
-      const result = await res.json()
-
-      if (result.success) {
-        router.push("/dashboard?fromPayment=true")
-      } else {
-        router.push("/dashboard")
+      } catch (error) {
+        console.error("verify-session failed on success page:", error)
       }
+      router.push(`/dashboard?fromPayment=true&session_id=${encodeURIComponent(sessionId)}`)
 
     }
 
