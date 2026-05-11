@@ -86,6 +86,70 @@ const EXTENDED_RETRY_DELAYS = [
 ]
 const MAX_RETRIES = EXTENDED_RETRY_DELAYS.length // 3
 
+async function sendFailureEmail(item, errorMessage) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("⚠️ RESEND_API_KEY not set — skipping failure email")
+    return
+  }
+
+  try {
+    if (!resendClient) {
+      resendClient = new Resend(process.env.RESEND_API_KEY)
+    }
+    const { data: userData, error: userError } =
+      await supabase.auth.admin.getUserById(item.user_id)
+
+    if (userError || !userData?.user?.email) {
+      throw new Error(userError?.message || `Missing email for user ${item.user_id}`)
+    }
+
+    const userEmail = userData.user.email
+    const captureHostname = new URL(item.url).hostname
+    const safeErrorMessage = String(errorMessage || "Unknown error")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+
+    const html = `
+<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
+  <div style="text-align:center;margin-bottom:32px;">
+    <div style="background:linear-gradient(135deg,#6A11CB,#FF7A00);display:inline-block;padding:12px 28px;border-radius:12px;">
+      <span style="color:white;font-size:22px;font-weight:700;letter-spacing:-0.5px;">Timedshot</span>
+    </div>
+  </div>
+  <h2 style="font-size:24px;font-weight:700;margin-bottom:12px;color:#111;">Capture failed ⚠️</h2>
+  <p style="font-size:15px;color:#555;margin-bottom:12px;">
+    We encountered an issue capturing <a href="${item.url}" style="color:#6A11CB;">${item.url}</a>.
+  </p>
+  <p style="font-size:15px;color:#555;margin-bottom:12px;">
+    <strong>Reason:</strong> ${safeErrorMessage}
+  </p>
+  <p style="font-size:15px;color:#555;margin-bottom:28px;">
+    We will automatically retry this capture. You'll be notified if the capture ultimately succeeds.
+  </p>
+  <hr style="border:none;border-top:1px solid #eee;margin:28px 0;">
+  <p style="font-size:12px;color:#aaa;text-align:center;">
+    This is an automated message from Timedshot.
+  </p>
+</div>`
+
+    const { error: emailError } = await resendClient.emails.send({
+      from: FROM_EMAIL,
+      to: userEmail,
+      subject: `⚠️ Capture failed – ${captureHostname}`,
+      html,
+    })
+
+    if (emailError) {
+      throw new Error(emailError.message || JSON.stringify(emailError))
+    }
+
+    console.log(`✉️ Failure email sent to ${userEmail}`)
+  } catch (emailErr) {
+    console.error(`❌ Failed to send failure email: ${emailErr.message}`)
+  }
+}
+
 async function handleRetry(item, captureMode, errorMessage) {
   const { data: urlRecord, error: fetchError } = await supabase
     .from("urls")
@@ -100,6 +164,10 @@ async function handleRetry(item, captureMode, errorMessage) {
 
   const currentRetries = urlRecord?.retry_count ?? 0
   const newRetryCount = currentRetries + 1
+
+  if (currentRetries === 0) {
+    await sendFailureEmail(item, errorMessage)
+  }
 
   if (newRetryCount <= MAX_RETRIES) {
     const delayMs = EXTENDED_RETRY_DELAYS[currentRetries]
@@ -165,72 +233,6 @@ async function handleRetry(item, captureMode, errorMessage) {
       console.error("❌ Failed to schedule next capture for URL", item.id, updateError.message)
     } else {
       console.log(`⚠️ All retries exhausted for ${item.url}. Next capture: ${nextCaptureAt}`)
-
-      if (!process.env.RESEND_API_KEY) {
-        console.warn("⚠️ RESEND_API_KEY not set — skipping failure email")
-      } else {
-        try {
-          if (!resendClient) {
-            resendClient = new Resend(process.env.RESEND_API_KEY)
-          }
-          const { data: userData, error: userError } =
-            await supabase.auth.admin.getUserById(item.user_id)
-
-          if (userError || !userData?.user?.email) {
-            throw new Error(userError?.message || `Missing email for user ${item.user_id}`)
-          }
-
-          const userEmail = userData.user.email
-          const captureHostname = new URL(item.url).hostname
-          const safeErrorMessage = String(errorMessage || "Unknown error")
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-          const nextStepsHtml = nextStatus === "active" && nextCaptureAt
-            ? `We will try again on <strong>${DateTime.fromISO(nextCaptureAt)
-                .setZone("America/Edmonton")
-                .toFormat("MMM d, yyyy, h:mm a")}</strong> (America/Edmonton).`
-            : "No further captures are scheduled for this URL."
-
-          const html = `
-<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
-  <div style="text-align:center;margin-bottom:32px;">
-    <div style="background:linear-gradient(135deg,#6A11CB,#FF7A00);display:inline-block;padding:12px 28px;border-radius:12px;">
-      <span style="color:white;font-size:22px;font-weight:700;letter-spacing:-0.5px;">Timedshot</span>
-    </div>
-  </div>
-  <h2 style="font-size:24px;font-weight:700;margin-bottom:12px;color:#111;">Capture failed ⚠️</h2>
-  <p style="font-size:15px;color:#555;margin-bottom:12px;">
-    We were unable to capture <a href="${item.url}" style="color:#6A11CB;">${item.url}</a> after multiple attempts.
-  </p>
-  <p style="font-size:15px;color:#555;margin-bottom:12px;">
-    <strong>Reason:</strong> ${safeErrorMessage}
-  </p>
-  <p style="font-size:15px;color:#555;margin-bottom:28px;">
-    ${nextStepsHtml}
-  </p>
-  <hr style="border:none;border-top:1px solid #eee;margin:28px 0;">
-  <p style="font-size:12px;color:#aaa;text-align:center;">
-    This is an automated message from Timedshot.
-  </p>
-</div>`
-
-          const { error: emailError } = await resendClient.emails.send({
-            from: FROM_EMAIL,
-            to: userEmail,
-            subject: `⚠️ Capture failed – ${captureHostname}`,
-            html,
-          })
-
-          if (emailError) {
-            throw new Error(emailError.message || JSON.stringify(emailError))
-          }
-
-          console.log(`✉️ Failure email sent to ${userEmail}`)
-        } catch (emailErr) {
-          console.error(`❌ Failed to send failure email: ${emailErr.message}`)
-        }
-      }
     }
   }
 }
