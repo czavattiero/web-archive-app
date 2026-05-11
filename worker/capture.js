@@ -125,7 +125,7 @@ async function sendFailureEmail(item, errorMessage) {
   </div>
   <h2 style="font-size:24px;font-weight:700;margin-bottom:12px;color:#111;">Capture failed ⚠️</h2>
   <p style="font-size:15px;color:#555;margin-bottom:12px;">
-    We encountered an issue capturing <a href="${safeUrl}" style="color:#6A11CB;">${safeUrl}</a>.
+    We encountered an issue capturing <span style="color:#6A11CB;">${safeUrl}</span>.
   </p>
   <p style="font-size:15px;color:#555;margin-bottom:12px;">
     <strong>Reason:</strong> ${safeErrorMessage}
