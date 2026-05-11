@@ -104,7 +104,12 @@ async function sendFailureEmail(item, errorMessage) {
     }
 
     const userEmail = userData.user.email
-    const captureHostname = new URL(item.url).hostname
+    let captureHostname = "unknown-host"
+    try {
+      captureHostname = new URL(item.url).hostname
+    } catch {
+      console.warn(`⚠️ Invalid URL while preparing failure email subject: ${item.url}`)
+    }
     const safeCaptureUrl = String(item.url || "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
