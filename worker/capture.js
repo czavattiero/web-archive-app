@@ -14,6 +14,15 @@ const supabase = createClient(
 const FROM_EMAIL = process.env.FROM_EMAIL || "Timedshot <noreply@timedshot.ca>"
 let resendClient = null
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&#39;")
+}
+
 function calculateNextCapture(scheduleType) {
   const now = DateTime.now().setZone("America/Edmonton")
   let next = now.plus({ days: 1 }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
@@ -105,16 +114,8 @@ async function sendFailureEmail(item, errorMessage) {
 
     const userEmail = userData.user.email
     const captureHostname = new URL(item.url).hostname
-    const safeErrorMessage = String(errorMessage || "Unknown error")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-    const safeUrl = String(item.url || "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll("\"", "&quot;")
-      .replaceAll("'", "&#39;")
+    const safeErrorMessage = escapeHtml(errorMessage || "Unknown error")
+    const safeUrl = escapeHtml(item.url)
 
     const html = `
 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
