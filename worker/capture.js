@@ -105,11 +105,22 @@ async function sendFailureEmail(item, errorMessage) {
 
     const userEmail = userData.user.email
     let captureHostname = "unknown-host"
+    let captureHref = "#"
     try {
-      captureHostname = new URL(item.url).hostname
+      const parsedUrl = new URL(item.url)
+      captureHostname = parsedUrl.hostname
+      if (parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:") {
+        captureHref = parsedUrl.toString()
+      }
     } catch {
-      console.warn(`⚠️ Invalid URL while preparing failure email subject: ${item.url}`)
+      console.warn("⚠️ Invalid URL while preparing failure email")
     }
+    const safeCaptureHref = captureHref
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll("\"", "&quot;")
+      .replaceAll("'", "&#39;")
     const safeCaptureUrl = String(item.url || "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
@@ -130,7 +141,7 @@ async function sendFailureEmail(item, errorMessage) {
   </div>
   <h2 style="font-size:24px;font-weight:700;margin-bottom:12px;color:#111;">Capture failed ⚠️</h2>
   <p style="font-size:15px;color:#555;margin-bottom:12px;">
-    We were unable to capture <a href="${safeCaptureUrl}" style="color:#6A11CB;">${safeCaptureUrl}</a>.
+    We were unable to capture <a href="${safeCaptureHref}" style="color:#6A11CB;">${safeCaptureUrl}</a>.
   </p>
   <p style="font-size:15px;color:#555;margin-bottom:12px;">
     <strong>Reason:</strong> ${safeErrorMessage}
