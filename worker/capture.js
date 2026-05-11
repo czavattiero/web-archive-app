@@ -105,6 +105,12 @@ async function sendFailureEmail(item, errorMessage) {
 
     const userEmail = userData.user.email
     const captureHostname = new URL(item.url).hostname
+    const safeCaptureUrl = String(item.url || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll("\"", "&quot;")
+      .replaceAll("'", "&#39;")
     const safeErrorMessage = String(errorMessage || "Unknown error")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
@@ -119,7 +125,7 @@ async function sendFailureEmail(item, errorMessage) {
   </div>
   <h2 style="font-size:24px;font-weight:700;margin-bottom:12px;color:#111;">Capture failed ⚠️</h2>
   <p style="font-size:15px;color:#555;margin-bottom:12px;">
-    We were unable to capture <a href="${item.url}" style="color:#6A11CB;">${item.url}</a>.
+    We were unable to capture <a href="${safeCaptureUrl}" style="color:#6A11CB;">${safeCaptureUrl}</a>.
   </p>
   <p style="font-size:15px;color:#555;margin-bottom:12px;">
     <strong>Reason:</strong> ${safeErrorMessage}
