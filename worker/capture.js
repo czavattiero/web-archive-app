@@ -182,10 +182,15 @@ async function handleRetry(item, captureMode, errorMessage) {
 
           const userEmail = userData.user.email
           const captureHostname = new URL(item.url).hostname
-          const safeErrorMessage = String(errorMessage || "Unknown error")
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
+          const escapeHtml = (value) =>
+            String(value)
+              .replaceAll("&", "&amp;")
+              .replaceAll("<", "&lt;")
+              .replaceAll(">", "&gt;")
+              .replaceAll('"', "&quot;")
+              .replaceAll("'", "&#x27;")
+          const safeUrl = escapeHtml(item.url)
+          const safeErrorMessage = escapeHtml(errorMessage || "Unknown error")
           const nextStepsHtml = nextStatus === "active" && nextCaptureAt
             ? `We will try again on <strong>${DateTime.fromISO(nextCaptureAt)
                 .setZone("America/Edmonton")
@@ -201,7 +206,7 @@ async function handleRetry(item, captureMode, errorMessage) {
   </div>
   <h2 style="font-size:24px;font-weight:700;margin-bottom:12px;color:#111;">Capture failed ⚠️</h2>
   <p style="font-size:15px;color:#555;margin-bottom:12px;">
-    We were unable to capture <a href="${item.url}" style="color:#6A11CB;">${item.url}</a> after multiple attempts.
+    We were unable to capture <a href="${safeUrl}" style="color:#6A11CB;">${safeUrl}</a> after multiple attempts.
   </p>
   <p style="font-size:15px;color:#555;margin-bottom:12px;">
     <strong>Reason:</strong> ${safeErrorMessage}
