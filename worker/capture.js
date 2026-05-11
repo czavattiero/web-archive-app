@@ -86,7 +86,71 @@ const EXTENDED_RETRY_DELAYS = [
 ]
 const MAX_RETRIES = EXTENDED_RETRY_DELAYS.length // 3
 
-async function handleRetry(item, captureMode, errorMessage) {
+async function sendFailureEmail(item, errorMessage) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("⚠️ RESEND_API_KEY not set — skipping failure email")
+    return
+  }
+
+  try {
+    if (!resendClient) {
+      resendClient = new Resend(process.env.RESEND_API_KEY)
+    }
+    const { data: userData, error: userError } =
+      await supabase.auth.admin.getUserById(item.user_id)
+
+    if (userError || !userData?.user?.email) {
+      throw new Error(userError?.message || `Missing email for user ${item.user_id}`)
+    }
+
+    const userEmail = userData.user.email
+    const captureHostname = new URL(item.url).hostname
+    const safeErrorMessage = String(errorMessage || "Unknown error")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+
+    const html = `
+<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
+  <div style="text-align:center;margin-bottom:32px;">
+    <div style="background:linear-gradient(135deg,#6A11CB,#FF7A00);display:inline-block;padding:12px 28px;border-radius:12px;">
+      <span style="color:white;font-size:22px;font-weight:700;letter-spacing:-0.5px;">Timedshot</span>
+    </div>
+  </div>
+  <h2 style="font-size:24px;font-weight:700;margin-bottom:12px;color:#111;">Capture failed ⚠️</h2>
+  <p style="font-size:15px;color:#555;margin-bottom:12px;">
+    We were unable to capture <a href="${item.url}" style="color:#6A11CB;">${item.url}</a>.
+  </p>
+  <p style="font-size:15px;color:#555;margin-bottom:12px;">
+    <strong>Reason:</strong> ${safeErrorMessage}
+  </p>
+  <p style="font-size:15px;color:#555;margin-bottom:28px;">
+    Our system will automatically retry the capture. You will be notified if it continues to fail.
+  </p>
+  <hr style="border:none;border-top:1px solid #eee;margin:28px 0;">
+  <p style="font-size:12px;color:#aaa;text-align:center;">
+    This is an automated message from Timedshot.
+  </p>
+</div>`
+
+    const { error: emailError } = await resendClient.emails.send({
+      from: FROM_EMAIL,
+      to: userEmail,
+      subject: `⚠️ Capture failed – ${captureHostname}`,
+      html,
+    })
+
+    if (emailError) {
+      throw new Error(emailError.message || JSON.stringify(emailError))
+    }
+
+    console.log(`✉️ Failure email sent to ${userEmail}`)
+  } catch (emailErr) {
+    console.error(`❌ Failed to send failure email: ${emailErr.message}`)
+  }
+}
+
+async function handleRetry(item, captureMode) {
   const { data: urlRecord, error: fetchError } = await supabase
     .from("urls")
     .select("retry_count")
@@ -165,72 +229,6 @@ async function handleRetry(item, captureMode, errorMessage) {
       console.error("❌ Failed to schedule next capture for URL", item.id, updateError.message)
     } else {
       console.log(`⚠️ All retries exhausted for ${item.url}. Next capture: ${nextCaptureAt}`)
-
-      if (!process.env.RESEND_API_KEY) {
-        console.warn("⚠️ RESEND_API_KEY not set — skipping failure email")
-      } else {
-        try {
-          if (!resendClient) {
-            resendClient = new Resend(process.env.RESEND_API_KEY)
-          }
-          const { data: userData, error: userError } =
-            await supabase.auth.admin.getUserById(item.user_id)
-
-          if (userError || !userData?.user?.email) {
-            throw new Error(userError?.message || `Missing email for user ${item.user_id}`)
-          }
-
-          const userEmail = userData.user.email
-          const captureHostname = new URL(item.url).hostname
-          const safeErrorMessage = String(errorMessage || "Unknown error")
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-          const nextStepsHtml = nextStatus === "active" && nextCaptureAt
-            ? `We will try again on <strong>${DateTime.fromISO(nextCaptureAt)
-                .setZone("America/Edmonton")
-                .toFormat("MMM d, yyyy, h:mm a")}</strong> (America/Edmonton).`
-            : "No further captures are scheduled for this URL."
-
-          const html = `
-<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
-  <div style="text-align:center;margin-bottom:32px;">
-    <div style="background:linear-gradient(135deg,#6A11CB,#FF7A00);display:inline-block;padding:12px 28px;border-radius:12px;">
-      <span style="color:white;font-size:22px;font-weight:700;letter-spacing:-0.5px;">Timedshot</span>
-    </div>
-  </div>
-  <h2 style="font-size:24px;font-weight:700;margin-bottom:12px;color:#111;">Capture failed ⚠️</h2>
-  <p style="font-size:15px;color:#555;margin-bottom:12px;">
-    We were unable to capture <a href="${item.url}" style="color:#6A11CB;">${item.url}</a> after multiple attempts.
-  </p>
-  <p style="font-size:15px;color:#555;margin-bottom:12px;">
-    <strong>Reason:</strong> ${safeErrorMessage}
-  </p>
-  <p style="font-size:15px;color:#555;margin-bottom:28px;">
-    ${nextStepsHtml}
-  </p>
-  <hr style="border:none;border-top:1px solid #eee;margin:28px 0;">
-  <p style="font-size:12px;color:#aaa;text-align:center;">
-    This is an automated message from Timedshot.
-  </p>
-</div>`
-
-          const { error: emailError } = await resendClient.emails.send({
-            from: FROM_EMAIL,
-            to: userEmail,
-            subject: `⚠️ Capture failed – ${captureHostname}`,
-            html,
-          })
-
-          if (emailError) {
-            throw new Error(emailError.message || JSON.stringify(emailError))
-          }
-
-          console.log(`✉️ Failure email sent to ${userEmail}`)
-        } catch (emailErr) {
-          console.error(`❌ Failed to send failure email: ${emailErr.message}`)
-        }
-      }
     }
   }
 }
@@ -372,15 +370,17 @@ async function runWorker() {
         await captureWithRetry(page, item.url)
       } catch (err) {
         console.error("❌ Page load failed:", err.message)
+        const errorMessage = "Page load failed: " + err.message
 
         await supabase.from("captures").insert({
           url_id: item.id,
           user_id: item.user_id,
           status: "failed",
-          error: "Page load failed: " + err.message,
+          error: errorMessage,
         })
 
-        await handleRetry(item, captureMode, "Page load failed: " + err.message)
+        await sendFailureEmail(item, errorMessage)
+        await handleRetry(item, captureMode)
 
         await page.close()
         continue
@@ -424,15 +424,17 @@ async function runWorker() {
 
       if (uploadError) {
         console.error("❌ Upload error:", uploadError)
+        const errorMessage = "Upload failed: " + uploadError.message
 
         await supabase.from("captures").insert({
           url_id: item.id,
           user_id: item.user_id,
           status: "failed",
-          error: "Upload failed: " + uploadError.message,
+          error: errorMessage,
         })
 
-        await handleRetry(item, captureMode, "Upload failed: " + uploadError.message)
+        await sendFailureEmail(item, errorMessage)
+        await handleRetry(item, captureMode)
 
         await page.close()
         continue
@@ -551,15 +553,17 @@ async function runWorker() {
 
     } catch (err) {
       console.error("❌ Capture failed:", err.message)
+      const errorMessage = err.message
 
       await supabase.from("captures").insert({
         url_id: item.id,
         user_id: item.user_id,
         status: "failed",
-        error: err.message,
+        error: errorMessage,
       })
 
-      await handleRetry(item, captureMode, err.message)
+      await sendFailureEmail(item, errorMessage)
+      await handleRetry(item, captureMode)
     }
 
     await page.close()
