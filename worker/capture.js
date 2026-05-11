@@ -44,11 +44,11 @@ async function captureWithRetry(page, url, maxRetries = 3) {
 
     try {
       await page.goto(url, {
-        waitUntil: "domcontentloaded",
-        timeout: 30000,
+        waitUntil: "networkidle",
+        timeout: 60000,
       })
 
-      await page.waitForTimeout(5000)
+      await page.waitForTimeout(8000)
 
       const content = await page.content()
 
@@ -61,6 +61,17 @@ async function captureWithRetry(page, url, maxRetries = 3) {
           continue
         } else {
           throw new Error("Blocked by Cloudflare")
+        }
+      }
+
+      const bodyText = await page.evaluate(() => document.body?.innerText?.trim() ?? "")
+      if (bodyText.length < MIN_BODY_TEXT_LENGTH) {
+        console.log(`⚠️ Page appears empty or blocked (body text: ${bodyText.length} chars)`)
+        if (attempt < maxRetries) {
+          await page.waitForTimeout(EMPTY_BODY_RETRY_DELAY_MS)
+          continue
+        } else {
+          throw new Error("Page rendered with no content — possible bot block or login wall")
         }
       }
 
@@ -78,6 +89,9 @@ async function captureWithRetry(page, url, maxRetries = 3) {
     }
   }
 }
+
+const MIN_BODY_TEXT_LENGTH = 200
+const EMPTY_BODY_RETRY_DELAY_MS = 10000
 
 const EXTENDED_RETRY_DELAYS = [
   5 * 60 * 1000,   // 5 minutes
@@ -378,6 +392,14 @@ async function runWorker() {
         Object.defineProperty(navigator, "languages", {
           get: () => ["en-US", "en"],
         })
+        Object.defineProperty(navigator, "permissions", {
+          get: () => ({
+            query: () => Promise.resolve({ state: "granted" }),
+          }),
+        })
+        Object.defineProperty(screen, "colorDepth", { get: () => 24 })
+        Object.defineProperty(navigator, "hardwareConcurrency", { get: () => 8 })
+        Object.defineProperty(navigator, "deviceMemory", { get: () => 8 })
       })
 
       console.log("🌍 Opening page...")
