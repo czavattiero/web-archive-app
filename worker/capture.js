@@ -109,6 +109,12 @@ async function sendFailureEmail(item, errorMessage) {
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;")
+    const safeUrl = String(item.url || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll("\"", "&quot;")
+      .replaceAll("'", "&#39;")
 
     const html = `
 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
@@ -119,13 +125,13 @@ async function sendFailureEmail(item, errorMessage) {
   </div>
   <h2 style="font-size:24px;font-weight:700;margin-bottom:12px;color:#111;">Capture failed ⚠️</h2>
   <p style="font-size:15px;color:#555;margin-bottom:12px;">
-    We encountered an issue capturing <a href="${item.url}" style="color:#6A11CB;">${item.url}</a>.
+    We encountered an issue capturing <a href="${safeUrl}" style="color:#6A11CB;">${safeUrl}</a>.
   </p>
   <p style="font-size:15px;color:#555;margin-bottom:12px;">
     <strong>Reason:</strong> ${safeErrorMessage}
   </p>
   <p style="font-size:15px;color:#555;margin-bottom:28px;">
-    We will automatically retry this capture. You'll be notified if the capture ultimately succeeds.
+    We will automatically retry this capture in the background.
   </p>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0;">
   <p style="font-size:12px;color:#aaa;text-align:center;">
