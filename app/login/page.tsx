@@ -88,6 +88,14 @@ export default function LoginPage() {
     setLoading(false)
   }
 
+  async function handleContinueToDashboard() {
+    try {
+      await goToDashboard()
+    } catch {
+      setLoginError("Could not continue to dashboard. Please try logging in again.")
+    }
+  }
+
   return (
     <main
       style={{
@@ -132,9 +140,7 @@ export default function LoginPage() {
             </p>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
               <button
-                onClick={() => {
-                  void goToDashboard()
-                }}
+                onClick={handleContinueToDashboard}
                 style={{
                   background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
                   color: "#fff",
