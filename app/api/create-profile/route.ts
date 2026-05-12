@@ -38,7 +38,16 @@ export async function POST(req: Request) {
   }
 
   const { userId, email, plan, trialEndsAt } = body
-  if (!userId || !email || !plan || !trialEndsAt) {
+  if (
+    typeof userId !== "string" ||
+    typeof email !== "string" ||
+    typeof plan !== "string" ||
+    typeof trialEndsAt !== "string" ||
+    !userId ||
+    !email ||
+    !plan ||
+    !trialEndsAt
+  ) {
     return NextResponse.json({ error: "userId, email, plan, and trialEndsAt are required" }, { status: 400 })
   }
 
