@@ -26,6 +26,7 @@ export async function middleware(req: NextRequest) {
         retryUrl.searchParams.set("confirmed", "true")
         retryUrl.searchParams.set("plan", "trial")
         retryUrl.searchParams.set("_pf_attempt", String(attempt + 1))
+        // Hint for /signup to wait briefly before re-checking profile propagation.
         retryUrl.searchParams.set("_delay", "1")
         return NextResponse.redirect(retryUrl)
       }

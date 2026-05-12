@@ -21,6 +21,8 @@ const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+const PROFILE_AUTO_REPAIR_TRIAL_DAYS = 15
+const MS_PER_DAY = 24 * 60 * 60 * 1000
 
 function parseCookieHeader(cookieHeader: string | null): Map<string, string> {
   const cookies = new Map<string, string>()
@@ -111,13 +113,16 @@ async function getProfileById(userId: string): Promise<ProfileRow | null> {
 
 async function autoRepairMissingProfile(userId: string): Promise<void> {
   try {
+    const existingProfile = await getProfileById(userId)
+    if (existingProfile) return
+
     const { data: authUserData, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(userId)
     if (authUserError || !authUserData?.user) {
       console.warn("⚠️ Failed to load auth user for profile auto-repair:", userId, authUserError?.message ?? "not_found")
       return
     }
 
-    const trialEndsAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString()
+    const trialEndsAt = new Date(Date.now() + PROFILE_AUTO_REPAIR_TRIAL_DAYS * MS_PER_DAY).toISOString()
     const { error: upsertError } = await supabaseAdmin
       .from("profiles")
       .upsert(
