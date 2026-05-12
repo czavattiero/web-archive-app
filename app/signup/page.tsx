@@ -97,6 +97,7 @@ export default function SignupPage() {
 
         window.location.href = data.url
       } else {
+        let profileReady = false
         for (let attempt = 0; attempt < PROFILE_READY_MAX_RETRIES; attempt++) {
           const { data: profile, error: profileError } = await supabase
             .from("profiles")
@@ -104,7 +105,10 @@ export default function SignupPage() {
             .eq("id", user.id)
             .maybeSingle()
 
-          if (profile?.id) break
+          if (profile?.id) {
+            profileReady = true
+            break
+          }
           if (profileError) {
             console.warn("Profile readiness check failed:", profileError.message)
           }
@@ -112,6 +116,9 @@ export default function SignupPage() {
           if (attempt < PROFILE_READY_MAX_RETRIES - 1) {
             await new Promise(resolve => setTimeout(resolve, PROFILE_READY_RETRY_DELAY_MS))
           }
+        }
+        if (!profileReady) {
+          console.warn("Profile readiness check exhausted retries; redirecting to /dashboard anyway")
         }
         window.location.href = "/dashboard"
       }
