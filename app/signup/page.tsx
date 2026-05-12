@@ -104,7 +104,7 @@ export default function SignupPage() {
             .eq("id", user.id)
             .maybeSingle()
 
-          if (!profileError && profile?.id) break
+          if (profile?.id) break
           if (profileError) {
             console.warn("Profile readiness check failed:", profileError.message)
           }
