@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 const ALLOWED_PLANS = new Set(["trial", "basic", "pro"])
 
 export async function POST(req: Request) {
-  const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization") ?? ""
+  const authHeader = req.headers.get("authorization") ?? ""
   if (!authHeader.toLowerCase().startsWith("bearer ")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
@@ -64,7 +64,8 @@ export async function POST(req: Request) {
     )
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error("Create profile upsert error:", error)
+    return NextResponse.json({ error: "Failed to create profile" }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true })
