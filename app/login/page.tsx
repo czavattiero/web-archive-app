@@ -38,9 +38,17 @@ export default function LoginPage() {
     checkSession()
   }, [router, searchParams])
 
-  async function goToDashboard() {
-    const { data: sessionData } = await supabase.auth.getSession()
-    const token = sessionData.session?.access_token
+  async function goToDashboard(accessToken?: string) {
+    let token = accessToken
+    if (!token) {
+      for (let attempt = 0; attempt < 3 && !token; attempt++) {
+        const { data: sessionData } = await supabase.auth.getSession()
+        token = sessionData.session?.access_token
+        if (!token && attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 150))
+        }
+      }
+    }
     if (token) {
       document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; ${getCookieAttributes(3600)}`
     }
@@ -63,7 +71,7 @@ export default function LoginPage() {
     setLoading(true)
     setLoginError("")
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     })
@@ -74,7 +82,7 @@ export default function LoginPage() {
       return
     }
 
-    await goToDashboard()
+    await goToDashboard(data.session?.access_token)
     setLoading(false)
   }
 
@@ -122,7 +130,9 @@ export default function LoginPage() {
             </p>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
               <button
-                onClick={goToDashboard}
+                onClick={() => {
+                  void goToDashboard()
+                }}
                 style={{
                   background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
                   color: "#fff",
