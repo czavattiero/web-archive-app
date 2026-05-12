@@ -105,6 +105,9 @@ export default function SignupPage() {
             .maybeSingle()
 
           if (!profileError && profile?.id) break
+          if (profileError) {
+            console.warn("Profile readiness check failed:", profileError.message)
+          }
 
           if (attempt < PROFILE_READY_MAX_RETRIES - 1) {
             await new Promise(resolve => setTimeout(resolve, PROFILE_READY_RETRY_DELAY_MS))
