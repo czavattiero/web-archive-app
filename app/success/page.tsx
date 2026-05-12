@@ -24,7 +24,10 @@ export default function SuccessPage() {
     async function verify() {
 
       const sessionId = params.get("session_id")
-      const { data: sessionData } = await supabase.auth.getSession()
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) {
+        console.error("Failed to load Supabase session on success page:", sessionError)
+      }
       const token = sessionData.session?.access_token
       if (token) {
         document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; ${getCookieAttributes(3600)}`
