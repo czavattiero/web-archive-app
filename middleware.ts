@@ -5,7 +5,7 @@ import { getAuthenticatedUserFromRequest, getBillingAccessDecision } from "./lib
 // Maximum number of times the middleware will redirect to /signup when a
 // profile row is not yet visible (e.g. replication lag). After this many
 // attempts the user is sent to an error page instead of looping forever.
-const MAX_PROFILE_SETUP_RETRIES = 2
+const MAX_PROFILE_SETUP_RETRIES = 5
 
 export async function middleware(req: NextRequest) {
   if (req.nextUrl.pathname.startsWith("/dashboard")) {
@@ -26,6 +26,8 @@ export async function middleware(req: NextRequest) {
         retryUrl.searchParams.set("confirmed", "true")
         retryUrl.searchParams.set("plan", "trial")
         retryUrl.searchParams.set("_pf_attempt", String(attempt + 1))
+        // Hint for /signup to wait briefly before re-checking profile propagation.
+        retryUrl.searchParams.set("_delay", "1")
         return NextResponse.redirect(retryUrl)
       }
       return NextResponse.redirect(new URL("/choose-plan", req.url))

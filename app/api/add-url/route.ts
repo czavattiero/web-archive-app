@@ -45,10 +45,18 @@ export async function POST(req: Request) {
         { status: 403 }
       )
     }
-    return NextResponse.json(
-      { error: "Profile not found" },
-      { status: 404 }
-    )
+    if (billingDecision.reason === "profile_not_found") {
+      console.warn("⚠️ add-url blocked by missing profile after billing check", {
+        userId: authUser.id,
+        reason: billingDecision.reason,
+      })
+      return NextResponse.json(
+        { error: "Profile not found" },
+        { status: 404 }
+      )
+    }
+    // Defensive fallback if new denial reasons are added in billingAccess.
+    return NextResponse.json({ error: "Access denied" }, { status: 403 })
   }
 
   const ownerId: string = billingDecision.ownerId!
