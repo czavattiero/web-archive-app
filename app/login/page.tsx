@@ -35,8 +35,9 @@ export default function LoginPage() {
         setExistingUser({ email: data.user.email ?? "" })
         try {
           await goToDashboard()
-        } catch {
+        } catch (error) {
           // Fallback: keep banner visible so user can continue manually.
+          console.error("Auto-redirect to dashboard failed:", error)
         }
         return
       }
