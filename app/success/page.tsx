@@ -2,10 +2,17 @@
 
 import { useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import { supabase } from "../../lib/supabase"
 
 const VERIFY_MAX_RETRIES = 5
 const VERIFY_RETRY_DELAY_MS = 2000
 const VERIFY_REQUEST_TIMEOUT_MS = 8000
+const ACCESS_TOKEN_COOKIE = "sb-access-token"
+
+function getCookieAttributes(maxAgeSeconds: number) {
+  const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; secure" : ""
+  return `path=/; max-age=${maxAgeSeconds}; samesite=lax${secure}`
+}
 
 export default function SuccessPage() {
 
@@ -17,6 +24,14 @@ export default function SuccessPage() {
     async function verify() {
 
       const sessionId = params.get("session_id")
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) {
+        console.error("Failed to load Supabase session on success page:", sessionError)
+      }
+      const token = sessionData?.session?.access_token
+      if (token) {
+        document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; ${getCookieAttributes(3600)}`
+      }
 
       if (!sessionId) {
         router.push("/dashboard")
@@ -31,7 +46,8 @@ export default function SuccessPage() {
           const res = await fetch("/api/verify-session", {
             method: "POST",
             headers: {
-              "Content-Type": "application/json"
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
             body: JSON.stringify({
               session_id: sessionId
