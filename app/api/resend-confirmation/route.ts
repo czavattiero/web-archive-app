@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     }
 
     const safePlan = VALID_PLANS.has(plan) ? plan : "trial"
-    const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/signup?confirmed=true&plan=${safePlan}`
+    const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?plan=${safePlan}`
 
     // ── Resend path ───────────────────────────────────────────────────────────
     if (process.env.RESEND_API_KEY) {

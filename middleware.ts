@@ -12,6 +12,9 @@ export async function middleware(req: NextRequest) {
     const fromPayment = req.nextUrl.searchParams.get("fromPayment") === "true"
     const billingDecision = await getBillingAccessDecision(authUser.id)
     if (!billingDecision.allowed && !fromPayment) {
+      if (billingDecision.reason === "profile_not_found") {
+        return NextResponse.redirect(new URL("/signup?confirmed=true&plan=trial", req.url))
+      }
       return NextResponse.redirect(new URL("/choose-plan", req.url))
     }
   }
