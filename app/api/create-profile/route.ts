@@ -64,7 +64,11 @@ export async function POST(req: Request) {
     )
 
   if (error) {
-    console.error("Create profile upsert error:", { message: error.message, code: error.code })
+    if (process.env.NODE_ENV !== "production") {
+      console.error("Create profile upsert error:", { message: error.message, code: error.code })
+    } else {
+      console.error("Create profile upsert error")
+    }
     return NextResponse.json({ error: "Failed to create profile" }, { status: 500 })
   }
 
