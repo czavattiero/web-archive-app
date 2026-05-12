@@ -37,8 +37,9 @@ export default function SignupPage() {
   // Guarded by completedRef so it runs at most once even if both the
   // eager session check and the auth-state listener fire.
   const completeSetup = useCallback(async (user: { id: string; email?: string | null }, accessToken?: string) => {
-    if (completedRef.current) return
+    if (completedRef.current || sessionStorage.getItem("profile_setup_complete") === "true") return
     completedRef.current = true
+    sessionStorage.setItem("profile_setup_complete", "true")
 
     setLoading(true)
     setError("")
@@ -50,6 +51,7 @@ export default function SignupPage() {
         token = sessionData.session?.access_token
       }
       if (!token) {
+        sessionStorage.removeItem("profile_setup_complete")
         setError("Session expired. Please log in again.")
         setLoading(false)
         return
@@ -70,6 +72,7 @@ export default function SignupPage() {
       if (!profileRes.ok) {
         const profileData = await profileRes.json()
         console.error("Profile creation error:", profileData.error)
+        sessionStorage.removeItem("profile_setup_complete")
         setError("Failed to create profile")
         setLoading(false)
         return
@@ -84,6 +87,7 @@ export default function SignupPage() {
         const data = await res.json()
 
         if (!data.url) {
+          sessionStorage.removeItem("profile_setup_complete")
           setError("Checkout failed")
           setLoading(false)
           return
@@ -98,6 +102,7 @@ export default function SignupPage() {
       }
     } catch (err) {
       console.error("Post-confirmation error:", err)
+      sessionStorage.removeItem("profile_setup_complete")
       setError("Something went wrong")
       setLoading(false)
     }
