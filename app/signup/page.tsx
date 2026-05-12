@@ -31,7 +31,7 @@ export default function SignupPage() {
   // Shared post-confirmation setup: upsert profile then redirect.
   // Guarded by completedRef so it runs at most once even if both the
   // eager session check and the auth-state listener fire.
-  const completeSetup = useCallback(async (user: { id: string; email?: string | null }) => {
+  const completeSetup = useCallback(async (user: { id: string; email?: string | null }, accessToken?: string) => {
     if (completedRef.current) return
     completedRef.current = true
 
@@ -39,8 +39,11 @@ export default function SignupPage() {
     setError("")
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession()
-      const token = sessionData.session?.access_token
+      let token = accessToken
+      if (!token) {
+        const { data: sessionData } = await supabase.auth.getSession()
+        token = sessionData.session?.access_token
+      }
       if (!token) {
         setError("Session expired. Please log in again.")
         setLoading(false)
@@ -110,7 +113,7 @@ export default function SignupPage() {
       // Eagerly check for an existing session first.
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
-        completeSetup(session.user)
+        completeSetup(session.user, session.access_token)
         return
       }
 
@@ -118,7 +121,7 @@ export default function SignupPage() {
       const { data } = supabase.auth.onAuthStateChange(async (event, s) => {
         if (event === "SIGNED_IN" && s?.user) {
           subRef.current?.unsubscribe()
-          completeSetup(s.user)
+          completeSetup(s.user, s.access_token)
         }
       })
       subRef.current = data.subscription
