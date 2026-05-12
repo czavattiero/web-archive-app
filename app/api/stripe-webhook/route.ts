@@ -227,6 +227,8 @@ if (event.type === "invoice.payment_succeeded") {
 
       const priceId = subscription.items.data[0]?.price?.id
       const plan = priceId === process.env.STRIPE_PRO_PRICE_ID ? "pro" : "basic"
+      // Only active/trialing users are treated as subscribed for app access.
+      // All other statuses (past_due, unpaid, canceled, incomplete, etc.) are denied.
       const isSubscribed = subscription.status === "active" || subscription.status === "trialing"
 
       await supabase

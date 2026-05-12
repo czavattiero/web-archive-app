@@ -26,9 +26,12 @@ function parseCookieHeader(cookieHeader: string | null): Map<string, string> {
   const cookies = new Map<string, string>()
   if (!cookieHeader) return cookies
   for (const part of cookieHeader.split(";")) {
-    const [rawName, ...rawValue] = part.trim().split("=")
-    if (!rawName) continue
-    cookies.set(rawName, rawValue.join("="))
+    const trimmed = part.trim()
+    const separatorIndex = trimmed.indexOf("=")
+    if (separatorIndex <= 0) continue
+    const name = trimmed.slice(0, separatorIndex)
+    const value = trimmed.slice(separatorIndex + 1)
+    cookies.set(name, value)
   }
   return cookies
 }

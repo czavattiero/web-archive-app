@@ -4,12 +4,6 @@ import { getAuthenticatedUserFromRequest, getBillingAccessDecision } from "./lib
 
 export async function middleware(req: NextRequest) {
   if (req.nextUrl.pathname.startsWith("/dashboard")) {
-    const fromPayment = req.nextUrl.searchParams.get("fromPayment") === "true"
-    const sessionId = req.nextUrl.searchParams.get("session_id")
-    if (fromPayment && sessionId) {
-      return NextResponse.next()
-    }
-
     const authUser = await getAuthenticatedUserFromRequest(req)
     if (!authUser) {
       return NextResponse.redirect(new URL("/login", req.url))

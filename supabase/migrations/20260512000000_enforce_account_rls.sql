@@ -22,14 +22,30 @@ CREATE POLICY profiles_update_own_record ON public.profiles
   USING (id = auth.uid())
   WITH CHECK (
     id = auth.uid()
-    AND (parent_user_id IS NULL OR parent_user_id = auth.uid())
+    AND (
+      parent_user_id IS NULL
+      OR EXISTS (
+        SELECT 1
+        FROM public.profiles parent
+        WHERE parent.id = parent_user_id
+          AND parent.parent_user_id IS NULL
+      )
+    )
   );
 
 CREATE POLICY profiles_insert_own_record ON public.profiles
   FOR INSERT
   WITH CHECK (
     id = auth.uid()
-    AND (parent_user_id IS NULL OR parent_user_id = auth.uid())
+    AND (
+      parent_user_id IS NULL
+      OR EXISTS (
+        SELECT 1
+        FROM public.profiles parent
+        WHERE parent.id = parent_user_id
+          AND parent.parent_user_id IS NULL
+      )
+    )
   );
 
 DROP POLICY IF EXISTS urls_select_account_members ON public.urls;

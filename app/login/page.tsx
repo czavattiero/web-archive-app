@@ -17,6 +17,11 @@ export default function LoginPage() {
   const [loginError, setLoginError] = useState("")
   const [existingUser, setExistingUser] = useState<{ email: string } | null>(null)
 
+  function getCookieAttributes(maxAgeSeconds: number) {
+    const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; secure" : ""
+    return `path=/; max-age=${maxAgeSeconds}; samesite=lax${secure}`
+  }
+
   useEffect(() => {
     async function checkSession() {
       const { data } = await supabase.auth.getUser()
@@ -37,7 +42,7 @@ export default function LoginPage() {
     const { data: sessionData } = await supabase.auth.getSession()
     const token = sessionData.session?.access_token
     if (token) {
-      document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=3600; samesite=lax`
+      document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; ${getCookieAttributes(3600)}`
     }
 
     // Always navigate to dashboard — all billing gates (subscribed check,
@@ -134,7 +139,7 @@ export default function LoginPage() {
               <button
                 onClick={async () => {
                   await supabase.auth.signOut()
-                  document.cookie = `${ACCESS_TOKEN_COOKIE}=; path=/; max-age=0; samesite=lax`
+                  document.cookie = `${ACCESS_TOKEN_COOKIE}=; ${getCookieAttributes(0)}`
                   setExistingUser(null)
                 }}
                 style={{

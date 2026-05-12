@@ -11,13 +11,18 @@ export default function ChoosePlanPage() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState<string | null>(null)
 
+  function getCookieAttributes(maxAgeSeconds: number) {
+    const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; secure" : ""
+    return `path=/; max-age=${maxAgeSeconds}; samesite=lax${secure}`
+  }
+
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) { router.replace("/signup"); return }
       const { data: sessionData } = await supabase.auth.getSession()
       const token = sessionData.session?.access_token
       if (token) {
-        document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=3600; samesite=lax`
+        document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; ${getCookieAttributes(3600)}`
       }
       setUser(data.user)
     })

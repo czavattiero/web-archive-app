@@ -23,6 +23,11 @@ export default function SignupPage() {
   const [resendMessage, setResendMessage] = useState("")
   const completedRef = useRef(false)
 
+  function getCookieAttributes(maxAgeSeconds: number) {
+    const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; secure" : ""
+    return `path=/; max-age=${maxAgeSeconds}; samesite=lax${secure}`
+  }
+
   // Shared post-confirmation setup: upsert profile then redirect.
   // Guarded by completedRef so it runs at most once even if both the
   // eager session check and the auth-state listener fire.
@@ -57,7 +62,7 @@ export default function SignupPage() {
           setLoading(false)
           return
         }
-        document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=3600; samesite=lax`
+        document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; ${getCookieAttributes(3600)}`
 
         const res = await fetch("/api/checkout", {
           method: "POST",
@@ -77,7 +82,7 @@ export default function SignupPage() {
         const { data: sessionData } = await supabase.auth.getSession()
         const token = sessionData.session?.access_token
         if (token) {
-          document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=3600; samesite=lax`
+          document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; ${getCookieAttributes(3600)}`
         }
         window.location.href = "/dashboard"
       }

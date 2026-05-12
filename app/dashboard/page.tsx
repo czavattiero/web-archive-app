@@ -51,9 +51,14 @@ export default function Dashboard() {
     return sessionData.session?.access_token ?? null
   }
 
+  function getCookieAttributes(maxAgeSeconds: number) {
+    const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; secure" : ""
+    return `path=/; max-age=${maxAgeSeconds}; samesite=lax${secure}`
+  }
+
   function persistAccessTokenCookie(token: string | null) {
     if (!token) return
-    document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=3600; samesite=lax`
+    document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; ${getCookieAttributes(3600)}`
   }
 
   async function getAuthorizedHeaders(contentTypeJson = true) {
@@ -529,7 +534,7 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    document.cookie = `${ACCESS_TOKEN_COOKIE}=; path=/; max-age=0; samesite=lax`
+    document.cookie = `${ACCESS_TOKEN_COOKIE}=; ${getCookieAttributes(0)}`
     // Preserve disclaimer acknowledgement flags so the modal doesn't re-appear on next login
     const disclaimerEntries = Object.keys(localStorage)
       .filter((key) => key.startsWith("disclaimer_acknowledged_"))
