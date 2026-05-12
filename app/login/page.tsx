@@ -6,7 +6,7 @@ import { supabase } from "../../lib/supabase"
 
 const ACCESS_TOKEN_COOKIE = "sb-access-token"
 const MAX_SESSION_RETRY_ATTEMPTS = 3
-const SESSION_RETRY_DELAY_MS = 150
+const SESSION_RETRY_DELAY_MILLISECONDS = 150
 
 export default function LoginPage() {
 
@@ -47,7 +47,7 @@ export default function LoginPage() {
         const { data: sessionData } = await supabase.auth.getSession()
         token = sessionData.session?.access_token
         if (!token && attempt < MAX_SESSION_RETRY_ATTEMPTS - 1) {
-          await new Promise((resolve) => setTimeout(resolve, SESSION_RETRY_DELAY_MS))
+          await new Promise((resolve) => setTimeout(resolve, SESSION_RETRY_DELAY_MILLISECONDS))
         }
       }
     }
@@ -91,8 +91,9 @@ export default function LoginPage() {
   async function handleContinueToDashboard() {
     try {
       await goToDashboard()
-    } catch {
-      setLoginError("Could not continue to dashboard. Please try logging in again.")
+    } catch (error) {
+      console.error("Continue to dashboard failed:", error)
+      setLoginError("Your session could not be restored. Please log in again.")
     }
   }
 
