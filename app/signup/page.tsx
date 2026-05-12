@@ -39,31 +39,35 @@ export default function SignupPage() {
     setError("")
 
     try {
-      const { error: upsertError } = await supabase.from("profiles").upsert({
-        id: user.id,
-        email: user.email,
-        subscribed: false,
-        plan: safePlan,
-        trial_ends_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      if (!token) {
+        setError("Session expired. Please log in again.")
+        setLoading(false)
+        return
+      }
+      document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; ${getCookieAttributes(3600)}`
+
+      const profileRes = await fetch("/api/create-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          userId: user.id,
+          email: user.email,
+          plan: safePlan,
+          trialEndsAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+        }),
       })
 
-      if (upsertError) {
-        console.error("Profile upsert error:", upsertError)
+      if (!profileRes.ok) {
+        const profileData = await profileRes.json()
+        console.error("Profile creation error:", profileData.error)
         setError("Failed to create profile")
         setLoading(false)
         return
       }
 
       if (safePlan === "basic" || safePlan === "pro") {
-        const { data: sessionData } = await supabase.auth.getSession()
-        const token = sessionData.session?.access_token
-        if (!token) {
-          setError("Session expired. Please log in again.")
-          setLoading(false)
-          return
-        }
-        document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; ${getCookieAttributes(3600)}`
-
         const res = await fetch("/api/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -79,11 +83,6 @@ export default function SignupPage() {
 
         window.location.href = data.url
       } else {
-        const { data: sessionData } = await supabase.auth.getSession()
-        const token = sessionData.session?.access_token
-        if (token) {
-          document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; ${getCookieAttributes(3600)}`
-        }
         window.location.href = "/dashboard"
       }
     } catch (err) {
