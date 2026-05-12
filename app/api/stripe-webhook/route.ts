@@ -89,6 +89,7 @@ export async function POST(req: Request) {
       const profileUpdate: Record<string, unknown> = {
         stripe_customer_id: customerId,
         subscribed: true,
+        trial_ends_at: null,
         plan,
       }
       if (!existingProfile?.subscription_started_at) {
@@ -207,6 +208,7 @@ if (event.type === "invoice.payment_succeeded") {
   const invoiceProfileUpdate: Record<string, unknown> = {
     subscribed: true,
     stripe_customer_id: customerId,
+    trial_ends_at: null,
     plan,
   }
   if (!existingProfileInvoice?.subscription_started_at) {
@@ -240,7 +242,11 @@ if (event.type === "invoice.payment_succeeded") {
 
       await supabase
         .from("profiles")
-        .update({ plan, subscribed: isSubscribed })
+        .update({
+          plan,
+          subscribed: isSubscribed,
+          ...(isSubscribed ? { trial_ends_at: null } : {}),
+        })
         .eq("stripe_customer_id", subscription.customer as string)
     }
 

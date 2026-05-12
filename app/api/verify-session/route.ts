@@ -134,6 +134,7 @@ export async function POST(req: Request) {
     const profileUpsertData: Record<string, unknown> = {
       id: userId,
       subscribed: true,
+      trial_ends_at: null,
       stripe_customer_id: customerId,
       plan,
     }
@@ -174,7 +175,7 @@ export async function POST(req: Request) {
     if (profileError) {
       const { error: minimalUpdateError } = await supabase
         .from("profiles")
-        .update({ subscribed: true, plan })
+        .update({ subscribed: true, trial_ends_at: null, plan })
         .eq("id", userId)
       if (!minimalUpdateError) {
         console.log(`Full profile upsert failed but minimal update (subscribed + plan) succeeded for user ${userId}`)
