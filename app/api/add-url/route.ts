@@ -45,6 +45,10 @@ export async function POST(req: Request) {
         { status: 403 }
       )
     }
+    console.warn("⚠️ add-url blocked by missing profile after billing check", {
+      userId: authUser.id,
+      reason: billingDecision.reason,
+    })
     return NextResponse.json(
       { error: "Profile not found" },
       { status: 404 }

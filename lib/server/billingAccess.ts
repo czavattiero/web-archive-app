@@ -109,8 +109,44 @@ async function getProfileById(userId: string): Promise<ProfileRow | null> {
   return (data as ProfileRow | null) ?? null
 }
 
+async function autoRepairMissingProfile(userId: string): Promise<void> {
+  try {
+    const { data: authUserData, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(userId)
+    if (authUserError || !authUserData?.user) {
+      console.warn("⚠️ Failed to load auth user for profile auto-repair:", userId, authUserError?.message ?? "not_found")
+      return
+    }
+
+    const trialEndsAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString()
+    const { error: upsertError } = await supabaseAdmin
+      .from("profiles")
+      .upsert(
+        {
+          id: userId,
+          email: authUserData.user.email ?? null,
+          plan: "trial",
+          subscribed: false,
+          trial_ends_at: trialEndsAt,
+        },
+        { onConflict: "id", ignoreDuplicates: false }
+      )
+
+    if (upsertError) {
+      console.warn("⚠️ Failed to auto-repair missing profile:", userId, upsertError.message)
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn("⚠️ Unexpected profile auto-repair failure:", userId, message)
+  }
+}
+
 export async function getBillingAccessDecision(userId: string): Promise<BillingAccessDecision> {
-  const userProfile = await getProfileById(userId)
+  let userProfile = await getProfileById(userId)
+  if (!userProfile) {
+    await autoRepairMissingProfile(userId)
+    userProfile = await getProfileById(userId)
+  }
+
   if (!userProfile) {
     return {
       allowed: false,
