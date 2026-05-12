@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
 const ACCESS_TOKEN_COOKIE = "sb-access-token"
+const MAX_SESSION_RETRY_ATTEMPTS = 3
+const SESSION_RETRY_DELAY_MS = 150
 
 export default function LoginPage() {
 
@@ -41,11 +43,11 @@ export default function LoginPage() {
   async function goToDashboard(accessToken?: string) {
     let token = accessToken
     if (!token) {
-      for (let attempt = 0; attempt < 3 && !token; attempt++) {
+      for (let attempt = 0; attempt < MAX_SESSION_RETRY_ATTEMPTS && !token; attempt++) {
         const { data: sessionData } = await supabase.auth.getSession()
         token = sessionData.session?.access_token
-        if (!token && attempt < 2) {
-          await new Promise((resolve) => setTimeout(resolve, 150))
+        if (!token && attempt < MAX_SESSION_RETRY_ATTEMPTS - 1) {
+          await new Promise((resolve) => setTimeout(resolve, SESSION_RETRY_DELAY_MS))
         }
       }
     }
