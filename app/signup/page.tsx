@@ -6,10 +6,8 @@ import { supabase } from "../../lib/supabase"
 
 const ACCESS_TOKEN_COOKIE = "sb-access-token"
 
-// How long to wait (ms) after creating a profile before redirecting to /dashboard.
-// This gives Supabase time to propagate the new row to the replica that the
-// middleware reads, preventing a profile_not_found redirect loop.
-const DB_PROPAGATION_DELAY_MS = 800
+const PROFILE_READY_MAX_RETRIES = 5
+const PROFILE_READY_RETRY_DELAY_MS = 500
 
 export default function SignupPage() {
 
@@ -37,7 +35,11 @@ export default function SignupPage() {
   // Guarded by completedRef so it runs at most once even if both the
   // eager session check and the auth-state listener fire.
   const completeSetup = useCallback(async (user: { id: string; email?: string | null }, accessToken?: string) => {
-    if (completedRef.current || sessionStorage.getItem("profile_setup_complete") === "true") return
+    if (completedRef.current) return
+    if (sessionStorage.getItem("profile_setup_complete") === "true") {
+      window.location.href = "/dashboard"
+      return
+    }
     completedRef.current = true
     sessionStorage.setItem("profile_setup_complete", "true")
 
@@ -95,9 +97,29 @@ export default function SignupPage() {
 
         window.location.href = data.url
       } else {
-        // Wait briefly for DB propagation before redirecting, to avoid the
-        // middleware reading a stale replica and triggering a redirect loop.
-        await new Promise(resolve => setTimeout(resolve, DB_PROPAGATION_DELAY_MS))
+        let profileReady = false
+        for (let attempt = 0; attempt < PROFILE_READY_MAX_RETRIES; attempt++) {
+          const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("id", user.id)
+            .maybeSingle()
+
+          if (profile?.id) {
+            profileReady = true
+            break
+          }
+          if (profileError) {
+            console.warn("Profile readiness check failed:", profileError.message)
+          }
+
+          if (attempt < PROFILE_READY_MAX_RETRIES - 1) {
+            await new Promise(resolve => setTimeout(resolve, PROFILE_READY_RETRY_DELAY_MS))
+          }
+        }
+        if (!profileReady) {
+          console.warn("Profile readiness check exhausted retries; redirecting to /dashboard anyway")
+        }
         window.location.href = "/dashboard"
       }
     } catch (err) {
