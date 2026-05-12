@@ -6,6 +6,11 @@ import { supabase } from "../../lib/supabase"
 
 const ACCESS_TOKEN_COOKIE = "sb-access-token"
 
+// How long to wait (ms) after creating a profile before redirecting to /dashboard.
+// This gives Supabase time to propagate the new row to the replica that the
+// middleware reads, preventing a profile_not_found redirect loop.
+const DB_PROPAGATION_DELAY_MS = 800
+
 export default function SignupPage() {
 
   const searchParams = useSearchParams()
@@ -86,6 +91,9 @@ export default function SignupPage() {
 
         window.location.href = data.url
       } else {
+        // Wait briefly for DB propagation before redirecting, to avoid the
+        // middleware reading a stale replica and triggering a redirect loop.
+        await new Promise(resolve => setTimeout(resolve, DB_PROPAGATION_DELAY_MS))
         window.location.href = "/dashboard"
       }
     } catch (err) {
