@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
+import { getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../../lib/server/billingAccess"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
@@ -12,7 +13,24 @@ const supabase = createClient(
 )
 
 export async function POST(req: Request) {
+  const authUser = await getAuthenticatedUserFromRequest(req)
+  if (!authUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const { userId } = await req.json()
+  if (authUser.id !== userId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  const billingDecision = await getBillingAccessDecision(authUser.id)
+  if (!billingDecision.userProfile) {
+    return NextResponse.json({ error: "Profile not found" }, { status: 404 })
+  }
+
+  if (billingDecision.userProfile.parent_user_id) {
+    return NextResponse.json({ error: "Sub-users cannot manage billing" }, { status: 403 })
+  }
 
   const { data: profile } = await supabase
     .from("profiles")

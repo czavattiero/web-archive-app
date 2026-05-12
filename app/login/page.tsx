@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
+const ACCESS_TOKEN_COOKIE = "sb-access-token"
+
 export default function LoginPage() {
 
   const router = useRouter()
@@ -32,6 +34,12 @@ export default function LoginPage() {
   }, [router, searchParams])
 
   async function goToDashboard() {
+    const { data: sessionData } = await supabase.auth.getSession()
+    const token = sessionData.session?.access_token
+    if (token) {
+      document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=3600; samesite=lax`
+    }
+
     // Always navigate to dashboard — all billing gates (subscribed check,
     // expired trial, unpaid paid-plan, etc.) are enforced there with retry
     // logic. Duplicating the checks here creates stale-data races and misses
@@ -126,6 +134,7 @@ export default function LoginPage() {
               <button
                 onClick={async () => {
                   await supabase.auth.signOut()
+                  document.cookie = `${ACCESS_TOKEN_COOKIE}=; path=/; max-age=0; samesite=lax`
                   setExistingUser(null)
                 }}
                 style={{

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
+import { getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../../lib/server/billingAccess"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,20 +42,22 @@ function buildInviteEmailHtml(inviteUrl: string) {
 }
 
 export async function POST(req: Request) {
-  const authHeader = req.headers.get("Authorization") ?? ""
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : ""
-
-  if (!token) {
+  const authUser = await getAuthenticatedUserFromRequest(req)
+  if (!authUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { data: callerData, error: callerError } = await supabaseAdmin.auth.getUser(token)
+  const callerId = authUser.id
 
-  if (callerError || !callerData.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const billingDecision = await getBillingAccessDecision(callerId)
+  if (!billingDecision.allowed) {
+    return NextResponse.json({ error: "Access denied" }, { status: 403 })
   }
 
-  const callerId = callerData.user.id
+  if (billingDecision.userProfile?.parent_user_id) {
+    return NextResponse.json({ error: "Sub-users cannot invite other sub-users" }, { status: 403 })
+  }
+
   const { parentUserId, email } = await req.json()
 
   if (!parentUserId || !email) {

@@ -227,6 +227,7 @@ if (event.type === "invoice.payment_succeeded") {
 
       const priceId = subscription.items.data[0]?.price?.id
       const plan = priceId === process.env.STRIPE_PRO_PRICE_ID ? "pro" : "basic"
+      const isSubscribed = subscription.status === "active" || subscription.status === "trialing"
 
       await supabase
         .from("subscriptions")
@@ -237,8 +238,29 @@ if (event.type === "invoice.payment_succeeded") {
 
       await supabase
         .from("profiles")
-        .update({ plan })
+        .update({ plan, subscribed: isSubscribed })
         .eq("stripe_customer_id", subscription.customer as string)
+    }
+
+    // =====================================================
+    // ❌ INVOICE PAYMENT FAILED
+    // =====================================================
+    if (event.type === "invoice.payment_failed") {
+      const invoice = event.data.object as Stripe.Invoice
+      const customerId = invoice.customer as string
+      const subscriptionId = invoice.subscription as string | null
+
+      if (subscriptionId) {
+        await supabase
+          .from("subscriptions")
+          .update({ status: "past_due" })
+          .eq("stripe_subscription_id", subscriptionId)
+      }
+
+      await supabase
+        .from("profiles")
+        .update({ subscribed: false })
+        .eq("stripe_customer_id", customerId)
     }
 
     // =====================================================

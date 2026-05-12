@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server"
+import { getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../lib/server/billingAccess"
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
+    const authUser = await getAuthenticatedUserFromRequest(req)
+    if (!authUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const billingDecision = await getBillingAccessDecision(authUser.id)
+    if (!billingDecision.allowed) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    }
+
     console.log("🚀 Triggering GitHub workflow...")
 
     const url = `https://api.github.com/repos/${process.env.GITHUB_REPO}/actions/workflows/capture.yml/dispatches`
@@ -37,4 +48,3 @@ export async function POST() {
     )
   }
 }
-

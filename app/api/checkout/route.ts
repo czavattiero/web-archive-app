@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
+import { getAuthenticatedUserFromRequest } from "../../../lib/server/billingAccess"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -12,7 +13,16 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
+    const authUser = await getAuthenticatedUserFromRequest(req)
+    if (!authUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const { email, plan, userId: clientUserId } = await req.json()
+
+    if (!clientUserId || clientUserId !== authUser.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
 
     const priceId =
       plan === "pro"
@@ -23,27 +33,12 @@ export async function POST(req: Request) {
       throw new Error("Missing price ID")
     }
 
-    // 🔥 1. GET USER FROM PROFILES — try by userId first (most reliable),
-    //    then fall back to email for backward compatibility.
-    let profile: { id: string } | null = null
-
-    if (clientUserId) {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", clientUserId)
-        .maybeSingle()
-      profile = data
-    }
-
-    if (!profile) {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", email)
-        .maybeSingle()
-      profile = data
-    }
+    // 🔥 1. GET USER FROM PROFILES
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", clientUserId)
+      .maybeSingle()
 
     if (!profile) {
       throw new Error("User profile not found")

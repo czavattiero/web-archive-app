@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server"
+import { getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../lib/server/billingAccess"
 
 export async function POST(request: Request) {
   try {
+    const authUser = await getAuthenticatedUserFromRequest(request)
+    if (!authUser) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+
+    const billingDecision = await getBillingAccessDecision(authUser.id)
+    if (!billingDecision.allowed) {
+      return NextResponse.json({ success: false, error: "Access denied" }, { status: 403 })
+    }
+
     console.log("🚀 /api/capture endpoint called")
     console.log("GITHUB_TOKEN available:", !!process.env.GITHUB_TOKEN)
 

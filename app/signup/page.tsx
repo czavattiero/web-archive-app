@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
+const ACCESS_TOKEN_COOKIE = "sb-access-token"
+
 export default function SignupPage() {
 
   const searchParams = useSearchParams()
@@ -48,9 +50,18 @@ export default function SignupPage() {
       }
 
       if (safePlan === "basic" || safePlan === "pro") {
+        const { data: sessionData } = await supabase.auth.getSession()
+        const token = sessionData.session?.access_token
+        if (!token) {
+          setError("Session expired. Please log in again.")
+          setLoading(false)
+          return
+        }
+        document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=3600; samesite=lax`
+
         const res = await fetch("/api/checkout", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ email: user.email, plan: safePlan, userId: user.id }),
         })
         const data = await res.json()
@@ -63,6 +74,11 @@ export default function SignupPage() {
 
         window.location.href = data.url
       } else {
+        const { data: sessionData } = await supabase.auth.getSession()
+        const token = sessionData.session?.access_token
+        if (token) {
+          document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=3600; samesite=lax`
+        }
         window.location.href = "/dashboard"
       }
     } catch (err) {
