@@ -72,10 +72,12 @@ export default function SuccessPage() {
         }
       }
 
-      if (!confirmed) {
-        console.warn("verify-session did not confirm subscription after retries — redirecting anyway")
+      if (confirmed) {
+        router.push("/dashboard?fromPayment=true")
+      } else {
+        console.error("Subscription could not be confirmed after retries")
+        router.push("/choose-plan?error=payment_pending")
       }
-      router.push(`/dashboard?fromPayment=true&session_id=${encodeURIComponent(sessionId)}`)
 
     }
 
