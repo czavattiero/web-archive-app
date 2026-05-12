@@ -178,7 +178,7 @@ export async function POST(req: Request) {
     }
 
     const safePlan = VALID_PLANS.has(plan) ? plan : "trial"
-    const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/signup?confirmed=true&plan=${safePlan}`
+    const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?plan=${safePlan}`
 
     // ── Resend path: generateLink atomically creates the user + generates a
     //    confirmation link in one call, avoiding the double-create conflict. ──

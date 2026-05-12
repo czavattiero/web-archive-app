@@ -69,7 +69,7 @@ export async function POST(req: Request) {
         plan,
         trial_ends_at: trialEndsAt,
       },
-      { onConflict: "id" }
+      { onConflict: "id", ignoreDuplicates: false }
     )
 
   if (error) {
