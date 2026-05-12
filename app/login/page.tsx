@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
 const ACCESS_TOKEN_COOKIE = "sb-access-token"
+const MAX_SESSION_RETRY_ATTEMPTS = 3
+const SESSION_RETRY_DELAY_MS = 150
 
 export default function LoginPage() {
 
@@ -38,9 +40,17 @@ export default function LoginPage() {
     checkSession()
   }, [router, searchParams])
 
-  async function goToDashboard() {
-    const { data: sessionData } = await supabase.auth.getSession()
-    const token = sessionData.session?.access_token
+  async function goToDashboard(accessToken?: string) {
+    let token = accessToken
+    if (!token) {
+      for (let attempt = 0; attempt < MAX_SESSION_RETRY_ATTEMPTS && !token; attempt++) {
+        const { data: sessionData } = await supabase.auth.getSession()
+        token = sessionData.session?.access_token
+        if (!token && attempt < MAX_SESSION_RETRY_ATTEMPTS - 1) {
+          await new Promise((resolve) => setTimeout(resolve, SESSION_RETRY_DELAY_MS))
+        }
+      }
+    }
     if (token) {
       document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; ${getCookieAttributes(3600)}`
     }
@@ -63,7 +73,7 @@ export default function LoginPage() {
     setLoading(true)
     setLoginError("")
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     })
@@ -74,8 +84,16 @@ export default function LoginPage() {
       return
     }
 
-    await goToDashboard()
+    await goToDashboard(data.session?.access_token)
     setLoading(false)
+  }
+
+  async function handleContinueToDashboard() {
+    try {
+      await goToDashboard()
+    } catch {
+      setLoginError("Could not continue to dashboard. Please try logging in again.")
+    }
   }
 
   return (
@@ -122,7 +140,7 @@ export default function LoginPage() {
             </p>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
               <button
-                onClick={goToDashboard}
+                onClick={handleContinueToDashboard}
                 style={{
                   background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
                   color: "#fff",
