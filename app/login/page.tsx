@@ -33,6 +33,11 @@ export default function LoginPage() {
 
       if (data.user && !fromSignup) {
         setExistingUser({ email: data.user.email ?? "" })
+        try {
+          await goToDashboard()
+        } catch {
+          // Fallback: keep banner visible so user can continue manually.
+        }
         return
       }
     }
