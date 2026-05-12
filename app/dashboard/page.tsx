@@ -87,7 +87,7 @@ export default function Dashboard() {
 
         if (!data.user) {
           if (cancelled) return
-          router.replace("/signup")
+          router.replace("/login")
           return
         }
 
