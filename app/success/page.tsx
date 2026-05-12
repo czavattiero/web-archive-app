@@ -28,7 +28,7 @@ export default function SuccessPage() {
       if (sessionError) {
         console.error("Failed to load Supabase session on success page:", sessionError)
       }
-      const token = sessionData.session?.access_token
+      const token = sessionData?.session?.access_token
       if (token) {
         document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; ${getCookieAttributes(3600)}`
       }
