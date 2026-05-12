@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../lib/server/billingAccess"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,11 +8,29 @@ const supabaseAdmin = createClient(
 )
 
 export async function GET(req: Request) {
+  const authUser = await getAuthenticatedUserFromRequest(req)
+  if (!authUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const { searchParams } = new URL(req.url)
   const userId = searchParams.get("userId")
 
   if (!userId) {
     return NextResponse.json({ error: "userId is required" }, { status: 400 })
+  }
+
+  if (authUser.id !== userId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  const billingDecision = await getBillingAccessDecision(authUser.id)
+  if (!billingDecision.allowed) {
+    return NextResponse.json({ error: "Access denied" }, { status: 403 })
+  }
+
+  if (billingDecision.userProfile?.parent_user_id) {
+    return NextResponse.json({ error: "Sub-users cannot list team members" }, { status: 403 })
   }
 
   // Step 1: get already-linked sub-users from profiles.

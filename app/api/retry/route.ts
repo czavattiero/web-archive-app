@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { getAccountUserIds, getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../lib/server/billingAccess"
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,10 +8,31 @@ const supabase = createClient(
 )
 
 export async function POST(req: Request) {
+  const authUser = await getAuthenticatedUserFromRequest(req)
+  if (!authUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const billingDecision = await getBillingAccessDecision(authUser.id)
+  if (!billingDecision.allowed || !billingDecision.ownerId) {
+    return NextResponse.json({ error: "Access denied" }, { status: 403 })
+  }
+
   const { urlId } = await req.json()
 
   if (!urlId) {
     return NextResponse.json({ error: "Missing urlId" }, { status: 400 })
+  }
+
+  const accountUserIds = await getAccountUserIds(billingDecision.ownerId)
+  const { data: existingUrl } = await supabase
+    .from("urls")
+    .select("id, user_id")
+    .eq("id", urlId)
+    .maybeSingle()
+
+  if (!existingUrl || !accountUserIds.includes(existingUrl.user_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   const now = new Date().toISOString()

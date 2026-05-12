@@ -1,0 +1,178 @@
+import { createClient } from "@supabase/supabase-js"
+
+type ProfileRow = {
+  id: string
+  plan: string | null
+  subscribed: boolean | null
+  trial_ends_at: string | null
+  subscription_started_at?: string | null
+  parent_user_id?: string | null
+}
+
+export type BillingAccessDecision = {
+  allowed: boolean
+  reason: "ok" | "profile_not_found" | "trial_expired" | "payment_required"
+  ownerId: string | null
+  userProfile: ProfileRow | null
+  billingProfile: ProfileRow | null
+}
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+function parseCookieHeader(cookieHeader: string | null): Map<string, string> {
+  const cookies = new Map<string, string>()
+  if (!cookieHeader) return cookies
+  for (const part of cookieHeader.split(";")) {
+    const trimmed = part.trim()
+    const separatorIndex = trimmed.indexOf("=")
+    if (separatorIndex <= 0) continue
+    const name = trimmed.slice(0, separatorIndex)
+    const value = trimmed.slice(separatorIndex + 1)
+    cookies.set(name, value)
+  }
+  return cookies
+}
+
+function decodeCookieValue(value: string | undefined): string | null {
+  if (!value) return null
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
+function extractTokenFromSupabaseAuthCookie(raw: string | undefined): string | null {
+  const decoded = decodeCookieValue(raw)
+  if (!decoded) return null
+
+  try {
+    const parsed = JSON.parse(decoded)
+    if (typeof parsed === "string") return parsed
+    if (Array.isArray(parsed) && typeof parsed[0] === "string") return parsed[0]
+    if (parsed && typeof parsed === "object") {
+      if (typeof (parsed as { access_token?: unknown }).access_token === "string") {
+        return (parsed as { access_token: string }).access_token
+      }
+      if (typeof (parsed as { currentSession?: { access_token?: unknown } }).currentSession?.access_token === "string") {
+        return (parsed as { currentSession: { access_token: string } }).currentSession.access_token
+      }
+    }
+  } catch {
+    // no-op
+  }
+
+  return decoded || null
+}
+
+export function getAccessTokenFromRequest(req: Request): string | null {
+  const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization") ?? ""
+  if (authHeader.toLowerCase().startsWith("bearer ")) {
+    const bearer = authHeader.slice(7).trim()
+    if (bearer) return bearer
+  }
+
+  const cookies = parseCookieHeader(req.headers.get("cookie"))
+
+  const directToken = decodeCookieValue(cookies.get("sb-access-token"))
+  if (directToken) return directToken
+
+  for (const [name, value] of cookies.entries()) {
+    if (name.endsWith("-auth-token")) {
+      const token = extractTokenFromSupabaseAuthCookie(value)
+      if (token) return token
+    }
+  }
+
+  return null
+}
+
+export async function getAuthenticatedUserFromRequest(req: Request): Promise<{ id: string; token: string } | null> {
+  const token = getAccessTokenFromRequest(req)
+  if (!token) return null
+
+  const { data, error } = await supabaseAdmin.auth.getUser(token)
+  if (error || !data.user) return null
+
+  return { id: data.user.id, token }
+}
+
+async function getProfileById(userId: string): Promise<ProfileRow | null> {
+  const { data } = await supabaseAdmin
+    .from("profiles")
+    .select("id, plan, subscribed, trial_ends_at, subscription_started_at, parent_user_id")
+    .eq("id", userId)
+    .maybeSingle()
+  return (data as ProfileRow | null) ?? null
+}
+
+export async function getBillingAccessDecision(userId: string): Promise<BillingAccessDecision> {
+  const userProfile = await getProfileById(userId)
+  if (!userProfile) {
+    return {
+      allowed: false,
+      reason: "profile_not_found",
+      ownerId: null,
+      userProfile: null,
+      billingProfile: null,
+    }
+  }
+
+  const ownerId = userProfile.parent_user_id || userProfile.id
+  const billingProfile = ownerId === userProfile.id ? userProfile : await getProfileById(ownerId)
+
+  if (!billingProfile) {
+    return {
+      allowed: false,
+      reason: "profile_not_found",
+      ownerId,
+      userProfile,
+      billingProfile: null,
+    }
+  }
+
+  if (billingProfile.subscribed) {
+    return {
+      allowed: true,
+      reason: "ok",
+      ownerId,
+      userProfile,
+      billingProfile,
+    }
+  }
+
+  const hasActiveTrial =
+    billingProfile.plan === "trial" &&
+    !!billingProfile.trial_ends_at &&
+    new Date(billingProfile.trial_ends_at) >= new Date()
+
+  if (hasActiveTrial) {
+    return {
+      allowed: true,
+      reason: "ok",
+      ownerId,
+      userProfile,
+      billingProfile,
+    }
+  }
+
+  const reason = billingProfile.plan === "trial" ? "trial_expired" : "payment_required"
+  return {
+    allowed: false,
+    reason,
+    ownerId,
+    userProfile,
+    billingProfile,
+  }
+}
+
+export async function getAccountUserIds(ownerId: string): Promise<string[]> {
+  const { data: subUsers } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("parent_user_id", ownerId)
+  return [ownerId, ...(subUsers || []).map((u: { id: string }) => u.id)]
+}

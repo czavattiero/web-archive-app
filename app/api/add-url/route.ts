@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getQuotaWindowStart } from "../../../lib/quotaWindow"
+import { getAccountUserIds, getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../lib/server/billingAccess"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,6 +15,11 @@ const PLAN_LIMITS: Record<string, number> = {
 }
 
 export async function POST(req: Request) {
+  const authUser = await getAuthenticatedUserFromRequest(req)
+  if (!authUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const body = await req.json()
   const { userId, url, schedule_type, schedule_value, next_capture_at } = body
 
@@ -21,56 +27,38 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "userId and url are required" }, { status: 400 })
   }
 
-  // Get user plan (include parent_user_id to detect sub-users)
-  const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("plan, subscribed, trial_ends_at, parent_user_id, subscription_started_at")
-    .eq("id", userId)
-    .maybeSingle()
-
-  // If this is a sub-user, use the parent's plan and quota
-  const ownerId: string = profile?.parent_user_id || userId
-  let planProfile: any = profile
-
-  if (profile?.parent_user_id) {
-    const { data: parentProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("plan, subscribed, trial_ends_at, subscription_started_at")
-      .eq("id", ownerId)
-      .maybeSingle()
-    planProfile = parentProfile
+  if (authUser.id !== userId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
+  const billingDecision = await getBillingAccessDecision(authUser.id)
+  if (!billingDecision.allowed) {
+    if (billingDecision.reason === "trial_expired") {
+      return NextResponse.json(
+        { error: "The account's free trial has expired. Please choose a plan to continue.", trialExpired: true },
+        { status: 403 }
+      )
+    }
+    if (billingDecision.reason === "payment_required") {
+      return NextResponse.json(
+        { error: "Payment required. Please complete your subscription to add URLs.", paymentRequired: true },
+        { status: 403 }
+      )
+    }
+    return NextResponse.json(
+      { error: "Profile not found" },
+      { status: 404 }
+    )
+  }
+
+  const ownerId: string = billingDecision.ownerId!
+  const planProfile = billingDecision.billingProfile
   const plan: string = planProfile?.plan || "basic"
-
-  // Check trial expiry and payment — applies to all users (planProfile is the parent's profile for sub-users)
-  const isTrial = planProfile?.plan === "trial" && !planProfile?.subscribed
-  const trialExpired = isTrial && planProfile?.trial_ends_at && new Date(planProfile.trial_ends_at) < new Date()
-
-  if (trialExpired) {
-    return NextResponse.json(
-      { error: "The account's free trial has expired. Please choose a plan to continue.", trialExpired: true },
-      { status: 403 }
-    )
-  }
-
-  // basic/pro accounts must have completed payment before adding URLs
-  const isPaidPlan = planProfile?.plan === "basic" || planProfile?.plan === "pro"
-  if (isPaidPlan && !planProfile?.subscribed) {
-    return NextResponse.json(
-      { error: "Payment required. Please complete your subscription to add URLs.", paymentRequired: true },
-      { status: 403 }
-    )
-  }
 
   const limit = PLAN_LIMITS[plan] ?? 15
 
   // Collect all user IDs in this account (owner + sub-users) for shared quota
-  const { data: accountSubUsers } = await supabaseAdmin
-    .from("profiles")
-    .select("id")
-    .eq("parent_user_id", ownerId)
-  const accountUserIds: string[] = [ownerId, ...(accountSubUsers || []).map((u: any) => u.id)]
+  const accountUserIds = await getAccountUserIds(ownerId)
 
   // Count URLs added since the start of the current quota period across the whole account, excluding
   // those with ONLY failed captures (failed-only URLs do not consume a slot)

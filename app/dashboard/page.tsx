@@ -14,6 +14,7 @@ const SHORT_RETRY_DELAY_MS = 500
 const DASHBOARD_INIT_TIMEOUT_MS = 30000
 const MAX_AUTO_RETRIES = 3
 const VERIFY_REQUEST_TIMEOUT_MS = 8000
+const ACCESS_TOKEN_COOKIE = "sb-access-token"
 
 export default function Dashboard() {
   const router = useRouter()
@@ -44,6 +45,33 @@ export default function Dashboard() {
   const [captures, setCaptures] = useState<any[]>([])
   const [search, setSearch] = useState("")
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(true)
+
+  async function getAccessToken() {
+    const { data: sessionData } = await supabase.auth.getSession()
+    return sessionData.session?.access_token ?? null
+  }
+
+  function getCookieAttributes(maxAgeSeconds: number) {
+    const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; secure" : ""
+    return `path=/; max-age=${maxAgeSeconds}; samesite=lax${secure}`
+  }
+
+  function persistAccessTokenCookie(token: string | null) {
+    if (!token) return
+    document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; ${getCookieAttributes(3600)}`
+  }
+
+  async function getAuthorizedHeaders(contentTypeJson = true) {
+    const token = await getAccessToken()
+    if (!token) {
+      throw new Error("Session expired. Please log in again.")
+    }
+    persistAccessTokenCookie(token)
+    return {
+      ...(contentTypeJson ? { "Content-Type": "application/json" } : {}),
+      Authorization: `Bearer ${token}`,
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -76,6 +104,9 @@ export default function Dashboard() {
         if (cancelled) return
         setUser(data.user)
 
+        const currentToken = await getAccessToken()
+        persistAccessTokenCookie(currentToken)
+
         // Fetch user plan (include parent_user_id to detect sub-users)
         const { data: profile } = await supabase
           .from("profiles")
@@ -96,7 +127,7 @@ export default function Dashboard() {
           try {
             await fetch("/api/sub-users/link", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: await getAuthorizedHeaders(true),
               body: JSON.stringify({ userId: data.user.id, parentUserId: metaParentId }),
             })
             if (cancelled) return
@@ -306,7 +337,9 @@ export default function Dashboard() {
 
     // Fetch sub-users for parent accounts only
     if (!isSubUserRef.current) {
-      const subUsersRes = await fetch(`/api/sub-users?userId=${currentUser.id}`)
+      const subUsersRes = await fetch(`/api/sub-users?userId=${currentUser.id}`, {
+        headers: await getAuthorizedHeaders(false),
+      })
       if (subUsersRes.ok) {
         const { subUsers: fetchedSubUsers } = await subUsersRes.json()
         setSubUsers(fetchedSubUsers || [])
@@ -315,7 +348,9 @@ export default function Dashboard() {
 
     // Fetch aggregated URL count (owner + sub-users) from server-side API
     try {
-      const countRes = await fetch(`/api/account-url-count?userId=${currentUser.id}`)
+      const countRes = await fetch(`/api/account-url-count?userId=${currentUser.id}`, {
+        headers: await getAuthorizedHeaders(false),
+      })
       if (countRes.ok) {
         const { urlCount } = await countRes.json()
         setUrlCount30d(urlCount ?? 0)
@@ -333,9 +368,7 @@ export default function Dashboard() {
     try {
       const response = await fetch("/api/stripe/portal", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: await getAuthorizedHeaders(true),
         body: JSON.stringify({ userId: user?.id }),
       })
 
@@ -361,7 +394,7 @@ export default function Dashboard() {
     try {
       const response = await fetch("/api/upgrade", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthorizedHeaders(true),
         body: JSON.stringify({ userId: user?.id }),
       })
       const data = await response.json()
@@ -429,7 +462,7 @@ export default function Dashboard() {
       // Insert URL via server-side API (enforces plan limits)
       const addResponse = await fetch("/api/add-url", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthorizedHeaders(true),
         body: JSON.stringify({
           userId: user.id,
           url: url.trim(),
@@ -467,9 +500,7 @@ export default function Dashboard() {
         console.log("📤 Triggering capture workflow...")
         const response = await fetch("/api/capture", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: await getAuthorizedHeaders(true),
           body: JSON.stringify({}),
         })
 
@@ -503,6 +534,7 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
+    document.cookie = `${ACCESS_TOKEN_COOKIE}=; ${getCookieAttributes(0)}`
     // Preserve disclaimer acknowledgement flags so the modal doesn't re-appear on next login
     const disclaimerEntries = Object.keys(localStorage)
       .filter((key) => key.startsWith("disclaimer_acknowledged_"))
@@ -518,18 +550,10 @@ export default function Dashboard() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return alert("Please enter a valid email address")
     setInviteLoading(true)
     try {
-      const { data: sessionData } = await supabase.auth.getSession()
-      const accessToken = sessionData.session?.access_token
-      if (!accessToken) {
-        alert("Session expired. Please log in again.")
-        return
-      }
+      const inviteHeaders = await getAuthorizedHeaders(true)
       const res = await fetch("/api/sub-users/invite", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${accessToken}`,
-        },
+        headers: inviteHeaders,
         body: JSON.stringify({ parentUserId: user?.id, email: trimmed }),
       })
       const data = await res.json()

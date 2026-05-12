@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
+import { getAuthenticatedUserFromRequest } from "../../../lib/server/billingAccess"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
@@ -12,10 +13,19 @@ const supabase = createClient(
 )
 
 export async function POST(req: Request) {
+  const authUser = await getAuthenticatedUserFromRequest(req)
+  if (!authUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const { userId, priceId } = await req.json()
 
   if (!userId) {
     return NextResponse.json({ error: "userId is required" }, { status: 400 })
+  }
+
+  if (authUser.id !== userId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   const resolvedPriceId = priceId || process.env.STRIPE_PRO_PRICE_ID
