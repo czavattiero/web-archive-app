@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
 const ACCESS_TOKEN_COOKIE = "sb-access-token"
+const TRIAL_DURATION_MS = 15 * 24 * 60 * 60 * 1000
 
 function getCookieAttributes(maxAgeSeconds: number) {
   const secure =
@@ -57,9 +58,7 @@ export default function AccountSetupPage() {
             userId: user.id,
             email: user.email,
             plan: "trial",
-            trialEndsAt: new Date(
-              Date.now() + 15 * 24 * 60 * 60 * 1000
-            ).toISOString(),
+            trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS).toISOString(),
           }),
         })
 
