@@ -17,7 +17,8 @@ function getCookieAttributes(maxAgeSeconds: number) {
 export default function AccountSetupPage() {
   const searchParams = useSearchParams()
   const errorParam = searchParams.get("error")
-  const pfAttempt = parseInt(searchParams.get("_pf_attempt") ?? "1", 10)
+  const parsedPfAttempt = parseInt(searchParams.get("_pf_attempt") ?? "1", 10)
+  const pfAttempt = Number.isFinite(parsedPfAttempt) && parsedPfAttempt > 0 ? parsedPfAttempt : 1
 
   const [status, setStatus] = useState<"loading" | "error">("loading")
   const [errorMessage, setErrorMessage] = useState("")
