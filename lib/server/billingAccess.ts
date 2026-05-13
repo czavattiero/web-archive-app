@@ -103,11 +103,21 @@ export async function getAuthenticatedUserFromRequest(req: Request): Promise<{ i
 }
 
 async function getProfileById(userId: string): Promise<ProfileRow | null> {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("profiles")
-    .select("id, plan, subscribed, trial_ends_at, subscription_started_at, parent_user_id")
+    .select("id, plan, subscribed, trial_ends_at, parent_user_id")
     .eq("id", userId)
     .maybeSingle()
+
+  if (error) {
+    console.error("⚠️ getProfileById query error:", {
+      userId,
+      message: error.message,
+      code: error.code,
+    })
+    return null
+  }
+
   return (data as ProfileRow | null) ?? null
 }
 

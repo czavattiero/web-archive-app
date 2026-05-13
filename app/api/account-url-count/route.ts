@@ -38,7 +38,7 @@ export async function GET(req: Request) {
 
   const ownerId = billingDecision.ownerId!
   const plan = billingDecision.billingProfile?.plan || "basic"
-  const ownerSubscriptionStartedAt = billingDecision.billingProfile?.subscription_started_at
+  const ownerSubscriptionStartedAt = billingDecision.billingProfile?.subscription_started_at ?? null
 
   const limit = PLAN_LIMITS[plan] ?? 15
 
