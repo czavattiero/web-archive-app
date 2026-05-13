@@ -1,11 +1,40 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { Resend } from "resend"
 import { getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../lib/server/billingAccess"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
+const FROM_EMAIL = process.env.FROM_EMAIL || "Timedshot <noreply@timedshot.ca>"
+
+function buildAccountDeletedEmailHtml(): string {
+  return `
+<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
+  <div style="text-align:center;margin-bottom:32px;">
+    <div style="background:linear-gradient(135deg,#6A11CB,#FF7A00);display:inline-block;padding:12px 28px;border-radius:12px;">
+      <span style="color:white;font-size:22px;font-weight:700;letter-spacing:-0.5px;">Timedshot</span>
+    </div>
+  </div>
+  <h2 style="font-size:24px;font-weight:700;margin-bottom:12px;color:#111;">Your Timedshot account has been removed</h2>
+  <p style="font-size:15px;color:#555;margin-bottom:16px;">
+    Your Timedshot account has been removed by the account holder.
+  </p>
+  <p style="font-size:15px;color:#555;margin-bottom:16px;">
+    All your archived URLs and captures associated with this account have been deleted.
+  </p>
+  <p style="font-size:15px;color:#555;margin-bottom:28px;">
+    If you'd like to continue using Timedshot, you can sign up for a new account at
+    <a href="${process.env.NEXT_PUBLIC_SITE_URL || "https://timedshot.ca"}" style="color:#6A11CB;">${process.env.NEXT_PUBLIC_SITE_URL || "https://timedshot.ca"}</a>.
+  </p>
+  <hr style="border:none;border-top:1px solid #eee;margin:28px 0;">
+  <p style="font-size:12px;color:#aaa;text-align:center;">
+    This is an automated message from Timedshot. Please do not reply to this email.
+  </p>
+</div>`
+}
 
 export async function GET(req: Request) {
   const authUser = await getAuthenticatedUserFromRequest(req)
@@ -245,6 +274,30 @@ export async function DELETE(req: Request) {
       { error: profileDeleteError.message, step: "profile_delete", retryable: true },
       { status: 500 }
     )
+  }
+
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY)
+      const subUserEmail = authUserData.user.email
+      if (subUserEmail) {
+        const { error: emailError } = await resend.emails.send({
+          from: FROM_EMAIL,
+          to: subUserEmail,
+          subject: "Your Timedshot account has been removed",
+          html: buildAccountDeletedEmailHtml(),
+        })
+        if (emailError) {
+          console.error("Failed to send account deletion email:", JSON.stringify(emailError))
+        } else {
+          console.log(`✉️ Account deletion email sent to ${subUserEmail}`)
+        }
+      }
+    } catch (emailErr: any) {
+      console.error("Error sending account deletion email:", emailErr.message)
+    }
+  } else {
+    console.warn("⚠️ RESEND_API_KEY not set — skipping account deletion email")
   }
 
   const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(subUserId)
