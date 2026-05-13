@@ -9,6 +9,10 @@ type ProfileRow = {
   parent_user_id?: string | null
 }
 
+type SubscriptionStartedAtRow = {
+  subscription_started_at?: string | null
+}
+
 export type BillingAccessDecision = {
   allowed: boolean
   reason: "ok" | "profile_not_found" | "trial_expired" | "payment_required"
@@ -103,12 +107,41 @@ export async function getAuthenticatedUserFromRequest(req: Request): Promise<{ i
 }
 
 async function getProfileById(userId: string): Promise<ProfileRow | null> {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("profiles")
-    .select("id, plan, subscribed, trial_ends_at, subscription_started_at, parent_user_id")
+    .select("id, plan, subscribed, trial_ends_at, parent_user_id")
     .eq("id", userId)
     .maybeSingle()
+
+  if (error) {
+    console.error("⚠️ getProfileById query error:", {
+      userId,
+      message: error.message,
+      code: error.code,
+    })
+    return null
+  }
+
   return (data as ProfileRow | null) ?? null
+}
+
+async function getOptionalSubscriptionStartedAt(userId: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("subscription_started_at")
+    .eq("id", userId)
+    .maybeSingle()
+
+  if (error) {
+    console.warn("⚠️ Optional subscription_started_at lookup failed:", {
+      userId,
+      message: error.message,
+      code: error.code,
+    })
+    return null
+  }
+
+  return (data as SubscriptionStartedAtRow | null)?.subscription_started_at ?? null
 }
 
 async function autoRepairMissingProfile(userId: string): Promise<void> {
@@ -176,12 +209,17 @@ export async function getBillingAccessDecision(userId: string): Promise<BillingA
   }
 
   if (billingProfile.subscribed) {
+    const subscriptionStartedAt = await getOptionalSubscriptionStartedAt(ownerId)
+    const hydratedBillingProfile: ProfileRow = {
+      ...billingProfile,
+      subscription_started_at: subscriptionStartedAt,
+    }
     return {
       allowed: true,
       reason: "ok",
       ownerId,
       userProfile,
-      billingProfile,
+      billingProfile: hydratedBillingProfile,
     }
   }
 
