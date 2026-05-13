@@ -17,6 +17,7 @@ function getCookieAttributes(maxAgeSeconds: number) {
 export default function AccountSetupPage() {
   const searchParams = useSearchParams()
   const errorParam = searchParams.get("error")
+  const pfAttempt = parseInt(searchParams.get("_pf_attempt") ?? "1", 10)
 
   const [status, setStatus] = useState<"loading" | "error">("loading")
   const [errorMessage, setErrorMessage] = useState("")
@@ -94,7 +95,7 @@ export default function AccountSetupPage() {
         console.warn("Account setup — profile readiness check exhausted retries; redirecting to /dashboard anyway")
       }
 
-      window.location.href = "/dashboard"
+      window.location.href = `/dashboard?_pf_attempt=${pfAttempt}`
     }
 
     run().catch((err) => {
@@ -102,7 +103,7 @@ export default function AccountSetupPage() {
       setErrorMessage("We couldn't set up your account. Please contact support.")
       setStatus("error")
     })
-  }, [errorParam])
+  }, [errorParam, pfAttempt])
 
   return (
     <main style={{
