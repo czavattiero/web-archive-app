@@ -203,7 +203,14 @@ export async function DELETE(req: Request) {
       .from("captures")
       .remove(filePaths)
     if (storageDeleteError) {
-      console.warn("⚠️ Failed to remove some sub-user capture files:", storageDeleteError.message)
+      return NextResponse.json(
+        {
+          error: storageDeleteError.message,
+          step: "storage_cleanup",
+          retryable: true,
+        },
+        { status: 500 }
+      )
     }
   }
 
@@ -212,7 +219,10 @@ export async function DELETE(req: Request) {
     .delete()
     .eq("user_id", subUserId)
   if (capturesDeleteError) {
-    return NextResponse.json({ error: capturesDeleteError.message }, { status: 500 })
+    return NextResponse.json(
+      { error: capturesDeleteError.message, step: "captures_delete", retryable: true },
+      { status: 500 }
+    )
   }
 
   const { error: urlsDeleteError } = await supabaseAdmin
@@ -220,7 +230,10 @@ export async function DELETE(req: Request) {
     .delete()
     .eq("user_id", subUserId)
   if (urlsDeleteError) {
-    return NextResponse.json({ error: urlsDeleteError.message }, { status: 500 })
+    return NextResponse.json(
+      { error: urlsDeleteError.message, step: "urls_delete", retryable: true },
+      { status: 500 }
+    )
   }
 
   const { error: profileDeleteError } = await supabaseAdmin
@@ -228,12 +241,18 @@ export async function DELETE(req: Request) {
     .delete()
     .eq("id", subUserId)
   if (profileDeleteError) {
-    return NextResponse.json({ error: profileDeleteError.message }, { status: 500 })
+    return NextResponse.json(
+      { error: profileDeleteError.message, step: "profile_delete", retryable: true },
+      { status: 500 }
+    )
   }
 
   const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(subUserId)
   if (deleteUserError) {
-    return NextResponse.json({ error: deleteUserError.message }, { status: 500 })
+    return NextResponse.json(
+      { error: deleteUserError.message, step: "auth_delete", retryable: true },
+      { status: 500 }
+    )
   }
 
   return NextResponse.json({ success: true })
