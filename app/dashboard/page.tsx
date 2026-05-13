@@ -40,6 +40,7 @@ export default function Dashboard() {
   const [subUsers, setSubUsers] = useState<any[]>([])
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteLoading, setInviteLoading] = useState(false)
+  const [deletingSubUserId, setDeletingSubUserId] = useState<string | null>(null)
 
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
@@ -571,6 +572,34 @@ export default function Dashboard() {
     }
   }
 
+  async function handleDeleteSubUser(subUser: any) {
+    if (!user?.id) return
+    const confirmDelete = window.confirm(
+      `Delete sub-user ${subUser.email}?\n\nThis will permanently remove their account, scheduled URLs, and captures.`
+    )
+    if (!confirmDelete) return
+
+    setDeletingSubUserId(subUser.id)
+    try {
+      const deleteHeaders = await getAuthorizedHeaders(true)
+      const res = await fetch("/api/sub-users", {
+        method: "DELETE",
+        headers: deleteHeaders,
+        body: JSON.stringify({ parentUserId: user.id, subUserId: subUser.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        alert("Delete failed: " + (data.error || "Unknown error"))
+      } else {
+        await fetchData(user)
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message)
+    } finally {
+      setDeletingSubUserId(null)
+    }
+  }
+
   function getUrlById(id: string) {
     return urls.find((u) => u.id === id)
   }
@@ -782,11 +811,24 @@ export default function Dashboard() {
                 <div style={headerRow}>
                   <div style={{ flex: 3 }}>Email</div>
                   <div style={{ flex: 1 }}>Joined</div>
+                  <div style={{ flex: 1, textAlign: "right" }}>Actions</div>
                 </div>
                 {subUsers.map((su: any) => (
                   <div key={su.id} style={rowCard}>
                     <div style={{ flex: 3, fontSize: 13, color: "#111827" }}>{su.email}</div>
                     <div style={{ flex: 1 }}>{formatAlbertaTime(su.created_at)}</div>
+                    <div style={{ flex: 1, textAlign: "right" }}>
+                      <button
+                        onClick={() => handleDeleteSubUser(su)}
+                        disabled={deletingSubUserId === su.id}
+                        style={{
+                          ...buttonGhostDanger,
+                          ...(deletingSubUserId === su.id ? { opacity: 0.7, cursor: "not-allowed" } : {}),
+                        }}
+                      >
+                        {deletingSubUserId === su.id ? "Deleting..." : "Delete"}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </>
@@ -1046,6 +1088,17 @@ const buttonPrimary = {
   fontSize: 14,
   cursor: "pointer",
   whiteSpace: "nowrap" as const,
+}
+
+const buttonGhostDanger = {
+  background: "#fff",
+  color: "#B91C1C",
+  border: "1px solid #FECACA",
+  borderRadius: 8,
+  padding: "7px 12px",
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: "pointer",
 }
 
 const buttonSecondary = {
