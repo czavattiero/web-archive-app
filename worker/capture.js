@@ -38,6 +38,17 @@ function calculateNextCapture(scheduleType) {
   return next.toUTC().toISO()
 }
 
+// ✅ Constants moved before captureWithRetry so they are defined when the function runs
+const MIN_BODY_TEXT_LENGTH = 200
+const EMPTY_BODY_RETRY_DELAY_MS = 10000
+
+const EXTENDED_RETRY_DELAYS = [
+  5 * 60 * 1000,   // 5 minutes
+  10 * 60 * 1000,  // 10 minutes
+  15 * 60 * 1000,  // 15 minutes
+]
+const MAX_RETRIES = EXTENDED_RETRY_DELAYS.length // 3
+
 async function captureWithRetry(page, url, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     console.log(`🌐 Attempt ${attempt}: Opening ${url}`)
@@ -89,16 +100,6 @@ async function captureWithRetry(page, url, maxRetries = 3) {
     }
   }
 }
-
-const MIN_BODY_TEXT_LENGTH = 200
-const EMPTY_BODY_RETRY_DELAY_MS = 10000
-
-const EXTENDED_RETRY_DELAYS = [
-  5 * 60 * 1000,   // 5 minutes
-  10 * 60 * 1000,  // 10 minutes
-  15 * 60 * 1000,  // 15 minutes
-]
-const MAX_RETRIES = EXTENDED_RETRY_DELAYS.length // 3
 
 async function sendFailureEmail(item, errorMessage) {
   if (!process.env.RESEND_API_KEY) {
