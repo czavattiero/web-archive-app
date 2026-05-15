@@ -450,7 +450,8 @@ async function runWorker() {
         printBackground: true,
       })
 
-      const fileName = `${item.id}_${Date.now()}.pdf`
+      const dateFolder = DateTime.now().setZone("America/Edmonton").toFormat("yyyy-MM-dd")
+      const fileName = `${dateFolder}/${item.id}_${Date.now()}.pdf`
 
       console.log("📁 Uploading:", fileName)
 
