@@ -352,9 +352,8 @@ async function runWorker() {
   let browser
   if (process.env.BROWSERLESS_TOKEN) {
     console.log("🌐 Connecting to Browserless with stealth + residential proxy...")
-    browser = await chromium.connect(
-      `wss://production-sfo.browserless.io/chromium/stealth?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&proxyCountry=ca&solveCaptchas=true`,
-      { timeout: 30000 }
+    browser = await chromium.connectOverCDP(
+      `wss://production-sfo.browserless.io/chromium/stealth?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&proxyCountry=ca&solveCaptchas=true`
     )
     console.log("✅ Connected to Browserless")
   } else {
@@ -374,15 +373,24 @@ async function runWorker() {
   for (const item of urlsToCapture) {
     console.log("🔎 Capturing:", item.url)
 
-    // ✅ CHANGE 2: Both Browserless and local Playwright create a fresh context per URL
-    // chromium.connect() supports newContext() unlike connectOverCDP()
-    const context = await browser.newContext({
-      userAgent:
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-      viewport: { width: 1280, height: 800 },
-      locale: "en-US",
-      extraHTTPHeaders: { "accept-language": "en-US,en;q=0.9" },
-    })
+    let context
+    if (process.env.BROWSERLESS_TOKEN) {
+      context = browser.contexts()[0] ?? await browser.newContext({
+        userAgent:
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+        viewport: { width: 1280, height: 800 },
+        locale: "en-US",
+        extraHTTPHeaders: { "accept-language": "en-US,en;q=0.9" },
+      })
+    } else {
+      context = await browser.newContext({
+        userAgent:
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+        viewport: { width: 1280, height: 800 },
+        locale: "en-US",
+        extraHTTPHeaders: { "accept-language": "en-US,en;q=0.9" },
+      })
+    }
 
     const page = await context.newPage()
 
