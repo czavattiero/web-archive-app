@@ -345,22 +345,34 @@ async function runWorker() {
 
   console.log(`\n🚀 Starting capture of ${urlsToCapture.length} URL(s)...\n`)
 
-  // 🔥 Launch browser once — context created fresh per URL below
-  const browser = await chromium.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-blink-features=AutomationControlled",
-      "--disable-infobars",
-      "--window-size=1280,800",
-    ],
-  })
+  // ✅ CHANGE: Use Browserless if token is set, otherwise fall back to local Playwright
+  // This allows Indeed/Glassdoor captures to work via Browserless while
+  // existing university captures continue working exactly as before.
+  let browser
+  if (process.env.BROWSERLESS_TOKEN) {
+    console.log("🌐 Connecting to Browserless...")
+    browser = await chromium.connectOverCDP(
+      `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_TOKEN}`
+    )
+    console.log("✅ Connected to Browserless")
+  } else {
+    console.log("🖥️ Launching local Playwright browser...")
+    browser = await chromium.launch({
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-blink-features=AutomationControlled",
+        "--disable-infobars",
+        "--window-size=1280,800",
+      ],
+    })
+  }
 
   // Process each URL
   for (const item of urlsToCapture) {
     console.log("🔎 Capturing:", item.url)
 
-    // ✅ CHANGE: Fresh browser context per URL — prevents session/cookie bleed
+    // ✅ Fresh browser context per URL — prevents session/cookie bleed
     // between captures which can trigger bot detection on sites like UCalgary
     const context = await browser.newContext({
       userAgent:
@@ -596,7 +608,7 @@ async function runWorker() {
       await handleRetry(item, captureMode)
     }
 
-    // ✅ CHANGE: Close context after each URL — cleans up session completely
+    // ✅ Close context after each URL — cleans up session completely
     await context.close()
     await page.close()
   }
