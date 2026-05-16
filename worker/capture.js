@@ -54,13 +54,11 @@ async function captureWithRetry(page, url, maxRetries = 3) {
 
     try {
       await page.goto(url, {
-        // ✅ CHANGE: domcontentloaded instead of networkidle
-        // networkidle times out on Indeed/Glassdoor which never stop making requests
+        // domcontentloaded prevents timeouts on Indeed/Glassdoor
         waitUntil: "domcontentloaded",
         timeout: 60000,
       })
 
-      // Wait for page to fully render after initial load
       await page.waitForTimeout(8000)
 
       const content = await page.content()
@@ -348,12 +346,14 @@ async function runWorker() {
 
   console.log(`\n🚀 Starting capture of ${urlsToCapture.length} URL(s)...\n`)
 
-  // ✅ CHANGE 1: Use Browserless if token is set, otherwise fall back to local Playwright
+  // ✅ CHANGE 1: Use Browserless stealth + residential proxy + CAPTCHA solving
+  // Uses chromium.connect() (not connectOverCDP) with the /chromium/stealth path
+  // and the correct production-sfo endpoint
   let browser
   if (process.env.BROWSERLESS_TOKEN) {
-    console.log("🌐 Connecting to Browserless...")
-    browser = await chromium.connectOverCDP(
-      `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&proxyCountry=ca`
+    console.log("🌐 Connecting to Browserless with stealth + residential proxy...")
+    browser = await chromium.connect(
+      `wss://production-sfo.browserless.io/chromium/stealth?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&proxyCountry=ca&solveCaptchas=true&timeout=120000`
     )
     console.log("✅ Connected to Browserless")
   } else {
@@ -373,32 +373,20 @@ async function runWorker() {
   for (const item of urlsToCapture) {
     console.log("🔎 Capturing:", item.url)
 
-    // ✅ CHANGE 2: Browserless via CDP uses existing context;
-    // local Playwright creates a fresh context per URL to prevent session bleed
-    let context
-    let page
-    if (process.env.BROWSERLESS_TOKEN) {
-      context = browser.contexts()[0] || await browser.newContext({
-        userAgent:
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-        viewport: { width: 1280, height: 800 },
-        locale: "en-US",
-        extraHTTPHeaders: { "accept-language": "en-US,en;q=0.9" },
-      })
-      page = await context.newPage()
-    } else {
-      context = await browser.newContext({
-        userAgent:
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-        viewport: { width: 1280, height: 800 },
-        locale: "en-US",
-        extraHTTPHeaders: { "accept-language": "en-US,en;q=0.9" },
-      })
-      page = await context.newPage()
-    }
+    // ✅ CHANGE 2: Both Browserless and local Playwright create a fresh context per URL
+    // chromium.connect() supports newContext() unlike connectOverCDP()
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+      viewport: { width: 1280, height: 800 },
+      locale: "en-US",
+      extraHTTPHeaders: { "accept-language": "en-US,en;q=0.9" },
+    })
+
+    const page = await context.newPage()
 
     try {
-      // 🔥 Stealth patch
+      // 🔥 Stealth patch — extra layer on top of Browserless stealth
       await page.addInitScript(() => {
         Object.defineProperty(navigator, "webdriver", {
           get: () => false,
@@ -439,7 +427,7 @@ async function runWorker() {
         await handleRetry(item, captureMode)
 
         await page.close()
-        if (!process.env.BROWSERLESS_TOKEN) await context.close()
+        await context.close()
         continue
       }
 
@@ -493,7 +481,7 @@ async function runWorker() {
         await handleRetry(item, captureMode)
 
         await page.close()
-        if (!process.env.BROWSERLESS_TOKEN) await context.close()
+        await context.close()
         continue
       }
 
@@ -619,9 +607,9 @@ async function runWorker() {
       await handleRetry(item, captureMode)
     }
 
-    // Close page always; only close context for local Playwright
+    // ✅ Always close page and context after each URL
     await page.close()
-    if (!process.env.BROWSERLESS_TOKEN) await context.close()
+    await context.close()
   }
 
   await browser.close()
