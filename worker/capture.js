@@ -353,7 +353,8 @@ async function runWorker() {
   if (process.env.BROWSERLESS_TOKEN) {
     console.log("🌐 Connecting to Browserless with stealth + residential proxy...")
     browser = await chromium.connect(
-      `wss://production-sfo.browserless.io/chromium/stealth?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&proxyCountry=ca&solveCaptchas=true&timeout=120000`
+      `wss://production-sfo.browserless.io/chromium/stealth?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&proxyCountry=ca&solveCaptchas=true`,
+      { timeout: 30000 }
     )
     console.log("✅ Connected to Browserless")
   } else {
