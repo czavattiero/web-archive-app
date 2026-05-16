@@ -353,7 +353,7 @@ async function runWorker() {
   if (process.env.BROWSERLESS_TOKEN) {
     console.log("🌐 Connecting to Browserless...")
     browser = await chromium.connectOverCDP(
-      `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_TOKEN}`
+      `wss://chrome.browserless.io?token=${process.env.BROWSERLESS_TOKEN}&proxy=residential&proxyCountry=ca`
     )
     console.log("✅ Connected to Browserless")
   } else {
