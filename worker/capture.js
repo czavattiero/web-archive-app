@@ -373,24 +373,13 @@ async function runWorker() {
   for (const item of urlsToCapture) {
     console.log("🔎 Capturing:", item.url)
 
-    let context
-    if (process.env.BROWSERLESS_TOKEN) {
-      context = browser.contexts()[0] ?? await browser.newContext({
-        userAgent:
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-        viewport: { width: 1280, height: 800 },
-        locale: "en-US",
-        extraHTTPHeaders: { "accept-language": "en-US,en;q=0.9" },
-      })
-    } else {
-      context = await browser.newContext({
-        userAgent:
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-        viewport: { width: 1280, height: 800 },
-        locale: "en-US",
-        extraHTTPHeaders: { "accept-language": "en-US,en;q=0.9" },
-      })
-    }
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+      viewport: { width: 1280, height: 800 },
+      locale: "en-US",
+      extraHTTPHeaders: { "accept-language": "en-US,en;q=0.9" },
+    })
 
     const page = await context.newPage()
 
