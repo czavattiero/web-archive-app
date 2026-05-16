@@ -54,10 +54,13 @@ async function captureWithRetry(page, url, maxRetries = 3) {
 
     try {
       await page.goto(url, {
-        waitUntil: "networkidle",
+        // ✅ CHANGE: domcontentloaded instead of networkidle
+        // networkidle times out on Indeed/Glassdoor which never stop making requests
+        waitUntil: "domcontentloaded",
         timeout: 60000,
       })
 
+      // Wait for page to fully render after initial load
       await page.waitForTimeout(8000)
 
       const content = await page.content()
@@ -345,9 +348,7 @@ async function runWorker() {
 
   console.log(`\n🚀 Starting capture of ${urlsToCapture.length} URL(s)...\n`)
 
-  // ✅ CHANGE: Use Browserless if token is set, otherwise fall back to local Playwright
-  // This allows Indeed/Glassdoor captures to work via Browserless while
-  // existing university captures continue working exactly as before.
+  // ✅ CHANGE 1: Use Browserless if token is set, otherwise fall back to local Playwright
   let browser
   if (process.env.BROWSERLESS_TOKEN) {
     console.log("🌐 Connecting to Browserless...")
@@ -372,19 +373,29 @@ async function runWorker() {
   for (const item of urlsToCapture) {
     console.log("🔎 Capturing:", item.url)
 
-    // ✅ Fresh browser context per URL — prevents session/cookie bleed
-    // between captures which can trigger bot detection on sites like UCalgary
-    const context = await browser.newContext({
-      userAgent:
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-      viewport: { width: 1280, height: 800 },
-      locale: "en-US",
-      extraHTTPHeaders: {
-        "accept-language": "en-US,en;q=0.9",
-      },
-    })
-
-    const page = await context.newPage()
+    // ✅ CHANGE 2: Browserless via CDP uses existing context;
+    // local Playwright creates a fresh context per URL to prevent session bleed
+    let context
+    let page
+    if (process.env.BROWSERLESS_TOKEN) {
+      context = browser.contexts()[0] || await browser.newContext({
+        userAgent:
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+        viewport: { width: 1280, height: 800 },
+        locale: "en-US",
+        extraHTTPHeaders: { "accept-language": "en-US,en;q=0.9" },
+      })
+      page = await context.newPage()
+    } else {
+      context = await browser.newContext({
+        userAgent:
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+        viewport: { width: 1280, height: 800 },
+        locale: "en-US",
+        extraHTTPHeaders: { "accept-language": "en-US,en;q=0.9" },
+      })
+      page = await context.newPage()
+    }
 
     try {
       // 🔥 Stealth patch
@@ -427,8 +438,8 @@ async function runWorker() {
         await sendFailureEmail(item, errorMessage)
         await handleRetry(item, captureMode)
 
-        await context.close()
         await page.close()
+        if (!process.env.BROWSERLESS_TOKEN) await context.close()
         continue
       }
 
@@ -481,8 +492,8 @@ async function runWorker() {
         await sendFailureEmail(item, errorMessage)
         await handleRetry(item, captureMode)
 
-        await context.close()
         await page.close()
+        if (!process.env.BROWSERLESS_TOKEN) await context.close()
         continue
       }
 
@@ -608,9 +619,9 @@ async function runWorker() {
       await handleRetry(item, captureMode)
     }
 
-    // ✅ Close context after each URL — cleans up session completely
-    await context.close()
+    // Close page always; only close context for local Playwright
     await page.close()
+    if (!process.env.BROWSERLESS_TOKEN) await context.close()
   }
 
   await browser.close()
