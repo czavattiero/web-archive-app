@@ -38,7 +38,6 @@ function calculateNextCapture(scheduleType) {
   return next.toUTC().toISO()
 }
 
-// ✅ Constants moved before captureWithRetry so they are defined when the function runs
 const MIN_BODY_TEXT_LENGTH = 200
 const EMPTY_BODY_RETRY_DELAY_MS = 10000
 
@@ -214,13 +213,11 @@ async function handleRetry(item, captureMode) {
       console.log(`🔁 Extended retry ${newRetryCount}/${MAX_RETRIES} in ${delayMin} min scheduled for: ${retryAt}`)
     }
   } else {
-    // All retries exhausted — schedule next capture per the URL's schedule type
     let nextCaptureAt
     let nextStatus
 
     if (item.schedule_type === "custom") {
       if (captureMode === "IMMEDIATE") {
-        // IMMEDIATE capture failed — still schedule the chosen-date capture
         if (item.schedule_value) {
           const parsedDate = DateTime.fromISO(item.schedule_value, { zone: "America/Edmonton" })
           if (parsedDate.isValid) {
@@ -238,12 +235,10 @@ async function handleRetry(item, captureMode) {
           nextStatus = "completed"
         }
       } else {
-        // SCHEDULED capture failed — this was the chosen-date capture, we're done
         nextCaptureAt = null
         nextStatus = "completed"
       }
     } else {
-      // Recurring schedule — compute next capture date and stay active
       nextCaptureAt = calculateNextCapture(item.schedule_type)
       nextStatus = "active"
     }
@@ -277,9 +272,8 @@ async function runWorker() {
   let urlsToCapture = []
 
   if (captureMode === "IMMEDIATE") {
-    // Get all URLs that have NEVER been captured (last_captured_at = NULL)
     console.log("📋 Fetching URLs that need immediate capture...")
-    
+
     const { data: urls, error } = await supabase
       .from("urls")
       .select("*")
@@ -297,14 +291,13 @@ async function runWorker() {
     }
 
     console.log(`📦 Found ${urls.length} URL(s) needing immediate capture`)
-    
-    // 🔒 LOCK: Mark all URLs as being processed to prevent duplicate captures
+
     for (const url of urls) {
       console.log(`🔒 Locking URL: ${url.id}`)
       await supabase
         .from("urls")
         .update({
-          last_captured_at: new Date(Date.now() - 1000).toISOString(), // Set to 1 second ago as a "lock"
+          last_captured_at: new Date(Date.now() - 1000).toISOString(),
         })
         .eq("id", url.id)
     }
@@ -312,9 +305,8 @@ async function runWorker() {
     urlsToCapture = urls
 
   } else {
-    // SCHEDULED mode: capture URLs where next_capture_at has arrived
     console.log("📋 Fetching URLs due for scheduled capture...")
-    
+
     const { data: urls, error } = await supabase
       .from("urls")
       .select("*")
@@ -353,7 +345,7 @@ async function runWorker() {
 
   console.log(`\n🚀 Starting capture of ${urlsToCapture.length} URL(s)...\n`)
 
-  // 🔥 Launch browser once
+  // 🔥 Launch browser once — context created fresh per URL below
   const browser = await chromium.launch({
     headless: true,
     args: [
@@ -364,19 +356,21 @@ async function runWorker() {
     ],
   })
 
-  const context = await browser.newContext({
-    userAgent:
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-    viewport: { width: 1280, height: 800 },
-    locale: "en-US",
-    extraHTTPHeaders: {
-      "accept-language": "en-US,en;q=0.9",
-    },
-  })
-
   // Process each URL
   for (const item of urlsToCapture) {
     console.log("🔎 Capturing:", item.url)
+
+    // ✅ CHANGE: Fresh browser context per URL — prevents session/cookie bleed
+    // between captures which can trigger bot detection on sites like UCalgary
+    const context = await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+      viewport: { width: 1280, height: 800 },
+      locale: "en-US",
+      extraHTTPHeaders: {
+        "accept-language": "en-US,en;q=0.9",
+      },
+    })
 
     const page = await context.newPage()
 
@@ -421,14 +415,13 @@ async function runWorker() {
         await sendFailureEmail(item, errorMessage)
         await handleRetry(item, captureMode)
 
+        await context.close()
         await page.close()
         continue
       }
 
-      // ⏳ Wait for rendering
       await page.waitForTimeout(3000)
 
-      // ✅ TIMESTAMP IN ALBERTA TIME
       const captureTime = DateTime.now().setZone("America/Edmonton")
       const captureTimestamp = captureTime.toFormat("MMM d, yyyy, h:mm a")
 
@@ -476,13 +469,13 @@ async function runWorker() {
         await sendFailureEmail(item, errorMessage)
         await handleRetry(item, captureMode)
 
+        await context.close()
         await page.close()
         continue
       }
 
       console.log("✅ Uploaded:", fileName)
 
-      // Insert capture record
       await supabase.from("captures").insert({
         url_id: item.id,
         file_path: uploadData.path,
@@ -490,13 +483,11 @@ async function runWorker() {
         status: "success",
       })
 
-      // Update URL: set last_captured_at and next_capture_at
       let nextCaptureAt
       let nextStatus
 
       if (item.schedule_type === "custom") {
         if (captureMode === "IMMEDIATE") {
-          // First snapshot done — still need to capture on the user's chosen date
           const parsedDate = DateTime.fromISO(item.schedule_value, { zone: "America/Edmonton" })
           if (!parsedDate.isValid) {
             console.error(`❌ Invalid schedule_value "${item.schedule_value}" for URL ${item.id} — marking completed`)
@@ -510,7 +501,6 @@ async function runWorker() {
             nextStatus = "active"
           }
         } else {
-          // SCHEDULED mode — this was the chosen-date capture, we're done
           nextCaptureAt = null
           nextStatus = "completed"
         }
@@ -606,6 +596,8 @@ async function runWorker() {
       await handleRetry(item, captureMode)
     }
 
+    // ✅ CHANGE: Close context after each URL — cleans up session completely
+    await context.close()
     await page.close()
   }
 
