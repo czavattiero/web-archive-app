@@ -140,10 +140,14 @@ await page.evaluate(() => {
   }
 })
 
-      const uniPart = safeName(item.university_name)
-      const posPart = safeName(item.position_title)
-      const nameParts = [uniPart, posPart, item.id].filter(Boolean).join("_")
-      const fileName = `${nameParts}-${Date.now()}.pdf`
+      let hostname = "unknown"
+      try {
+        hostname = new URL(item.url).hostname.replace(/\./g, "_")
+      } catch {
+        // keep fallback hostname
+      }
+      const safeHostname = safeName(hostname)
+      const fileName = `${safeHostname}_${item.id}-${Date.now()}.pdf`
 
       console.log("Uploading file:", fileName)
 

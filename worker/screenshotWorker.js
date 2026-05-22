@@ -197,10 +197,14 @@ async function run() {
 
       await page.close()
 
-      const uniPart = safeName(url.university_name)
-      const posPart = safeName(url.position_title)
-      const nameParts = [uniPart, posPart, url.id].filter(Boolean).join("_")
-      const fileName = `${nameParts}-${Date.now()}.pdf`
+      let hostname = "unknown"
+      try {
+        hostname = new URL(url.url).hostname.replace(/\./g, "_")
+      } catch {
+        // keep fallback hostname
+      }
+      const safeHostname = safeName(hostname)
+      const fileName = `${safeHostname}_${url.id}-${Date.now()}.pdf`
 
       // ✅ Upload with error handling
       const { error: uploadError } = await supabase.storage
