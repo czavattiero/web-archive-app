@@ -55,8 +55,8 @@ export default function DisclaimerBanner() {
               </li>
               <li style={{ marginBottom: 6 }}>
                 <strong>Some platforms are more restrictive than others.</strong> URLs from sites such
-                as <strong>Indeed</strong> and <strong>Glassdoor</strong> are more likely to fail due
-                to blocking mechanisms.
+                as <strong>Monster</strong>, <strong>Glassdoor</strong>, <strong>Workopolis</strong>,
+                and <strong>Eluta</strong> are more likely to fail due to blocking mechanisms.
               </li>
             </ul>
           )}
