@@ -141,7 +141,11 @@ await page.evaluate(() => {
 })
 
       let hostname = "unknown"
-      try { hostname = new URL(item.url).hostname.replace(/\./g, "_") } catch { /* keep fallback hostname */ }
+      try {
+        hostname = new URL(item.url).hostname.replace(/\./g, "_")
+      } catch {
+        // keep fallback hostname
+      }
       const safeHostname = safeName(hostname)
       const fileName = `${safeHostname}_${item.id}-${Date.now()}.pdf`
 

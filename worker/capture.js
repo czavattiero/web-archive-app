@@ -460,7 +460,11 @@ async function runWorker() {
 
       const dateFolder = DateTime.now().setZone("America/Edmonton").toFormat("yyyy-MM-dd")
       let hostname = "unknown"
-      try { hostname = new URL(item.url).hostname.replace(/\./g, "_") } catch { /* keep fallback hostname */ }
+      try {
+        hostname = new URL(item.url).hostname.replace(/\./g, "_")
+      } catch {
+        // keep fallback hostname
+      }
       const safeHostname = safeName(hostname)
       const fileName = `${dateFolder}/${safeHostname}_${item.id}.pdf`
 
