@@ -21,6 +21,12 @@ const supabase = createClient(
 
 const MAX_RETRIES = 3
 const RETRY_DELAY_MS = 60 * 60 * 1000 // 1 hour
+const safeName = (s) =>
+  (s || "")
+    .replace(/[^a-z0-9]/gi, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "")
+    .substring(0, 40)
 
 async function handleRetry(url) {
   const { data: urlRecord, error: fetchError } = await supabase
@@ -191,7 +197,10 @@ async function run() {
 
       await page.close()
 
-      const fileName = `capture-${url.id}-${Date.now()}.pdf`
+      const uniPart = safeName(url.university_name)
+      const posPart = safeName(url.position_title)
+      const nameParts = [uniPart, posPart, url.id].filter(Boolean).join("_")
+      const fileName = `${nameParts}-${Date.now()}.pdf`
 
       // ✅ Upload with error handling
       const { error: uploadError } = await supabase.storage

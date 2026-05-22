@@ -11,6 +11,12 @@ const supabase = createClient(
 )
 
 const bucket = "captures"
+const safeName = (s) =>
+  (s || "")
+    .replace(/[^a-z0-9]/gi, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "")
+    .substring(0, 40)
 
 async function runCapture() {
 
@@ -134,7 +140,10 @@ await page.evaluate(() => {
   }
 })
 
-      const fileName = `${item.id}-${Date.now()}.pdf`
+      const uniPart = safeName(item.university_name)
+      const posPart = safeName(item.position_title)
+      const nameParts = [uniPart, posPart, item.id].filter(Boolean).join("_")
+      const fileName = `${nameParts}-${Date.now()}.pdf`
 
       console.log("Uploading file:", fileName)
 
