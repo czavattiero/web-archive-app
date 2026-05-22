@@ -198,7 +198,7 @@ async function run() {
       await page.close()
 
       let hostname = "unknown"
-      try { hostname = new URL(url.url).hostname.replace(/\./g, "_") } catch {}
+      try { hostname = new URL(url.url).hostname.replace(/\./g, "_") } catch { /* keep fallback hostname */ }
       const safeHostname = safeName(hostname)
       const fileName = `${safeHostname}_${url.id}-${Date.now()}.pdf`
 
