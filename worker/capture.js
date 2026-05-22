@@ -459,10 +459,10 @@ async function runWorker() {
       })
 
       const dateFolder = DateTime.now().setZone("America/Edmonton").toFormat("yyyy-MM-dd")
-      const uniPart = safeName(item.university_name)
-      const posPart = safeName(item.position_title)
-      const nameParts = [uniPart, posPart, item.id].filter(Boolean).join("_")
-      const fileName = `${dateFolder}/${nameParts}.pdf`
+      let hostname = "unknown"
+      try { hostname = new URL(item.url).hostname.replace(/\./g, "_") } catch {}
+      const safeHostname = safeName(hostname)
+      const fileName = `${dateFolder}/${safeHostname}_${item.id}.pdf`
 
       console.log("📁 Uploading:", fileName)
 
