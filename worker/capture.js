@@ -47,6 +47,12 @@ const EXTENDED_RETRY_DELAYS = [
   15 * 60 * 1000,  // 15 minutes
 ]
 const MAX_RETRIES = EXTENDED_RETRY_DELAYS.length // 3
+const safeName = (s) =>
+  (s || "")
+    .replace(/[^a-z0-9]/gi, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "")
+    .substring(0, 40)
 
 async function captureWithRetry(page, url, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -453,7 +459,10 @@ async function runWorker() {
       })
 
       const dateFolder = DateTime.now().setZone("America/Edmonton").toFormat("yyyy-MM-dd")
-      const fileName = `${dateFolder}/${item.id}_${Date.now()}.pdf`
+      const uniPart = safeName(item.university_name)
+      const posPart = safeName(item.position_title)
+      const nameParts = [uniPart, posPart, item.id].filter(Boolean).join("_")
+      const fileName = `${dateFolder}/${nameParts}.pdf`
 
       console.log("📁 Uploading:", fileName)
 

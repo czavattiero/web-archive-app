@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { userId, url, schedule_type, schedule_value, next_capture_at } = body
+  const { userId, url, schedule_type, schedule_value, next_capture_at, position_title, university_name } = body
 
   if (!userId || !url) {
     return NextResponse.json({ error: "userId and url are required" }, { status: 400 })
@@ -141,6 +141,8 @@ export async function POST(req: Request) {
         schedule_type,
         schedule_value: schedule_value || null,
         status: "active",
+        position_title: position_title || null,
+        university_name: university_name || null,
       },
     ])
     .select()

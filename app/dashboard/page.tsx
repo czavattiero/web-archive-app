@@ -34,6 +34,8 @@ export default function Dashboard() {
   const [url, setUrl] = useState("")
   const [schedule, setSchedule] = useState("weekly")
   const [customDate, setCustomDate] = useState("")
+  const [positionTitle, setPositionTitle] = useState("")
+  const [universityName, setUniversityName] = useState("")
 
   const [isSubUser, setIsSubUser] = useState(false)
   const isSubUserRef = useRef(isSubUser)
@@ -470,6 +472,8 @@ export default function Dashboard() {
           schedule_type: schedule,
           schedule_value: schedule === "custom" ? customDate : null,
           next_capture_at: nextCaptureISO,
+          position_title: positionTitle.trim() || null,
+          university_name: universityName.trim() || null,
         }),
       })
 
@@ -526,6 +530,8 @@ export default function Dashboard() {
       // Clear form and refresh
       setUrl("")
       setCustomDate("")
+      setPositionTitle("")
+      setUniversityName("")
       await fetchData(user)
     } catch (err: any) {
       console.error("❌ Unexpected error:", err)
@@ -871,38 +877,54 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div className="add-url-row" style={{ display: "flex", gap: 10 }}>
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/job-posting"
-              style={{ ...inputStyle, flex: 2 }}
-            />
-
-            <select 
-              value={schedule} 
-              onChange={(e) => setSchedule(e.target.value)} 
-              style={{ ...inputStyle, flex: 1 }}
-            >
-              <option value="weekly">Weekly</option>
-              <option value="biweekly">Biweekly</option>
-              <option value="29days">Every 29 days</option>
-              <option value="30days">Every 30 days</option>
-              <option value="custom">Specific date</option>
-            </select>
-
-            {schedule === "custom" && (
-              <input 
-                type="date" 
-                value={customDate} 
-                onChange={(e) => setCustomDate(e.target.value)} 
-                style={{ ...inputStyle, flex: 1 }} 
+          <div className="add-url-row" style={{ display: "flex", gap: 10, flexDirection: "column" }}>
+            <div style={{ display: "flex", gap: 10 }}>
+              <input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://example.com/job-posting"
+                style={{ ...inputStyle, flex: 2 }}
               />
-            )}
 
-            <button onClick={addUrl} style={buttonPrimary}>
-              Add
-            </button>
+              <select 
+                value={schedule} 
+                onChange={(e) => setSchedule(e.target.value)} 
+                style={{ ...inputStyle, flex: 1 }}
+              >
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Biweekly</option>
+                <option value="29days">Every 29 days</option>
+                <option value="30days">Every 30 days</option>
+                <option value="custom">Specific date</option>
+              </select>
+
+              {schedule === "custom" && (
+                <input 
+                  type="date" 
+                  value={customDate} 
+                  onChange={(e) => setCustomDate(e.target.value)} 
+                  style={{ ...inputStyle, flex: 1 }} 
+                />
+              )}
+
+              <button onClick={addUrl} style={buttonPrimary}>
+                Add
+              </button>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <input
+                value={positionTitle}
+                onChange={(e) => setPositionTitle(e.target.value)}
+                placeholder="Position title (e.g. Assistant Professor)"
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <input
+                value={universityName}
+                onChange={(e) => setUniversityName(e.target.value)}
+                placeholder="University name (e.g. University of Alberta)"
+                style={{ ...inputStyle, flex: 1 }}
+              />
+            </div>
           </div>
         </div>
 
@@ -928,7 +950,14 @@ export default function Dashboard() {
 
             {filteredUrls.map((u) => (
               <div key={u.id} style={rowCard}>
-                <div style={urlCell}>{u.url}</div>
+                <div style={urlCell}>
+                  <div>{u.url}</div>
+                  {(u.position_title || u.university_name) && (
+                    <div style={{ fontSize: 12, color: "#6B7280" }}>
+                      {[u.position_title, u.university_name].filter(Boolean).join(" · ")}
+                    </div>
+                  )}
+                </div>
                 <div style={{ flex: 1 }}>{u.schedule_type}</div>
                 <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
                 <div style={{ flex: 1 }}>
