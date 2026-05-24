@@ -39,3 +39,31 @@ export function getQuotaWindowStart(subscriptionStartedAt: string | null | undef
     return clampToMonth(now.getFullYear(), now.getMonth() - 1, anniversaryDay)
   }
 }
+
+/**
+ * Returns the start of the NEXT quota period (i.e. the reset date).
+ *
+ * For subscribed users: the next monthly anniversary of `subscription_started_at`
+ * that is strictly > now.
+ *
+ * For trial/unsubscribed users: returns null (rolling window, no fixed reset date).
+ */
+export function getQuotaWindowEnd(subscriptionStartedAt: string | null | undefined): Date | null {
+  if (!subscriptionStartedAt) {
+    return null
+  }
+
+  const startDate = new Date(subscriptionStartedAt)
+  const now = new Date()
+  const anniversaryDay = startDate.getDate()
+
+  const thisMonthAnniversary = clampToMonth(now.getFullYear(), now.getMonth(), anniversaryDay)
+
+  if (thisMonthAnniversary <= now) {
+    // We are on or past this month's anniversary — next reset is next month
+    return clampToMonth(now.getFullYear(), now.getMonth() + 1, anniversaryDay)
+  } else {
+    // This month's anniversary is still in the future
+    return thisMonthAnniversary
+  }
+}
