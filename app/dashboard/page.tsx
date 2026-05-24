@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [plan, setPlan] = useState<string>("basic")
   const [upgradeLoading, setUpgradeLoading] = useState(false)
   const [urlCount30d, setUrlCount30d] = useState(0)
+  const [quotaResetDays, setQuotaResetDays] = useState<number | null>(null)
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
 
   const [url, setUrl] = useState("")
@@ -353,14 +354,22 @@ export default function Dashboard() {
         headers: await getAuthorizedHeaders(false),
       })
       if (countRes.ok) {
-        const { urlCount } = await countRes.json()
+        const { urlCount, quotaResetAt } = await countRes.json()
         setUrlCount30d(urlCount ?? 0)
+        if (quotaResetAt) {
+          const msLeft = new Date(quotaResetAt).getTime() - Date.now()
+          setQuotaResetDays(Math.max(1, Math.ceil(msLeft / (1000 * 60 * 60 * 24))))
+        } else {
+          setQuotaResetDays(null)
+        }
       } else {
         setUrlCount30d(0)
+        setQuotaResetDays(null)
       }
     } catch (err) {
       console.error("Failed to fetch account URL count:", err)
       setUrlCount30d(0)
+      setQuotaResetDays(null)
     }
   }
 
@@ -857,6 +866,11 @@ export default function Dashboard() {
                 : plan === "trial"
                 ? `Free trial · ${urlCount30d}/15 URLs`
                 : `Basic plan · ${urlCount30d}/15 URLs`}
+              {quotaResetDays !== null && (
+                <span style={{ color: "#9CA3AF", marginLeft: 6 }}>
+                  · resets in {quotaResetDays} day{quotaResetDays !== 1 ? "s" : ""}
+                </span>
+              )}
               {plan !== "pro" && urlCount30d >= BASIC_PLAN_WARNING_THRESHOLD && (
                 <span style={{ color: "#DC2626", marginLeft: 8 }}>
                   Approaching limit —{" "}

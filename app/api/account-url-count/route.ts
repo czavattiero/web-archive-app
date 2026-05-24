@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { getQuotaWindowStart } from "../../../lib/quotaWindow"
+import { getQuotaWindowEnd, getQuotaWindowStart } from "../../../lib/quotaWindow"
 import { getAccountUserIds, getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../lib/server/billingAccess"
 
 const supabaseAdmin = createClient(
@@ -48,6 +48,7 @@ export async function GET(req: Request) {
   // Count URLs added since the start of the current quota period across the whole account,
   // excluding those with ONLY failed captures (same logic as add-url/route.ts)
   const quotaWindowStart = getQuotaWindowStart(ownerSubscriptionStartedAt)
+  const quotaWindowEnd = getQuotaWindowEnd(ownerSubscriptionStartedAt)
 
   const { data: recentUrls } = await supabaseAdmin
     .from("urls")
@@ -83,5 +84,5 @@ export async function GET(req: Request) {
     }).length
   }
 
-  return NextResponse.json({ urlCount, plan, limit })
+  return NextResponse.json({ urlCount, plan, limit, quotaResetAt: quotaWindowEnd?.toISOString() ?? null })
 }
