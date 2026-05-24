@@ -438,7 +438,24 @@ async function runWorker() {
       await page.waitForTimeout(3000)
 
       const captureTime = DateTime.now().setZone("America/Edmonton")
+      const captureDate = captureTime.toFormat("yyyy-MM-dd")
       const captureTimestamp = captureTime.toFormat("MMM d, yyyy, h:mm a")
+
+      let rawJobTitle = ""
+      try {
+        rawJobTitle = await page.evaluate(() => {
+          try {
+            const h1Text = document.querySelector("h1")?.textContent?.trim()
+            if (h1Text) return h1Text
+            return (document.title || "").trim()
+          } catch {
+            return ""
+          }
+        })
+      } catch {
+        // keep fallback job title
+      }
+      const safeJobTitle = safeName(rawJobTitle) || item.id
 
       console.log("📄 Generating PDF...")
 
@@ -458,15 +475,23 @@ async function runWorker() {
         printBackground: true,
       })
 
-      const dateFolder = DateTime.now().setZone("America/Edmonton").toFormat("yyyy-MM-dd")
-      let hostname = "unknown"
+      const dateFolder = captureDate
+      let siteName = "unknown"
       try {
-        hostname = new URL(item.url).hostname.replace(/\./g, "_")
+        const hostname = new URL(item.url).hostname.toLowerCase().replace(/^www\./, "")
+        const labels = hostname.split(".").filter(Boolean)
+        if (labels.length >= 3 && labels[labels.length - 1].length === 2 && labels[labels.length - 2].length <= 3) {
+          siteName = labels[labels.length - 3]
+        } else if (labels.length >= 2) {
+          siteName = labels[labels.length - 2]
+        } else if (labels.length === 1) {
+          siteName = labels[0]
+        }
       } catch {
-        // keep fallback hostname
+        // keep fallback site name
       }
-      const safeHostname = safeName(hostname)
-      const fileName = `${dateFolder}/${safeHostname}_${item.id}.pdf`
+      const safeSiteFolder = safeName(siteName) || "unknown"
+      const fileName = `${dateFolder}/${safeSiteFolder}/${safeJobTitle}_${captureDate}.pdf`
 
       console.log("📁 Uploading:", fileName)
 
