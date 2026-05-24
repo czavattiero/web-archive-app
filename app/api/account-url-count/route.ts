@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import Stripe from "stripe"
 import { getQuotaWindowEnd, getQuotaWindowStart } from "../../../lib/quotaWindow"
 import { getAccountUserIds, getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../lib/server/billingAccess"
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2023-10-16"
+})
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,7 +43,32 @@ export async function GET(req: Request) {
 
   const ownerId = billingDecision.ownerId!
   const plan = billingDecision.billingProfile?.plan || "basic"
-  const ownerSubscriptionStartedAt = billingDecision.billingProfile?.subscription_started_at ?? null
+  let ownerSubscriptionStartedAt = billingDecision.billingProfile?.subscription_started_at ?? null
+
+  // Backfill subscription_started_at for subscribed users where it's missing
+  if (!ownerSubscriptionStartedAt && billingDecision.billingProfile?.subscribed) {
+    try {
+      const { data: subRow } = await supabaseAdmin
+        .from("subscriptions")
+        .select("stripe_subscription_id")
+        .eq("user_id", ownerId)
+        .eq("status", "active")
+        .maybeSingle()
+
+      if (subRow?.stripe_subscription_id) {
+        const stripeSub = await stripe.subscriptions.retrieve(subRow.stripe_subscription_id)
+        const periodStart = new Date(stripeSub.current_period_start * 1000).toISOString()
+        ownerSubscriptionStartedAt = periodStart
+        // Write back so future requests skip this fetch
+        await supabaseAdmin
+          .from("profiles")
+          .update({ subscription_started_at: periodStart })
+          .eq("id", ownerId)
+      }
+    } catch (backfillErr) {
+      console.warn("subscription_started_at backfill failed (non-fatal):", backfillErr)
+    }
+  }
 
   const limit = PLAN_LIMITS[plan] ?? 15
 

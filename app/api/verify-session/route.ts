@@ -173,9 +173,13 @@ export async function POST(req: Request) {
     }
 
     if (profileError) {
+      const minimalUpdate: Record<string, unknown> = { subscribed: true, trial_ends_at: null, plan }
+      if (!existingProfile?.subscription_started_at) {
+        minimalUpdate.subscription_started_at = new Date().toISOString()
+      }
       const { error: minimalUpdateError } = await supabase
         .from("profiles")
-        .update({ subscribed: true, trial_ends_at: null, plan })
+        .update(minimalUpdate)
         .eq("id", userId)
       if (!minimalUpdateError) {
         console.log(`Full profile upsert failed but minimal update (subscribed + plan) succeeded for user ${userId}`)
