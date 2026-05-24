@@ -480,7 +480,9 @@ async function runWorker() {
       try {
         const hostname = new URL(item.url).hostname.toLowerCase().replace(/^www\./, "")
         const labels = hostname.split(".").filter(Boolean)
-        if (labels.length >= 2) {
+        if (labels.length >= 3 && labels[labels.length - 1].length === 2 && labels[labels.length - 2].length <= 3) {
+          siteName = labels[labels.length - 3]
+        } else if (labels.length >= 2) {
           siteName = labels[labels.length - 2]
         } else if (labels.length === 1) {
           siteName = labels[0]
