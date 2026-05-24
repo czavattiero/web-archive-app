@@ -57,13 +57,18 @@ export async function GET(req: Request) {
 
       if (subRow?.stripe_subscription_id) {
         const stripeSub = await stripe.subscriptions.retrieve(subRow.stripe_subscription_id)
+        // Intentionally use current_period_start so quota resets align to the current billing period.
         const periodStart = new Date(stripeSub.current_period_start * 1000).toISOString()
+        // Use immediately for this response even if write-back fails.
         ownerSubscriptionStartedAt = periodStart
         // Write back so future requests skip this fetch
-        await supabaseAdmin
+        const { error: profileBackfillError } = await supabaseAdmin
           .from("profiles")
           .update({ subscription_started_at: periodStart })
           .eq("id", ownerId)
+        if (profileBackfillError) {
+          console.warn("subscription_started_at profile write failed (non-fatal):", profileBackfillError)
+        }
       }
     } catch (backfillErr) {
       console.warn("subscription_started_at backfill failed (non-fatal):", backfillErr)
