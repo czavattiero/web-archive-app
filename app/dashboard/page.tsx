@@ -358,7 +358,7 @@ export default function Dashboard() {
         setUrlCount30d(urlCount ?? 0)
         if (quotaResetAt) {
           const msLeft = new Date(quotaResetAt).getTime() - Date.now()
-          setQuotaResetDays(Math.max(1, Math.ceil(msLeft / (1000 * 60 * 60 * 24))))
+          setQuotaResetDays(Math.max(1, Math.floor(msLeft / (1000 * 60 * 60 * 24))))
         } else {
           setQuotaResetDays(null)
         }
