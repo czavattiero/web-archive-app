@@ -126,25 +126,28 @@ export default function Home() {
               number: "01",
               icon: "🔗",
               title: "Add URL",
-              desc: "Paste your URL",
+              desc: "Paste the URL you want to monitor",
               accent: "#6A11CB",
               accentRgb: "106,17,203",
+              details: [] as string[],
             },
             {
               number: "02",
               icon: "⚡",
-              title: "We capture it",
-              desc: "Automatic timestamped screenshots",
+              title: "Set your schedule",
+              desc: "Choose how often you want captures:",
               accent: "#FF7A00",
               accentRgb: "255,122,0",
+              details: ["Weekly", "Biweekly", "Every 29 days", "Every 30 days", "Specific date"],
             },
             {
               number: "03",
               icon: "📄",
-              title: "Download proof",
-              desc: "Timestamped PDFs available for 62 days",
+              title: "Get your proof",
+              desc: "Your timestamped PDF is sent directly to your email and available for download from your account — kept for 62 days.",
               accent: "#10B981",
               accentRgb: "16,185,129",
+              details: [] as string[],
             },
           ].map((step) => (
             <div key={step.number} style={{
@@ -186,6 +189,15 @@ export default function Home() {
               <p style={{ fontSize: 14, color: "#6B7280", margin: 0, lineHeight: 1.6 }}>
                 {step.desc}
               </p>
+              {step.details.length > 0 && (
+                <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0", display: "flex", flexDirection: "column" as const, gap: 6 }}>
+                  {step.details.map((detail) => (
+                    <li key={detail} style={{ display: "flex", gap: 8, fontSize: 13, color: "#374151", alignItems: "center" }}>
+                      <span style={{ color: step.accent, fontWeight: 700, flexShrink: 0 }}>·</span> {detail}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           ))}
         </div>
