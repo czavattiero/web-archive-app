@@ -71,7 +71,7 @@ We may update these Terms from time to time. When material changes are made, we 
 
 ## 11. Governing Law
 
-These Terms are governed by the laws of the Province of Ontario and the federal laws of Canada applicable therein, without regard to conflict of law principles.
+These Terms are governed by the laws of the Province of Alberta and the federal laws of Canada applicable therein, without regard to conflict of law principles.
 
 ## 12. Contact
 
