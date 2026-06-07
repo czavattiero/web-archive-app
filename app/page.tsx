@@ -411,6 +411,7 @@ export default function Home() {
         <div style={{ display: "flex", gap: 24 }}>
           <a href="/login" style={{ fontSize: 13, color: "#6B7280", textDecoration: "none" }}>Log in</a>
           <a href="mailto:support@timedshot.ca" style={{ fontSize: 13, color: "#6B7280", textDecoration: "none" }}>Contact</a>
+          <a href="/terms" style={{ fontSize: 13, color: "#6B7280", textDecoration: "none" }}>Terms of Use</a>
         </div>
       </footer>
 
