@@ -17,6 +17,7 @@ const PLAN_LIMITS: Record<string, number> = {
   pro: 40,
   basic: 15,
   trial: 15,
+  enterprise: Infinity,
 }
 
 export async function GET(req: Request) {
@@ -119,5 +120,5 @@ export async function GET(req: Request) {
     }).length
   }
 
-  return NextResponse.json({ urlCount, plan, limit, quotaResetAt: quotaWindowEnd?.toISOString() ?? null })
+  return NextResponse.json({ urlCount, plan, limit: limit === Infinity ? null : limit, quotaResetAt: quotaWindowEnd?.toISOString() ?? null })
 }

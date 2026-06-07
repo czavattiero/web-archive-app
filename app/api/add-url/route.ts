@@ -12,6 +12,7 @@ const PLAN_LIMITS: Record<string, number> = {
   pro: 40,
   basic: 15,
   trial: 15,
+  enterprise: Infinity,
 }
 
 export async function POST(req: Request) {
@@ -111,7 +112,7 @@ export async function POST(req: Request) {
     currentCount = countedIds.length
   }
 
-  if (currentCount >= limit) {
+  if (limit !== Infinity && currentCount >= limit) {
     const planLabel = plan === "pro" ? "Pro" : "Basic"
     return NextResponse.json(
       {
