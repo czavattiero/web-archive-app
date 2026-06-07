@@ -724,7 +724,7 @@ export default function Dashboard() {
               Sub-user
             </div>
           )}
-          {!isSubUser && plan !== "pro" && (
+          {!isSubUser && plan !== "pro" && plan !== "enterprise" && (
             <button
               onClick={plan === "trial" ? () => router.push("/choose-plan") : handleUpgrade}
               disabled={plan !== "trial" && !!upgradeLoading}
@@ -733,7 +733,7 @@ export default function Dashboard() {
               {plan !== "trial" && upgradeLoading ? "Loading..." : plan === "trial" ? "⚡ Choose a Plan" : "⚡ Upgrade to Pro"}
             </button>
           )}
-          {!isSubUser && plan !== "trial" && (
+          {!isSubUser && plan !== "trial" && plan !== "enterprise" && (
             <button 
               onClick={handleManageBilling} 
               disabled={billingLoading} 
@@ -861,7 +861,9 @@ export default function Dashboard() {
               fontWeight: 500,
               marginBottom: 16,
             }}>
-              {plan === "pro"
+              {plan === "enterprise"
+                ? `Enterprise plan · ${urlCount30d} URLs (unlimited)`
+                : plan === "pro"
                 ? `Professional plan · ${urlCount30d}/40 URLs`
                 : plan === "trial"
                 ? `Free trial · ${urlCount30d}/15 URLs`
@@ -871,7 +873,7 @@ export default function Dashboard() {
                   · resets in {quotaResetDays} day{quotaResetDays !== 1 ? "s" : ""}
                 </span>
               )}
-              {plan !== "pro" && urlCount30d >= BASIC_PLAN_WARNING_THRESHOLD && (
+              {plan !== "pro" && plan !== "enterprise" && urlCount30d >= BASIC_PLAN_WARNING_THRESHOLD && (
                 <span style={{ color: "#DC2626", marginLeft: 8 }}>
                   Approaching limit —{" "}
                   <button
