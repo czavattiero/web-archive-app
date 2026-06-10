@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import dns from "dns/promises"
+import net from "net"
 import { getQuotaWindowStart } from "../../../lib/quotaWindow"
 import { getAccountUserIds, getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../lib/server/billingAccess"
 
@@ -8,19 +10,100 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+const TITLE_FETCH_TIMEOUT_MS = 5000
+const TITLE_HTML_READ_LIMIT = 50_000 // bytes — enough to find <title> without buffering large pages
+
+function isPrivateIp(ip: string): boolean {
+  if (ip === "::1") return true
+  const lower = ip.toLowerCase()
+  // IPv6 unique local (fc00::/7), link-local (fe80::/10), deprecated site-local (fec0::/10)
+  if (lower.startsWith("fc") || lower.startsWith("fd") || /^fe[89a-f]/i.test(lower)) return true
+  if (!net.isIPv4(ip)) return false
+  const parts = ip.split(".").map(Number)
+  return (
+    parts[0] === 0 ||                                                       // 0.0.0.0/8
+    parts[0] === 10 ||                                                      // 10.0.0.0/8
+    parts[0] === 127 ||                                                     // 127.0.0.0/8 loopback
+    (parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127) ||             // 100.64.0.0/10 CGNAT
+    (parts[0] === 169 && parts[1] === 254) ||                               // 169.254.0.0/16 link-local
+    (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||              // 172.16.0.0/12
+    (parts[0] === 192 && parts[1] === 0 && parts[2] === 0) ||              // 192.0.0.0/24 IETF
+    (parts[0] === 192 && parts[1] === 0 && parts[2] === 2) ||              // 192.0.2.0/24 TEST-NET-1
+    (parts[0] === 192 && parts[1] === 168) ||                               // 192.168.0.0/16
+    (parts[0] === 198 && parts[1] >= 18 && parts[1] <= 19) ||              // 198.18.0.0/15 benchmarking
+    (parts[0] === 198 && parts[1] === 51 && parts[2] === 100) ||           // 198.51.100.0/24 TEST-NET-2
+    (parts[0] === 203 && parts[1] === 0 && parts[2] === 113) ||            // 203.0.113.0/24 TEST-NET-3
+    parts[0] >= 224                                                         // 224.0.0.0/4 multicast + 240.0.0.0/4 reserved
+  )
+}
+
+async function isSafeUrl(urlString: string): Promise<boolean> {
+  try {
+    const parsed = new URL(urlString)
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false
+    const hostname = parsed.hostname
+    // Direct IP supplied — validate immediately without DNS
+    if (net.isIP(hostname)) return !isPrivateIp(hostname)
+    // DNS-based check — note: pre-fetch DNS validation cannot fully prevent DNS rebinding,
+    // but redirect:"manual" on the fetch prevents the most common exploit vector.
+    const addresses = await dns.lookup(hostname, { all: true })
+    return addresses.every(({ address }) => !isPrivateIp(address))
+  } catch {
+    return false
+  }
+}
+
+function decodeHtmlEntities(text: string): string {
+  // Decode numeric and named entities first, then &amp; last to avoid double-decoding.
+  // Numeric codes are clamped to valid Unicode; control chars (except tab/newline) are stripped.
+  return text
+    .replace(/&#(\d+);/g, (_, n) => {
+      const code = Number(n)
+      if (code > 0x10ffff || (code < 0x20 && code !== 0x09 && code !== 0x0a)) return ""
+      return String.fromCodePoint(code)
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => {
+      const code = parseInt(h, 16)
+      if (code > 0x10ffff || (code < 0x20 && code !== 0x09 && code !== 0x0a)) return ""
+      return String.fromCodePoint(code)
+    })
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+}
+
 async function fetchPageTitle(url: string): Promise<string | null> {
   try {
+    if (!(await isSafeUrl(url))) return null
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 5000)
+    const timeoutId = setTimeout(() => controller.abort(), TITLE_FETCH_TIMEOUT_MS)
+    // redirect:"manual" prevents redirect-based SSRF bypass
+    // eslint-disable-next-line no-restricted-globals -- URL is validated by isSafeUrl above
     const response = await fetch(url, {
       signal: controller.signal,
+      redirect: "manual",
       headers: { "User-Agent": "Mozilla/5.0 (compatible; TimedShot/1.0)" },
     })
     clearTimeout(timeoutId)
     if (!response.ok) return null
-    const html = await response.text()
-    const match = html.match(/<title[^>]*>([^<]*)<\/title>/i)
-    return match ? match[1].trim() || null : null
+    // Read only the first TITLE_HTML_READ_LIMIT bytes to avoid buffering large pages
+    const reader = response.body?.getReader()
+    if (!reader) return null
+    let html = ""
+    const decoder = new TextDecoder()
+    while (html.length < TITLE_HTML_READ_LIMIT) {
+      const { done, value } = await reader.read()
+      if (done) break
+      html += decoder.decode(value, { stream: true })
+    }
+    reader.cancel()
+    const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
+    if (!match) return null
+    const raw = decodeHtmlEntities(match[1]).trim()
+    return raw || null
   } catch {
     return null
   }
