@@ -8,6 +8,24 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+async function fetchPageTitle(url: string): Promise<string | null> {
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000)
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; TimedShot/1.0)" },
+    })
+    clearTimeout(timeoutId)
+    if (!response.ok) return null
+    const html = await response.text()
+    const match = html.match(/<title[^>]*>([^<]*)<\/title>/i)
+    return match ? match[1].trim() || null : null
+  } catch {
+    return null
+  }
+}
+
 const PLAN_LIMITS: Record<string, number> = {
   pro: 40,
   basic: 15,
@@ -130,6 +148,9 @@ export async function POST(req: Request) {
     )
   }
 
+  // Best-effort: fetch the page title to use as position_title
+  const positionTitle = await fetchPageTitle(url.trim())
+
   // Insert URL
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from("urls")
@@ -142,6 +163,7 @@ export async function POST(req: Request) {
         schedule_type,
         schedule_value: schedule_value || null,
         status: "active",
+        position_title: positionTitle || null,
       },
     ])
     .select()
