@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getAuthenticatedUserFromRequest } from "../../../lib/server/billingAccess"
+import { sanitizeLabel } from "../../../lib/labelUtils"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,9 +21,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "urlId is required" }, { status: 400 })
   }
 
-  const safeLabel = typeof label === "string" && label.trim()
-    ? label.trim().replace(/[/\\:*?"<>|]/g, "-").replace(/[\x00-\x1F\x7F]/g, "").substring(0, 64).trim() || null
-    : null
+  const safeLabel = sanitizeLabel(label)
 
   const { error } = await supabaseAdmin
     .from("urls")

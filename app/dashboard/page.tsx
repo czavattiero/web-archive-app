@@ -6,6 +6,7 @@ import { supabase } from "../../lib/supabase"
 import { DateTime } from "luxon"
 import DisclaimerBanner from "../components/DisclaimerBanner"
 import DisclaimerModal from "../components/DisclaimerModal"
+import { LABEL_MAX_LENGTH } from "../../lib/labelUtils"
 
 const MAX_SUBSCRIPTION_RETRIES = 8
 const RETRY_DELAY_MS = 1000
@@ -957,10 +958,10 @@ export default function Dashboard() {
             </div>
             <input
               value={urlLabel}
-              onChange={(e) => setUrlLabel(e.target.value.substring(0, 64))}
+              onChange={(e) => setUrlLabel(e.target.value.substring(0, LABEL_MAX_LENGTH))}
               placeholder="Label (optional), e.g. UCalgary-French-2026"
               style={{ ...inputStyle, fontSize: 13, color: "#6B7280" }}
-              maxLength={64}
+              maxLength={LABEL_MAX_LENGTH}
             />
           </div>
         </div>
@@ -993,9 +994,9 @@ export default function Dashboard() {
                     <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
                       <input
                         value={editingLabelValue}
-                        onChange={(e) => setEditingLabelValue(e.target.value.substring(0, 64))}
+                        onChange={(e) => setEditingLabelValue(e.target.value.substring(0, LABEL_MAX_LENGTH))}
                         placeholder="Label (optional)"
-                        maxLength={64}
+                        maxLength={LABEL_MAX_LENGTH}
                         style={{ ...inputStyle, fontSize: 12, padding: "4px 8px", flex: 1 }}
                         autoFocus
                       />

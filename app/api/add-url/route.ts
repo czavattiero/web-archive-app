@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getQuotaWindowStart } from "../../../lib/quotaWindow"
 import { getAccountUserIds, getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../lib/server/billingAccess"
+import { sanitizeLabel } from "../../../lib/labelUtils"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -131,10 +132,6 @@ export async function POST(req: Request) {
   }
 
   // Insert URL
-  const safeLabel = typeof label === "string" && label.trim()
-    ? label.trim().replace(/[/\\:*?"<>|]/g, "-").replace(/[\x00-\x1F\x7F]/g, "").substring(0, 64).trim() || null
-    : null
-
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from("urls")
     .insert([
@@ -146,7 +143,7 @@ export async function POST(req: Request) {
         schedule_type,
         schedule_value: schedule_value || null,
         status: "active",
-        label: safeLabel,
+        label: sanitizeLabel(label),
       },
     ])
     .select()
