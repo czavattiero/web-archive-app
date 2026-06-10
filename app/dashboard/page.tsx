@@ -954,7 +954,7 @@ export default function Dashboard() {
           <div className="table-scroll-wrapper">
             <div style={headerRow}>
               <div style={{ flex: 3 }}>URL</div>
-              <div style={{ flex: 1 }}>Label</div>
+              <div style={{ flex: 2 }}>Label</div>
               <div style={{ flex: 1 }}>Schedule</div>
               <div style={{ flex: 1 }}>Next</div>
               <div style={{ flex: 1 }}>Status</div>
@@ -987,7 +987,7 @@ export default function Dashboard() {
           <div className="table-scroll-wrapper">
             <div style={headerRow}>
               <div style={{ flex: 3 }}>URL</div>
-              <div style={{ flex: 1 }}>Label</div>
+              <div style={{ flex: 2 }}>Label</div>
               <div style={{ flex: 1 }}>Captured</div>
               <div style={{ flex: 1 }}>Status</div>
               <div style={{ flex: 1 }}>PDF</div>
@@ -1191,7 +1191,7 @@ const linkStyle = {
 }
 
 const labelCell: React.CSSProperties = {
-  flex: 1,
+  flex: 2,
   minWidth: 0,
   overflow: "hidden",
 }
