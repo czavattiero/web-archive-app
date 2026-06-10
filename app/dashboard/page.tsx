@@ -933,7 +933,7 @@ export default function Dashboard() {
             <input
               value={urlLabel}
               onChange={(e) => setUrlLabel(e.target.value.substring(0, LABEL_MAX_LENGTH))}
-              placeholder="Label (optional) - users can search by label or URL"
+              placeholder="Label (optional) - Users can search by label or URL"
               style={{ ...inputStyle, fontSize: 13, color: "#6B7280" }}
               maxLength={LABEL_MAX_LENGTH}
             />
@@ -945,7 +945,7 @@ export default function Dashboard() {
           <h3 style={sectionTitle}>Tracked URLs</h3>
 
           <input 
-            placeholder="users can search by label or URL" 
+            placeholder="Users can search by label or URL" 
             value={search} 
             onChange={(e) => setSearch(e.target.value)} 
             style={searchStyle} 
