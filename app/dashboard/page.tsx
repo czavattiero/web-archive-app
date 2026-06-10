@@ -48,6 +48,7 @@ export default function Dashboard() {
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
   const [search, setSearch] = useState("")
+  const [searchFocused, setSearchFocused] = useState(false)
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(true)
 
   async function getAccessToken() {
@@ -944,12 +945,28 @@ export default function Dashboard() {
         <div style={cardStyle}>
           <h3 style={sectionTitle}>Tracked URLs</h3>
 
-          <input 
-            placeholder="Users can search by label or URL" 
-            value={search} 
-            onChange={(e) => setSearch(e.target.value)} 
-            style={searchStyle} 
-          />
+          <div style={{ position: "relative" }}>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              style={searchStyle}
+            />
+            {!search && !searchFocused && (
+              <span style={{
+                position: "absolute",
+                left: 14,
+                top: "50%",
+                transform: "translateY(-50%)",
+                pointerEvents: "none",
+                fontSize: 14,
+              }}>
+                <span style={{ color: "#374151" }}>Search</span>
+                <span style={{ color: "#9CA3AF" }}>{" - users can search by label or URL"}</span>
+              </span>
+            )}
+          </div>
 
           <div className="table-scroll-wrapper">
             <div style={headerRow}>
