@@ -45,10 +45,6 @@ export default function Dashboard() {
   const [inviteLoading, setInviteLoading] = useState(false)
   const [deletingSubUserId, setDeletingSubUserId] = useState<string | null>(null)
 
-  const [editingLabelUrlId, setEditingLabelUrlId] = useState<string | null>(null)
-  const [editingLabelValue, setEditingLabelValue] = useState("")
-  const [savingLabelId, setSavingLabelId] = useState<string | null>(null)
-
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
   const [search, setSearch] = useState("")
@@ -621,28 +617,6 @@ export default function Dashboard() {
     return urls.find((u) => u.id === id)
   }
 
-  async function saveLabel(urlId: string, newLabel: string) {
-    setSavingLabelId(urlId)
-    try {
-      const res = await fetch("/api/update-url-label", {
-        method: "POST",
-        headers: await getAuthorizedHeaders(true),
-        body: JSON.stringify({ urlId, label: newLabel }),
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        alert("Failed to save label: " + (data.error || "Unknown error"))
-        return
-      }
-      setUrls((prev) => prev.map((u) => u.id === urlId ? { ...u, label: newLabel.trim() || null } : u))
-      setEditingLabelUrlId(null)
-    } catch (err: any) {
-      alert("Error: " + err.message)
-    } finally {
-      setSavingLabelId(null)
-    }
-  }
-
   function formatAlbertaTime(dateString: string | null) {
     if (!dateString) return "—"
 
@@ -959,7 +933,7 @@ export default function Dashboard() {
             <input
               value={urlLabel}
               onChange={(e) => setUrlLabel(e.target.value.substring(0, LABEL_MAX_LENGTH))}
-              placeholder="Label (optional), e.g. UCalgary-French-2026"
+              placeholder="Label (optional)"
               style={{ ...inputStyle, fontSize: 13, color: "#6B7280" }}
               maxLength={LABEL_MAX_LENGTH}
             />
@@ -980,6 +954,7 @@ export default function Dashboard() {
           <div className="table-scroll-wrapper">
             <div style={headerRow}>
               <div style={{ flex: 3 }}>URL</div>
+              <div style={{ flex: 1 }}>Label</div>
               <div style={{ flex: 1 }}>Schedule</div>
               <div style={{ flex: 1 }}>Next</div>
               <div style={{ flex: 1 }}>Status</div>
@@ -990,44 +965,9 @@ export default function Dashboard() {
               <div key={u.id} style={rowCard}>
                 <div style={urlCell}>
                   <div>{u.url}</div>
-                  {editingLabelUrlId === u.id ? (
-                    <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
-                      <input
-                        value={editingLabelValue}
-                        onChange={(e) => setEditingLabelValue(e.target.value.substring(0, LABEL_MAX_LENGTH))}
-                        placeholder="Label (optional)"
-                        maxLength={LABEL_MAX_LENGTH}
-                        style={{ ...inputStyle, fontSize: 12, padding: "4px 8px", flex: 1 }}
-                        autoFocus
-                      />
-                      <button
-                        onClick={() => saveLabel(u.id, editingLabelValue)}
-                        disabled={savingLabelId === u.id}
-                        style={{ ...buttonPrimary, padding: "4px 12px", fontSize: 12 }}
-                      >
-                        {savingLabelId === u.id ? "Saving…" : "Save"}
-                      </button>
-                      <button
-                        onClick={() => setEditingLabelUrlId(null)}
-                        style={{ ...buttonSecondary, padding: "4px 10px", fontSize: 12 }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center" }}>
-                      {u.label && (
-                        <span style={labelBadge}>{u.label}</span>
-                      )}
-                      <button
-                        onClick={() => { setEditingLabelUrlId(u.id); setEditingLabelValue(u.label || "") }}
-                        title="Edit label"
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", fontSize: 12, padding: "0 2px" }}
-                      >
-                        ✏️
-                      </button>
-                    </div>
-                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  {u.label && <span style={labelBadge}>{u.label}</span>}
                 </div>
                 <div style={{ flex: 1 }}>{u.schedule_type}</div>
                 <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
@@ -1047,6 +987,7 @@ export default function Dashboard() {
           <div className="table-scroll-wrapper">
             <div style={headerRow}>
               <div style={{ flex: 3 }}>URL</div>
+              <div style={{ flex: 1 }}>Label</div>
               <div style={{ flex: 1 }}>Captured</div>
               <div style={{ flex: 1 }}>Status</div>
               <div style={{ flex: 1 }}>PDF</div>
@@ -1064,7 +1005,9 @@ export default function Dashboard() {
                 <div key={c.id} style={rowCard}>
                   <div style={urlCell}>
                     <div>{urlData?.url}</div>
-                    {c.label && <span style={{ ...labelBadge, marginTop: 4 }}>{c.label}</span>}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    {c.label && <span style={labelBadge}>{c.label}</span>}
                   </div>
                   <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
                   <div style={{ flex: 1 }}>
