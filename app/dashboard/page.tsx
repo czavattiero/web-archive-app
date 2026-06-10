@@ -664,8 +664,7 @@ export default function Dashboard() {
     const q = search.toLowerCase()
     return (
       u.url.toLowerCase().includes(q) ||
-      (u.comments && u.comments.toLowerCase().includes(q)) ||
-      (u.position_title && u.position_title.toLowerCase().includes(q))
+      (u.comments && u.comments.toLowerCase().includes(q))
     )
   })
 
@@ -674,8 +673,7 @@ export default function Dashboard() {
     const q = search.toLowerCase()
     return (
       urlData?.url?.toLowerCase().includes(q) ||
-      (urlData?.comments && urlData.comments.toLowerCase().includes(q)) ||
-      (urlData?.position_title && urlData.position_title.toLowerCase().includes(q))
+      (urlData?.comments && urlData.comments.toLowerCase().includes(q))
     )
   })
 
@@ -965,7 +963,7 @@ export default function Dashboard() {
 
           <div className="table-scroll-wrapper">
             <div style={headerRow}>
-              <div style={{ flex: 3 }}>Job Title</div>
+              <div style={{ flex: 3 }}>URL</div>
               <div style={{ flex: 2 }}>Comments</div>
               <div style={{ flex: 1 }}>Schedule</div>
               <div style={{ flex: 1 }}>Next</div>
@@ -976,14 +974,7 @@ export default function Dashboard() {
             {filteredUrls.map((u) => (
               <div key={u.id} style={rowCard}>
                 <div style={urlCell}>
-                  {u.position_title ? (
-                    <>
-                      <div style={{ fontWeight: 600 }}>{u.position_title}</div>
-                      <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>{u.url}</div>
-                    </>
-                  ) : (
-                    <div>{u.url}</div>
-                  )}
+                  <div>{u.url}</div>
                 </div>
                 <div style={{ flex: 2 }}>
                   <input
@@ -1022,7 +1013,7 @@ export default function Dashboard() {
 
           <div className="table-scroll-wrapper">
             <div style={headerRow}>
-              <div style={{ flex: 3 }}>Job Title</div>
+              <div style={{ flex: 3 }}>URL</div>
               <div style={{ flex: 2 }}>Comments</div>
               <div style={{ flex: 1 }}>Captured</div>
               <div style={{ flex: 1 }}>Status</div>
@@ -1039,16 +1030,7 @@ export default function Dashboard() {
 
               return (
                 <div key={c.id} style={rowCard}>
-                  <div style={urlCell}>
-                    {urlData?.position_title ? (
-                      <>
-                        <div style={{ fontWeight: 600 }}>{urlData.position_title}</div>
-                        <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>{urlData?.url}</div>
-                      </>
-                    ) : (
-                      <div>{urlData?.url}</div>
-                    )}
-                  </div>
+                  <div style={urlCell}>{urlData?.url}</div>
                   <div style={{ flex: 2, fontSize: 13, color: "#6B7280" }}>{urlData?.comments || "—"}</div>
                   <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
                   <div style={{ flex: 1 }}>
