@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { userId, url, schedule_type, schedule_value, next_capture_at } = body
+  const { userId, url, schedule_type, schedule_value, next_capture_at, label } = body
 
   if (!userId || !url) {
     return NextResponse.json({ error: "userId and url are required" }, { status: 400 })
@@ -131,6 +131,10 @@ export async function POST(req: Request) {
   }
 
   // Insert URL
+  const safeLabel = typeof label === "string" && label.trim()
+    ? label.trim().replace(/[/\\:*?"<>|]/g, "-").replace(/[\x00-\x1F\x7F]/g, "").substring(0, 64).trim() || null
+    : null
+
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from("urls")
     .insert([
@@ -142,6 +146,7 @@ export async function POST(req: Request) {
         schedule_type,
         schedule_value: schedule_value || null,
         status: "active",
+        label: safeLabel,
       },
     ])
     .select()
