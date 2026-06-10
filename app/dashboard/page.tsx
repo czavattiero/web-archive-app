@@ -966,7 +966,7 @@ export default function Dashboard() {
                 <div style={urlCell}>
                   <div>{u.url}</div>
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={labelCell}>
                   {u.label && <span style={labelBadge}>{u.label}</span>}
                 </div>
                 <div style={{ flex: 1 }}>{u.schedule_type}</div>
@@ -1006,7 +1006,7 @@ export default function Dashboard() {
                   <div style={urlCell}>
                     <div>{urlData?.url}</div>
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div style={labelCell}>
                     {c.label && <span style={labelBadge}>{c.label}</span>}
                   </div>
                   <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
@@ -1190,6 +1190,12 @@ const linkStyle = {
   textDecoration: "none",
 }
 
+const labelCell: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  overflow: "hidden",
+}
+
 const labelBadge: React.CSSProperties = {
   display: "inline-block",
   background: "#EEF2FF",
@@ -1199,6 +1205,9 @@ const labelBadge: React.CSSProperties = {
   padding: "2px 8px",
   borderRadius: 999,
   whiteSpace: "nowrap",
+  maxWidth: "100%",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 }
 
 const paymentLoadingContainer: React.CSSProperties = {
