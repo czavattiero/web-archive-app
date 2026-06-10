@@ -83,6 +83,11 @@ body {
 
 /* ── Dashboard responsive layout ── */
 
+input::placeholder {
+  color: #6B7280;
+  opacity: 1;
+}
+
 .dashboard-logo {
   height: 160px;
 }
