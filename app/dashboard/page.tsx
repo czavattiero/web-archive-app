@@ -47,7 +47,6 @@ export default function Dashboard() {
   const [captures, setCaptures] = useState<any[]>([])
   const [search, setSearch] = useState("")
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(true)
-  const [savingCommentId, setSavingCommentId] = useState<string | null>(null)
 
   async function getAccessToken() {
     const { data: sessionData } = await supabase.auth.getSession()
@@ -614,23 +613,6 @@ export default function Dashboard() {
     return urls.find((u) => u.id === id)
   }
 
-  async function handleSaveComment(urlId: string, comment: string) {
-    setSavingCommentId(urlId)
-    try {
-      await supabase
-        .from("urls")
-        .update({ comments: comment || null })
-        .eq("id", urlId)
-      setUrls((prev) =>
-        prev.map((u) => (u.id === urlId ? { ...u, comments: comment || null } : u))
-      )
-    } catch (err) {
-      console.error("Failed to save comment:", err)
-    } finally {
-      setSavingCommentId(null)
-    }
-  }
-
   function formatAlbertaTime(dateString: string | null) {
     if (!dateString) return "—"
 
@@ -660,21 +642,13 @@ export default function Dashboard() {
     return <span style={{ ...base, background: "#E5E7EB", color: "#374151" }}>{status}</span>
   }
 
-  const filteredUrls = urls.filter((u) => {
-    const q = search.toLowerCase()
-    return (
-      u.url.toLowerCase().includes(q) ||
-      (u.comments && u.comments.toLowerCase().includes(q))
-    )
-  })
+  const filteredUrls = urls.filter((u) =>
+    u.url.toLowerCase().includes(search.toLowerCase())
+  )
 
   const filteredCaptures = captures.filter((c) => {
     const urlData = getUrlById(c.url_id)
-    const q = search.toLowerCase()
-    return (
-      urlData?.url?.toLowerCase().includes(q) ||
-      (urlData?.comments && urlData.comments.toLowerCase().includes(q))
-    )
+    return urlData?.url?.toLowerCase().includes(search.toLowerCase())
   })
 
   const fromPaymentParam = searchParams.get("fromPayment") === "true"
@@ -964,7 +938,6 @@ export default function Dashboard() {
           <div className="table-scroll-wrapper">
             <div style={headerRow}>
               <div style={{ flex: 3 }}>URL</div>
-              <div style={{ flex: 2 }}>Comments</div>
               <div style={{ flex: 1 }}>Schedule</div>
               <div style={{ flex: 1 }}>Next</div>
               <div style={{ flex: 1 }}>Status</div>
@@ -975,26 +948,6 @@ export default function Dashboard() {
               <div key={u.id} style={rowCard}>
                 <div style={urlCell}>
                   <div>{u.url}</div>
-                </div>
-                <div style={{ flex: 2 }}>
-                  <input
-                    type="text"
-                    defaultValue={u.comments || ""}
-                    key={u.id + "_comment"}
-                    onBlur={(e) => {
-                      const newVal = e.target.value.trim()
-                      const currentVal = u.comments || ""
-                      if (newVal !== currentVal) {
-                        handleSaveComment(u.id, newVal)
-                      }
-                    }}
-                    placeholder="Add a comment…"
-                    disabled={savingCommentId === u.id}
-                    style={{
-                      ...commentInputStyle,
-                      opacity: savingCommentId === u.id ? 0.6 : 1,
-                    }}
-                  />
                 </div>
                 <div style={{ flex: 1 }}>{u.schedule_type}</div>
                 <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
@@ -1014,7 +967,6 @@ export default function Dashboard() {
           <div className="table-scroll-wrapper">
             <div style={headerRow}>
               <div style={{ flex: 3 }}>URL</div>
-              <div style={{ flex: 2 }}>Comments</div>
               <div style={{ flex: 1 }}>Captured</div>
               <div style={{ flex: 1 }}>Status</div>
               <div style={{ flex: 1 }}>PDF</div>
@@ -1031,7 +983,6 @@ export default function Dashboard() {
               return (
                 <div key={c.id} style={rowCard}>
                   <div style={urlCell}>{urlData?.url}</div>
-                  <div style={{ flex: 2, fontSize: 13, color: "#6B7280" }}>{urlData?.comments || "—"}</div>
                   <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
                   <div style={{ flex: 1 }}>
                     <StatusBadge status={c.status} />
@@ -1085,17 +1036,6 @@ const urlCell: React.CSSProperties = {
   fontSize: 13,
   color: "#111827",
   fontWeight: 500,
-}
-
-const commentInputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "6px 10px",
-  borderRadius: 6,
-  border: "1.5px solid #E5E7EB",
-  background: "#F9FAFB",
-  fontSize: 13,
-  color: "#374151",
-  outline: "none",
 }
 
 const cardStyle = {
