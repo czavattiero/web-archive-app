@@ -425,6 +425,7 @@ async function runWorker() {
           user_id: item.user_id,
           status: "failed",
           error: errorMessage,
+          label: item.label || null,
         })
 
         await sendFailureEmail(item, errorMessage)
@@ -491,7 +492,9 @@ async function runWorker() {
         // keep fallback site name
       }
       const safeSiteFolder = safeName(siteName) || "unknown"
-      const fileName = `${dateFolder}/${safeSiteFolder}/${safeJobTitle}_${captureDate}.pdf`
+      const safeUrlLabel = item.label ? safeName(item.label) : null
+      const fileBase = safeUrlLabel ? `${safeUrlLabel}_${captureDate}` : `${safeJobTitle}_${captureDate}`
+      const fileName = `${dateFolder}/${safeSiteFolder}/${fileBase}.pdf`
 
       console.log("📁 Uploading:", fileName)
 
@@ -511,6 +514,7 @@ async function runWorker() {
           user_id: item.user_id,
           status: "failed",
           error: errorMessage,
+          label: item.label || null,
         })
 
         await sendFailureEmail(item, errorMessage)
@@ -528,6 +532,7 @@ async function runWorker() {
         file_path: uploadData.path,
         user_id: item.user_id,
         status: "success",
+        label: item.label || null,
       })
 
       let nextCaptureAt
@@ -637,6 +642,7 @@ async function runWorker() {
         user_id: item.user_id,
         status: "failed",
         error: errorMessage,
+        label: item.label || null,
       })
 
       await sendFailureEmail(item, errorMessage)

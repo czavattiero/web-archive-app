@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getQuotaWindowStart } from "../../../lib/quotaWindow"
 import { getAccountUserIds, getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../lib/server/billingAccess"
+import { sanitizeLabel } from "../../../lib/labelUtils"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { userId, url, schedule_type, schedule_value, next_capture_at } = body
+  const { userId, url, schedule_type, schedule_value, next_capture_at, label } = body
 
   if (!userId || !url) {
     return NextResponse.json({ error: "userId and url are required" }, { status: 400 })
@@ -142,6 +143,7 @@ export async function POST(req: Request) {
         schedule_type,
         schedule_value: schedule_value || null,
         status: "active",
+        label: sanitizeLabel(label),
       },
     ])
     .select()

@@ -6,6 +6,7 @@ import { supabase } from "../../lib/supabase"
 import { DateTime } from "luxon"
 import DisclaimerBanner from "../components/DisclaimerBanner"
 import DisclaimerModal from "../components/DisclaimerModal"
+import { LABEL_MAX_LENGTH } from "../../lib/labelUtils"
 
 const MAX_SUBSCRIPTION_RETRIES = 8
 const RETRY_DELAY_MS = 1000
@@ -33,6 +34,7 @@ export default function Dashboard() {
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
 
   const [url, setUrl] = useState("")
+  const [urlLabel, setUrlLabel] = useState("")
   const [schedule, setSchedule] = useState("weekly")
   const [customDate, setCustomDate] = useState("")
 
@@ -42,6 +44,10 @@ export default function Dashboard() {
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteLoading, setInviteLoading] = useState(false)
   const [deletingSubUserId, setDeletingSubUserId] = useState<string | null>(null)
+
+  const [editingLabelUrlId, setEditingLabelUrlId] = useState<string | null>(null)
+  const [editingLabelValue, setEditingLabelValue] = useState("")
+  const [savingLabelId, setSavingLabelId] = useState<string | null>(null)
 
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
@@ -476,6 +482,7 @@ export default function Dashboard() {
         body: JSON.stringify({
           userId: user.id,
           url: url.trim(),
+          label: urlLabel.trim() || null,
           schedule_type: schedule,
           schedule_value: schedule === "custom" ? customDate : null,
           next_capture_at: nextCaptureISO,
@@ -534,6 +541,7 @@ export default function Dashboard() {
 
       // Clear form and refresh
       setUrl("")
+      setUrlLabel("")
       setCustomDate("")
       await fetchData(user)
     } catch (err: any) {
@@ -613,6 +621,28 @@ export default function Dashboard() {
     return urls.find((u) => u.id === id)
   }
 
+  async function saveLabel(urlId: string, newLabel: string) {
+    setSavingLabelId(urlId)
+    try {
+      const res = await fetch("/api/update-url-label", {
+        method: "POST",
+        headers: await getAuthorizedHeaders(true),
+        body: JSON.stringify({ urlId, label: newLabel }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        alert("Failed to save label: " + (data.error || "Unknown error"))
+        return
+      }
+      setUrls((prev) => prev.map((u) => u.id === urlId ? { ...u, label: newLabel.trim() || null } : u))
+      setEditingLabelUrlId(null)
+    } catch (err: any) {
+      alert("Error: " + err.message)
+    } finally {
+      setSavingLabelId(null)
+    }
+  }
+
   function formatAlbertaTime(dateString: string | null) {
     if (!dateString) return "—"
 
@@ -642,13 +672,18 @@ export default function Dashboard() {
     return <span style={{ ...base, background: "#E5E7EB", color: "#374151" }}>{status}</span>
   }
 
-  const filteredUrls = urls.filter((u) =>
-    u.url.toLowerCase().includes(search.toLowerCase())
-  )
+  const filteredUrls = urls.filter((u) => {
+    const q = search.toLowerCase()
+    return u.url.toLowerCase().includes(q) || (u.label || "").toLowerCase().includes(q)
+  })
 
   const filteredCaptures = captures.filter((c) => {
+    const q = search.toLowerCase()
     const urlData = getUrlById(c.url_id)
-    return urlData?.url?.toLowerCase().includes(search.toLowerCase())
+    return (
+      urlData?.url?.toLowerCase().includes(q) ||
+      (c.label || "").toLowerCase().includes(q)
+    )
   })
 
   const fromPaymentParam = searchParams.get("fromPayment") === "true"
@@ -921,6 +956,13 @@ export default function Dashboard() {
                 Add
               </button>
             </div>
+            <input
+              value={urlLabel}
+              onChange={(e) => setUrlLabel(e.target.value.substring(0, LABEL_MAX_LENGTH))}
+              placeholder="Label (optional), e.g. UCalgary-French-2026"
+              style={{ ...inputStyle, fontSize: 13, color: "#6B7280" }}
+              maxLength={LABEL_MAX_LENGTH}
+            />
           </div>
         </div>
 
@@ -948,6 +990,44 @@ export default function Dashboard() {
               <div key={u.id} style={rowCard}>
                 <div style={urlCell}>
                   <div>{u.url}</div>
+                  {editingLabelUrlId === u.id ? (
+                    <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
+                      <input
+                        value={editingLabelValue}
+                        onChange={(e) => setEditingLabelValue(e.target.value.substring(0, LABEL_MAX_LENGTH))}
+                        placeholder="Label (optional)"
+                        maxLength={LABEL_MAX_LENGTH}
+                        style={{ ...inputStyle, fontSize: 12, padding: "4px 8px", flex: 1 }}
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => saveLabel(u.id, editingLabelValue)}
+                        disabled={savingLabelId === u.id}
+                        style={{ ...buttonPrimary, padding: "4px 12px", fontSize: 12 }}
+                      >
+                        {savingLabelId === u.id ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        onClick={() => setEditingLabelUrlId(null)}
+                        style={{ ...buttonSecondary, padding: "4px 10px", fontSize: 12 }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", gap: 6, marginTop: 4, alignItems: "center" }}>
+                      {u.label && (
+                        <span style={labelBadge}>{u.label}</span>
+                      )}
+                      <button
+                        onClick={() => { setEditingLabelUrlId(u.id); setEditingLabelValue(u.label || "") }}
+                        title="Edit label"
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", fontSize: 12, padding: "0 2px" }}
+                      >
+                        ✏️
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div style={{ flex: 1 }}>{u.schedule_type}</div>
                 <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
@@ -982,7 +1062,10 @@ export default function Dashboard() {
 
               return (
                 <div key={c.id} style={rowCard}>
-                  <div style={urlCell}>{urlData?.url}</div>
+                  <div style={urlCell}>
+                    <div>{urlData?.url}</div>
+                    {c.label && <span style={{ ...labelBadge, marginTop: 4 }}>{c.label}</span>}
+                  </div>
                   <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
                   <div style={{ flex: 1 }}>
                     <StatusBadge status={c.status} />
@@ -1162,6 +1245,17 @@ const linkStyle = {
   fontWeight: 600,
   fontSize: 13,
   textDecoration: "none",
+}
+
+const labelBadge: React.CSSProperties = {
+  display: "inline-block",
+  background: "#EEF2FF",
+  color: "#4338CA",
+  fontSize: 11,
+  fontWeight: 600,
+  padding: "2px 8px",
+  borderRadius: 999,
+  whiteSpace: "nowrap",
 }
 
 const paymentLoadingContainer: React.CSSProperties = {
