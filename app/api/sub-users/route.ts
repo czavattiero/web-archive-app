@@ -186,6 +186,17 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 })
   }
 
+  // Sub-users cannot delete team members — only the parent account holder can.
+  const { data: callerProfile } = await supabaseAdmin
+    .from("profiles")
+    .select("parent_user_id")
+    .eq("id", authUser.id)
+    .maybeSingle()
+
+  if (callerProfile?.parent_user_id) {
+    return NextResponse.json({ error: "Sub-users cannot delete team members" }, { status: 403 })
+  }
+
   const { data: subUserProfile } = await supabaseAdmin
     .from("profiles")
     .select("parent_user_id")
