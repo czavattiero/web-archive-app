@@ -1,16 +1,21 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
 const ACCESS_TOKEN_COOKIE = "sb-access-token"
 
 const PROFILE_READY_MAX_RETRIES = 5
 const PROFILE_READY_RETRY_DELAY_MS = 500
+// If neither an existing session nor a SIGNED_IN / INITIAL_SESSION event
+// arrives within this window after the confirmed=true redirect, send the
+// user back to the login page rather than leaving them on an infinite spinner.
+const CONFIRMATION_TIMEOUT_MS = 10_000
 
 export default function SignupPage() {
 
+  const router = useRouter()
   const searchParams = useSearchParams()
   const plan = searchParams.get("plan") || "trial"
   const safePlan = plan === "basic" || plan === "pro" ? plan : "trial"
@@ -119,12 +124,16 @@ export default function SignupPage() {
       setError("Something went wrong")
       setLoading(false)
     }
-  }, [safePlan])
+  }, [safePlan, router])
 
   // When the user returns from clicking their confirmation email link,
   // first check whether a session is already present (detectSessionInUrl
   // may have exchanged the token before this effect runs), then fall back
   // to onAuthStateChange in case the exchange happens slightly later.
+  // We listen for both SIGNED_IN and INITIAL_SESSION: Supabase fires
+  // INITIAL_SESSION (not SIGNED_IN) when a session already exists in
+  // localStorage at subscription time, which is the common case after the
+  // /auth/callback redirect has already exchanged the token.
   useEffect(() => {
     if (!isConfirmed) return
 
@@ -135,17 +144,32 @@ export default function SignupPage() {
     // closure even before the assignment on the next line completes.
     const subRef: { current: { unsubscribe: () => void } | null } = { current: null }
 
+    // Safety-net: if neither the eager session check nor the auth-state
+    // listener resolves within CONFIRMATION_TIMEOUT_MS, redirect to /login
+    // so the user is never permanently stuck on the spinner.
+    const timeoutId = setTimeout(() => {
+      if (completedRef.current) return
+      subRef.current?.unsubscribe()
+      console.warn("Confirmation session timeout — redirecting to /login")
+      router.replace("/login?error=session_timeout")
+    }, CONFIRMATION_TIMEOUT_MS)
+
     async function run() {
       // Eagerly check for an existing session first.
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
+        clearTimeout(timeoutId)
         completeSetup(session.user, session.access_token)
         return
       }
 
       // No session yet — subscribe as a fallback for delayed token exchange.
+      // Handle both INITIAL_SESSION (session already in localStorage when the
+      // listener is registered) and SIGNED_IN (token exchange completes after
+      // the listener is set up).
       const { data } = supabase.auth.onAuthStateChange(async (event, s) => {
-        if (event === "SIGNED_IN" && s?.user) {
+        if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && s?.user) {
+          clearTimeout(timeoutId)
           subRef.current?.unsubscribe()
           completeSetup(s.user, s.access_token)
         }
@@ -154,13 +178,17 @@ export default function SignupPage() {
     }
 
     run().catch((err) => {
+      clearTimeout(timeoutId)
       console.error("Confirmation setup error:", err)
       setError("Something went wrong")
       setLoading(false)
     })
 
-    return () => subRef.current?.unsubscribe()
-  }, [isConfirmed, completeSetup])
+    return () => {
+      clearTimeout(timeoutId)
+      subRef.current?.unsubscribe()
+    }
+  }, [isConfirmed, completeSetup, router])
 
   async function handleSignup(e: any) {
     e.preventDefault()
