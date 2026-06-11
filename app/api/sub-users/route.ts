@@ -186,15 +186,6 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 })
   }
 
-  const billingDecision = await getBillingAccessDecision(authUser.id)
-  if (!billingDecision.allowed) {
-    return NextResponse.json({ error: "Access denied" }, { status: 403 })
-  }
-
-  if (billingDecision.userProfile?.parent_user_id) {
-    return NextResponse.json({ error: "Sub-users cannot delete team members" }, { status: 403 })
-  }
-
   const { data: subUserProfile } = await supabaseAdmin
     .from("profiles")
     .select("parent_user_id")
