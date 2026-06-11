@@ -428,6 +428,14 @@ export default function Dashboard() {
     if (!user) return
     if (!url.trim()) return alert("Enter a URL")
 
+    const isDuplicate = urls.some((u) => u.url === url.trim())
+    if (isDuplicate) {
+      const proceed = window.confirm(
+        "⚠️ This URL has already been entered. You can still add it again with a different schedule — it will count towards your monthly quota. Do you want to continue?"
+      )
+      if (!proceed) return
+    }
+
     try {
       console.log("🚀 Adding new URL:", url)
 
