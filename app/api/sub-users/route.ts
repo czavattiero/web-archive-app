@@ -210,7 +210,17 @@ export async function DELETE(req: Request) {
     authUserData.user.user_metadata?.parent_user_id ??
     (authUserData.user as any).app_metadata?.parent_user_id
 
-  if (subUserProfile?.parent_user_id !== parentUserId && metadataParentUserId !== parentUserId) {
+  // If the profile exists it is the primary source of truth; deny if it belongs
+  // to a different parent (including parent users whose parent_user_id is null).
+  if (subUserProfile !== null && subUserProfile.parent_user_id !== parentUserId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  // If the profile is already gone (partial-delete state), use auth metadata as
+  // a fallback. Users linked via /api/sub-users/link have no metadata set, so
+  // treat a missing profile with no metadata as an orphaned auth user — allow
+  // cleanup. Only deny if metadata explicitly points to a different parent.
+  if (subUserProfile === null && metadataParentUserId !== undefined && metadataParentUserId !== parentUserId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
