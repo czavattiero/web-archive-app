@@ -151,6 +151,9 @@ export async function POST(req: Request) {
 
   if (insertError) {
     console.error("❌ Insert error:", insertError)
+    if (typeof (insertError as { code?: string }).code === "string" && (insertError as { code: string }).code === "23505") {
+      return NextResponse.json({ error: "This URL has already been added to your account." }, { status: 409 })
+    }
     return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
