@@ -217,9 +217,6 @@ export default function Home() {
           <h2 className="section-heading" style={{ fontSize: 36, fontWeight: 800, color: "#111827", marginBottom: 12 }}>
             Watch how Timedshot works
           </h2>
-          <p style={{ fontSize: 16, color: "#6B7280", marginBottom: 48, lineHeight: 1.6 }}>
-            From adding a URL to downloading your timestamped PDF — in under 2 minutes.
-          </p>
 
           {/* Arcade interactive demo */}
           <div style={{
@@ -276,7 +273,7 @@ export default function Home() {
             </div>
             <p style={{ fontSize: 13, color: "#6B7280", margin: "0 0 28px" }}>CAD / month</p>
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column" as const, gap: 12 }}>
-              {"Up to 15 URLs every 30 days".split(',').map(f => (
+              {"Up to 15 URLs every 30 days,Scheduled captures,PDF downloads".split(',').map(f => (
                 <li key={f} style={{ display: "flex", gap: 10, fontSize: 14, color: "#374151", alignItems: "flex-start" }}>
                   <span style={{ color: "#6A11CB", fontWeight: 700, flexShrink: 0 }}>✓</span> {f}
                 </li>
@@ -332,7 +329,7 @@ export default function Home() {
             </div>
             <p style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", margin: "0 0 28px" }}>CAD / month</p>
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column" as const, gap: 12 }}>
-              {"Up to 40 URLs every 30 days".split(',').map(f => (
+              {"Up to 40 URLs every 30 days,Scheduled captures,PDF downloads".split(',').map(f => (
                 <li key={f} style={{ display: "flex", gap: 10, fontSize: 14, color: "rgba(255,255,255,0.9)", alignItems: "flex-start" }}>
                   <span style={{ color: "#FCD34D", fontWeight: 700, flexShrink: 0 }}>✓</span> {f}
                 </li>
