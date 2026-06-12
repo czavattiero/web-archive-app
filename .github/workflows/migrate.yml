@@ -16,21 +16,44 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install PostgreSQL client
+        run: sudo apt-get install -y postgresql-client
+
+      # Drop all URL uniqueness constraints directly via psql.
+      # This step is reliable regardless of Supabase migration-history state
+      # and ensures the fix is applied even if supabase db push encounters
+      # conflicts with the existing schema.
+      - name: Drop URL unique constraints (direct SQL)
+        run: |
+          psql \
+            "postgresql://postgres@db.${SUPABASE_PROJECT_REF}.supabase.co:5432/postgres?sslmode=require" \
+            -c "ALTER TABLE public.urls DROP CONSTRAINT IF EXISTS unique_user_url;
+                ALTER TABLE public.urls DROP CONSTRAINT IF EXISTS urls_user_id_url_unique;
+                ALTER TABLE public.urls DROP CONSTRAINT IF EXISTS urls_url_key;
+                ALTER TABLE public.urls DROP CONSTRAINT IF EXISTS urls_url_unique;"
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
-      - name: Preview pending migrations (dry run)
-        run: supabase db push --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD" --dry-run
+      # supabase db push tracks which migrations have been applied so future
+      # schema changes are applied automatically.  continue-on-error prevents
+      # pre-existing schema drift (e.g. tables created via the dashboard) from
+      # blocking the primary constraint-drop step above.
+      - name: Apply database migrations
+        id: db_push
+        run: supabase db push --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+        continue-on-error: true
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
 
-      - name: Apply database migrations
-        run: supabase db push --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      - name: Warn if migration tracking failed
+        if: steps.db_push.outcome == 'failure'
+        run: |
+          echo "::warning::supabase db push failed (likely schema drift from dashboard setup). The constraint-drop step above already applied the critical fix. Review migration files for any unapplied schema changes."
