@@ -14,28 +14,53 @@ const supabase = createClient(
 const FROM_EMAIL = process.env.FROM_EMAIL || "Timedshot <noreply@timedshot.ca>"
 let resendClient = null
 
-function calculateNextCapture(scheduleType) {
-  const now = DateTime.now().setZone("America/Edmonton")
-  let next = now.plus({ days: 1 }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
+function calculateNextCapture(scheduleType, prevScheduledAt) {
+  let daysToAdd
 
   switch (scheduleType) {
     case "custom":
       return null
     case "weekly":
-      next = now.plus({ days: 7 }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
+      daysToAdd = 7
       break
     case "biweekly":
-      next = now.plus({ days: 14 }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
+      daysToAdd = 14
       break
     case "29days":
-      next = now.plus({ days: 29 }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
+      daysToAdd = 29
       break
     case "30days":
-      next = now.plus({ days: 30 }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
+      daysToAdd = 30
       break
+    default:
+      daysToAdd = 1
   }
 
-  return next.toUTC().toISO()
+  const now = DateTime.now().setZone("America/Edmonton")
+
+  // When a previous scheduled time is provided and already in the past, advance directly
+  // from it (preserving its time-of-day offset) so that duplicate URLs with different
+  // scheduled times don't converge onto the same next_capture_at after being processed
+  // in the same worker run.
+  if (prevScheduledAt) {
+    const prev = DateTime.fromISO(prevScheduledAt, { zone: "utc" }).setZone("America/Edmonton")
+    if (prev <= now) {
+      const next = prev.plus({ days: daysToAdd })
+      // Only use prev-based next if it lands in the future; otherwise fall through to
+      // the now-based default so a severely overdue URL gets a sensible schedule.
+      if (next > now) {
+        return next.toUTC().toISO()
+      }
+    }
+  }
+
+  // Default: advance from now and normalise to 9 AM Alberta.
+  // Used for new/immediate captures and when the URL is severely overdue.
+  return now
+    .plus({ days: daysToAdd })
+    .set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
+    .toUTC()
+    .toISO()
 }
 
 const MIN_BODY_TEXT_LENGTH = 200
@@ -557,7 +582,7 @@ async function runWorker() {
           nextStatus = "completed"
         }
       } else {
-        nextCaptureAt = calculateNextCapture(item.schedule_type)
+        nextCaptureAt = calculateNextCapture(item.schedule_type, item.next_capture_at)
         nextStatus = "active"
       }
 
