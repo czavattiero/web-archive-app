@@ -67,6 +67,35 @@ export async function POST(req: Request) {
 
   const limit = PLAN_LIMITS[plan] ?? 15
 
+  // If this URL already exists for the user, update its schedule and return early (no quota impact)
+  const { data: existingUrl } = await supabaseAdmin
+    .from("urls")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("url", url.trim())
+    .maybeSingle()
+
+  if (existingUrl) {
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from("urls")
+      .update({
+        schedule_type,
+        schedule_value: schedule_value || null,
+        next_capture_at,
+        label: sanitizeLabel(label),
+        status: "active",
+      })
+      .eq("id", existingUrl.id)
+      .select()
+      .single()
+
+    if (updateError) {
+      console.error("❌ Update error:", updateError)
+      return NextResponse.json({ error: updateError.message }, { status: 500 })
+    }
+    return NextResponse.json({ url: updated })
+  }
+
   // Collect all user IDs in this account (owner + sub-users) for shared quota
   const accountUserIds = await getAccountUserIds(ownerId)
 
