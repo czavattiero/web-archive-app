@@ -67,35 +67,6 @@ export async function POST(req: Request) {
 
   const limit = PLAN_LIMITS[plan] ?? 15
 
-  // If this URL already exists for the user, update its schedule and return early (no quota impact)
-  const { data: existingUrl } = await supabaseAdmin
-    .from("urls")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("url", url.trim())
-    .maybeSingle()
-
-  if (existingUrl) {
-    const { data: updated, error: updateError } = await supabaseAdmin
-      .from("urls")
-      .update({
-        schedule_type,
-        schedule_value: schedule_value || null,
-        next_capture_at,
-        label: sanitizeLabel(label),
-        status: "active",
-      })
-      .eq("id", existingUrl.id)
-      .select()
-      .single()
-
-    if (updateError) {
-      console.error("❌ Update error:", updateError)
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
-    }
-    return NextResponse.json({ url: updated })
-  }
-
   // Collect all user IDs in this account (owner + sub-users) for shared quota
   const accountUserIds = await getAccountUserIds(ownerId)
 
@@ -180,29 +151,6 @@ export async function POST(req: Request) {
 
   if (insertError) {
     console.error("❌ Insert error:", insertError)
-    if (typeof (insertError as { code?: string }).code === "string" && (insertError as { code: string }).code === "23505") {
-      // Race condition: URL was inserted between our pre-check and this insert.
-      // Fall back to an update so the user never sees a duplicate error.
-      const { data: updated, error: updateError } = await supabaseAdmin
-        .from("urls")
-        .update({
-          schedule_type,
-          schedule_value: schedule_value || null,
-          next_capture_at,
-          label: sanitizeLabel(label),
-          status: "active",
-        })
-        .eq("user_id", userId)
-        .eq("url", url.trim())
-        .select()
-        .single()
-
-      if (updateError) {
-        console.error("❌ Fallback update error:", updateError)
-        return NextResponse.json({ error: updateError.message }, { status: 500 })
-      }
-      return NextResponse.json({ url: updated })
-    }
     return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
