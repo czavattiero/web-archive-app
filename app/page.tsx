@@ -144,7 +144,7 @@ export default function Home() {
               number: "03",
               icon: "📄",
               title: "Get your proof",
-              desc: "Your timestamped PDF is sent directly to your email and available for download from your account — kept for 62 days.",
+              desc: "Your timestamped PDF is emailed to you and available in your account for 60 days.",
               accent: "#10B981",
               accentRgb: "16,185,129",
               details: [] as string[],
