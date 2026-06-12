@@ -126,7 +126,7 @@ export default function Home() {
               number: "01",
               icon: "🔗",
               title: "Add URL",
-              desc: "Paste the URL you want to monitor",
+              desc: "Paste the URL you want to monitor. It's captured immediately and automatically — no need to schedule the first one.",
               accent: "#6A11CB",
               accentRgb: "106,17,203",
               details: [] as string[],
