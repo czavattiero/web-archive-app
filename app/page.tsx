@@ -135,7 +135,7 @@ export default function Home() {
               number: "02",
               icon: "⚡",
               title: "Set your schedule",
-              desc: "Choose how often you want captures:",
+              desc: "Schedule the next capture:",
               accent: "#FF7A00",
               accentRgb: "255,122,0",
               details: ["Weekly", "Biweekly", "Every 29 days", "Every 30 days", "Specific date"],
