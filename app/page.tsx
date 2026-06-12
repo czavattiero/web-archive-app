@@ -273,7 +273,7 @@ export default function Home() {
             </div>
             <p style={{ fontSize: 13, color: "#6B7280", margin: "0 0 28px" }}>CAD / month</p>
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column" as const, gap: 12 }}>
-              {"Up to 15 URLs every 30 days,Scheduled captures,PDF downloads".split(',').map(f => (
+              {"Up to 15 URLs every 30 days,Scheduled captures,timestamped PDF downloads".split(',').map(f => (
                 <li key={f} style={{ display: "flex", gap: 10, fontSize: 14, color: "#374151", alignItems: "flex-start" }}>
                   <span style={{ color: "#6A11CB", fontWeight: 700, flexShrink: 0 }}>✓</span> {f}
                 </li>
@@ -329,7 +329,7 @@ export default function Home() {
             </div>
             <p style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", margin: "0 0 28px" }}>CAD / month</p>
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column" as const, gap: 12 }}>
-              {"Up to 40 URLs every 30 days,Scheduled captures,PDF downloads".split(',').map(f => (
+              {"Up to 40 URLs every 30 days,Scheduled captures,timestamped PDF downloads".split(',').map(f => (
                 <li key={f} style={{ display: "flex", gap: 10, fontSize: 14, color: "rgba(255,255,255,0.9)", alignItems: "flex-start" }}>
                   <span style={{ color: "#FCD34D", fontWeight: 700, flexShrink: 0 }}>✓</span> {f}
                 </li>
@@ -368,7 +368,7 @@ export default function Home() {
             </div>
             <p style={{ fontSize: 13, color: "#6B7280", margin: "0 0 28px" }}>custom pricing</p>
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column" as const, gap: 12 }}>
-              {"Unlimited URLs,Scheduled captures,PDF downloads".split(',').map(f => (
+              {"Unlimited URLs,Scheduled captures,timestamped PDF downloads".split(',').map(f => (
                 <li key={f} style={{ display: "flex", gap: 10, fontSize: 14, color: "#374151", alignItems: "flex-start" }}>
                   <span style={{ color: "#6A11CB", fontWeight: 700, flexShrink: 0 }}>✓</span> {f}
                 </li>

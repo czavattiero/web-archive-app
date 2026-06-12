@@ -87,7 +87,7 @@ export default function ChoosePlanPage() {
           <ul style={{ listStyle: "none", padding: 0, lineHeight: 2, color: "#374151" }}>
             <li>✓ Up to 15 URLs every 30 days</li>
             <li>✓ Scheduled captures</li>
-            <li>✓ PDF downloads</li>
+            <li>✓ timestamped PDF downloads</li>
           </ul>
           <button
             onClick={() => handleChoosePlan("basic")}
@@ -106,7 +106,7 @@ export default function ChoosePlanPage() {
           <ul style={{ listStyle: "none", padding: 0, lineHeight: 2, color: "#374151" }}>
             <li>✓ Up to 40 URLs every 30 days</li>
             <li>✓ Scheduled captures</li>
-            <li>✓ PDF downloads</li>
+            <li>✓ timestamped PDF downloads</li>
           </ul>
           <button
             onClick={() => handleChoosePlan("pro")}
