@@ -49,6 +49,7 @@ export default function Dashboard() {
   const [captures, setCaptures] = useState<any[]>([])
   const [search, setSearch] = useState("")
   const [searchFocused, setSearchFocused] = useState(false)
+  const [showAddButtonHint, setShowAddButtonHint] = useState(false)
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(true)
 
   async function getAccessToken() {
@@ -927,13 +928,31 @@ export default function Dashboard() {
                 />
               )}
 
-              <button
-                onClick={addUrl}
-                style={buttonPrimary}
-                title="Immediate first capture - just schedule the next one!"
-              >
-                Add
-              </button>
+              <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+                <button
+                  onClick={addUrl}
+                  style={buttonPrimary}
+                  onMouseEnter={() => setShowAddButtonHint(true)}
+                  onMouseLeave={() => setShowAddButtonHint(false)}
+                  onFocus={() => setShowAddButtonHint(true)}
+                  onBlur={() => setShowAddButtonHint(false)}
+                  aria-describedby="add-button-tooltip"
+                >
+                  Add
+                </button>
+                <div
+                  id="add-button-tooltip"
+                  role="tooltip"
+                  style={{
+                    ...addButtonTooltipStyle,
+                    opacity: showAddButtonHint ? 1 : 0,
+                    visibility: showAddButtonHint ? "visible" : "hidden",
+                    pointerEvents: "none",
+                  }}
+                >
+                  Immediate first capture - just schedule the next one!
+                </div>
+              </div>
             </div>
             <input
               value={urlLabel}
@@ -1155,6 +1174,22 @@ const buttonPrimary = {
   fontSize: 14,
   cursor: "pointer",
   whiteSpace: "nowrap" as const,
+}
+
+const addButtonTooltipStyle = {
+  position: "absolute" as const,
+  bottom: "calc(100% + 8px)",
+  left: "50%",
+  transform: "translateX(-50%)",
+  background: "#111827",
+  color: "#fff",
+  padding: "8px 10px",
+  borderRadius: 6,
+  fontSize: 12,
+  lineHeight: 1.3,
+  whiteSpace: "nowrap" as const,
+  zIndex: 20,
+  boxShadow: "0 6px 20px rgba(0,0,0,0.2)",
 }
 
 const buttonGhostDanger = {
