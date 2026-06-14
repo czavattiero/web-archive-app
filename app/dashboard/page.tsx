@@ -927,7 +927,11 @@ export default function Dashboard() {
                 />
               )}
 
-              <button onClick={addUrl} style={buttonPrimary}>
+              <button
+                onClick={addUrl}
+                style={buttonPrimary}
+                title="Immediate first capture - just schedule the next one!"
+              >
                 Add
               </button>
             </div>
