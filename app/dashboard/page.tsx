@@ -930,7 +930,7 @@ export default function Dashboard() {
               <button
                 onClick={addUrl}
                 style={buttonPrimary}
-                title="Paste the URL you want to monitor. It's captured immediately — no need to schedule the first one. Schedule the next capture"
+                title="Immediate first capture - just schedule the next one!"
               >
                 Add
               </button>
