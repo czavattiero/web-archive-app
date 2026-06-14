@@ -936,7 +936,7 @@ export default function Dashboard() {
                   onMouseLeave={() => setShowAddButtonHint(false)}
                   onFocus={() => setShowAddButtonHint(true)}
                   onBlur={() => setShowAddButtonHint(false)}
-                  aria-describedby="add-button-tooltip"
+                  aria-describedby={showAddButtonHint ? "add-button-tooltip" : undefined}
                 >
                   Add
                 </button>
