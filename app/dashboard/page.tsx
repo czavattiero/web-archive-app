@@ -936,15 +936,23 @@ export default function Dashboard() {
                   onMouseLeave={() => setShowAddButtonHint(false)}
                   onFocus={() => setShowAddButtonHint(true)}
                   onBlur={() => setShowAddButtonHint(false)}
-                  aria-describedby={showAddButtonHint ? "add-button-tooltip" : undefined}
+                  aria-describedby="add-button-tooltip"
                 >
                   Add
                 </button>
-                {showAddButtonHint && (
-                  <div id="add-button-tooltip" style={addButtonTooltipStyle}>
-                    Immediate first capture - just schedule the next one!
-                  </div>
-                )}
+                <div
+                  id="add-button-tooltip"
+                  role="tooltip"
+                  aria-hidden={!showAddButtonHint}
+                  style={{
+                    ...addButtonTooltipStyle,
+                    opacity: showAddButtonHint ? 1 : 0,
+                    visibility: showAddButtonHint ? "visible" : "hidden",
+                    pointerEvents: "none",
+                  }}
+                >
+                  Immediate first capture - just schedule the next one!
+                </div>
               </div>
             </div>
             <input
