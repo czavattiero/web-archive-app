@@ -936,7 +936,6 @@ export default function Dashboard() {
                   onMouseLeave={() => setShowAddButtonHint(false)}
                   onFocus={() => setShowAddButtonHint(true)}
                   onBlur={() => setShowAddButtonHint(false)}
-                  title="Immediate first capture - just schedule the next one!"
                   aria-describedby="add-button-tooltip"
                 >
                   Add
