@@ -943,7 +943,6 @@ export default function Dashboard() {
                 <div
                   id="add-button-tooltip"
                   role="tooltip"
-                  aria-hidden={!showAddButtonHint}
                   style={{
                     ...addButtonTooltipStyle,
                     opacity: showAddButtonHint ? 1 : 0,
