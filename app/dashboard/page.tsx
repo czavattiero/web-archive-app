@@ -1181,7 +1181,7 @@ const addButtonTooltipStyle = {
   bottom: "calc(100% + 8px)",
   left: "50%",
   transform: "translateX(-50%)",
-  background: "#111827",
+  background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
   color: "#fff",
   padding: "8px 10px",
   borderRadius: 6,
@@ -1189,7 +1189,7 @@ const addButtonTooltipStyle = {
   lineHeight: 1.3,
   whiteSpace: "nowrap" as const,
   zIndex: 20,
-  boxShadow: "0 6px 20px rgba(0,0,0,0.2)",
+  boxShadow: "0 6px 20px rgba(106,17,203,0.35)",
 }
 
 const buttonGhostDanger = {
