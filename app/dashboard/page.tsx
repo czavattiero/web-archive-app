@@ -1117,7 +1117,7 @@ const sectionTitle = {
   fontSize: 14,
   fontWeight: 600,
   marginBottom: 12,
-  color: "#111827",
+  color: "#6A11CB",
 }
 
 const rowCard = {
