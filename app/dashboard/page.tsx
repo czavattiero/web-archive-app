@@ -1158,8 +1158,9 @@ const accordionToggle: React.CSSProperties = {
 
 function chevronStyle(open: boolean): React.CSSProperties {
   return {
-    fontSize: 18,
-    color: "#6A11CB",
+    fontSize: 24,
+    fontWeight: 700,
+    color: "#4C1D95",
     transition: "transform 0.2s",
     transform: open ? "rotate(0deg)" : "rotate(-90deg)",
     display: "inline-block",
