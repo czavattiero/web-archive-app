@@ -126,6 +126,13 @@ input::placeholder {
   flex-wrap: wrap !important;
 }
 
+/* ── Accordion toggle focus ── */
+.accordion-toggle:focus-visible {
+  outline: 2px solid #6A11CB;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* ── Logo camera-shutter pulse ── */
 @keyframes camera-pulse {
   0%   { transform: scale(1);    filter: brightness(1); }

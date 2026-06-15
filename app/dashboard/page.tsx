@@ -971,6 +971,7 @@ export default function Dashboard() {
           <button
             onClick={() => setUrlsOpen((o) => !o)}
             style={accordionToggle}
+            className="accordion-toggle"
             aria-expanded={urlsOpen}
           >
             <h3 style={{ ...sectionTitle, marginBottom: 0 }}>Tracked URLs</h3>
@@ -1038,6 +1039,7 @@ export default function Dashboard() {
           <button
             onClick={() => setCapturesOpen((o) => !o)}
             style={accordionToggle}
+            className="accordion-toggle"
             aria-expanded={capturesOpen}
           >
             <h3 style={{ ...sectionTitle, marginBottom: 0 }}>Capture History</h3>
