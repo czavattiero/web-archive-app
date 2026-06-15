@@ -1114,7 +1114,7 @@ const cardStyle = {
 }
 
 const sectionTitle = {
-  fontSize: 15,
+  fontSize: 14,
   fontWeight: 600,
   marginBottom: 12,
   color: "#111827",
