@@ -51,6 +51,8 @@ export default function Dashboard() {
   const [searchFocused, setSearchFocused] = useState(false)
   const [showAddButtonHint, setShowAddButtonHint] = useState(false)
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(true)
+  const [urlsOpen, setUrlsOpen] = useState(true)
+  const [capturesOpen, setCapturesOpen] = useState(true)
 
   async function getAccessToken() {
     const { data: sessionData } = await supabase.auth.getSession()
@@ -966,102 +968,124 @@ export default function Dashboard() {
 
         {/* TRACKED URLS */}
         <div style={cardStyle}>
-          <h3 style={sectionTitle}>Tracked URLs</h3>
+          <button
+            onClick={() => setUrlsOpen((o) => !o)}
+            style={accordionToggle}
+            className="accordion-toggle"
+            aria-expanded={urlsOpen}
+          >
+            <h3 style={{ ...sectionTitle, marginBottom: 0 }}>Tracked URLs</h3>
+            <span style={chevronStyle(urlsOpen)}>▾</span>
+          </button>
 
-          <div style={{ position: "relative" }}>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              style={searchStyle}
-            />
-            {!search && !searchFocused && (
-              <span style={{
-                position: "absolute",
-                left: 14,
-                top: "50%",
-                transform: "translateY(-50%)",
-                pointerEvents: "none",
-                fontSize: 14,
-              }}>
-                <span style={{ color: "#374151" }}>Search</span>
-                <span style={{ color: "#9CA3AF" }}>{" - users can search by label or URL"}</span>
-              </span>
-            )}
-          </div>
-
-          <div className="table-scroll-wrapper">
-            <div style={headerRow}>
-              <div style={{ flex: 3 }}>URL</div>
-              <div style={{ flex: 2 }}>Label</div>
-              <div style={{ flex: 1 }}>Schedule</div>
-              <div style={{ flex: 1 }}>Next</div>
-              <div style={{ flex: 1 }}>Status</div>
-              <div style={{ flex: 1 }}>Added</div>
-            </div>
-
-            {filteredUrls.map((u) => (
-              <div key={u.id} style={rowCard}>
-                <div style={urlCell}>
-                  <div>{u.url}</div>
-                </div>
-                <div style={labelCell}>
-                  {u.label && <span style={labelBadge}>{u.label}</span>}
-                </div>
-                <div style={{ flex: 1 }}>{u.schedule_type}</div>
-                <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
-                <div style={{ flex: 1 }}>
-                  <StatusBadge status={u.status} />
-                </div>
-                <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
+          {urlsOpen && (
+            <>
+              <div style={{ position: "relative", marginTop: 12 }}>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => setSearchFocused(false)}
+                  style={searchStyle}
+                />
+                {!search && !searchFocused && (
+                  <span style={{
+                    position: "absolute",
+                    left: 14,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    pointerEvents: "none",
+                    fontSize: 14,
+                  }}>
+                    <span style={{ color: "#374151" }}>Search</span>
+                    <span style={{ color: "#9CA3AF" }}>{" - users can search by label or URL"}</span>
+                  </span>
+                )}
               </div>
-            ))}
-          </div>
+
+              <div className="table-scroll-wrapper">
+                <div style={headerRow}>
+                  <div style={{ flex: 3 }}>URL</div>
+                  <div style={{ flex: 2 }}>Label</div>
+                  <div style={{ flex: 1 }}>Schedule</div>
+                  <div style={{ flex: 1 }}>Next</div>
+                  <div style={{ flex: 1 }}>Status</div>
+                  <div style={{ flex: 1 }}>Added</div>
+                </div>
+
+                {filteredUrls.map((u) => (
+                  <div key={u.id} style={rowCard}>
+                    <div style={urlCell}>
+                      <div>{u.url}</div>
+                    </div>
+                    <div style={labelCell}>
+                      {u.label && <span style={labelBadge}>{u.label}</span>}
+                    </div>
+                    <div style={{ flex: 1 }}>{u.schedule_type}</div>
+                    <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
+                    <div style={{ flex: 1 }}>
+                      <StatusBadge status={u.status} />
+                    </div>
+                    <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* CAPTURE HISTORY */}
         <div style={cardStyle}>
-          <h3 style={sectionTitle}>Capture History</h3>
+          <button
+            onClick={() => setCapturesOpen((o) => !o)}
+            style={accordionToggle}
+            className="accordion-toggle"
+            aria-expanded={capturesOpen}
+          >
+            <h3 style={{ ...sectionTitle, marginBottom: 0 }}>Capture History</h3>
+            <span style={chevronStyle(capturesOpen)}>▾</span>
+          </button>
 
-          <div className="table-scroll-wrapper">
-            <div style={headerRow}>
-              <div style={{ flex: 3 }}>URL</div>
-              <div style={{ flex: 2 }}>Label</div>
-              <div style={{ flex: 1 }}>Captured</div>
-              <div style={{ flex: 1 }}>Status</div>
-              <div style={{ flex: 1 }}>PDF</div>
+          {capturesOpen && (
+            <div className="table-scroll-wrapper" style={{ marginTop: 12 }}>
+              <div style={headerRow}>
+                <div style={{ flex: 3 }}>URL</div>
+                <div style={{ flex: 2 }}>Label</div>
+                <div style={{ flex: 1 }}>Captured</div>
+                <div style={{ flex: 1 }}>Status</div>
+                <div style={{ flex: 1 }}>PDF</div>
+              </div>
+
+              {filteredCaptures.map((c) => {
+                const urlData = getUrlById(c.url_id)
+
+                const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
+
+                console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
+                console.log("FINAL URL:", publicUrl)
+
+                return (
+                  <div key={c.id} style={rowCard}>
+                    <div style={urlCell}>
+                      <div>{urlData?.url}</div>
+                    </div>
+                    <div style={labelCell}>
+                      {c.label && <span style={labelBadge}>{c.label}</span>}
+                    </div>
+                    <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
+                    <div style={{ flex: 1 }}>
+                      <StatusBadge status={c.status} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={linkStyle}>
+                        Download
+                      </a>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-
-            {filteredCaptures.map((c) => {
-              const urlData = getUrlById(c.url_id)
-
-              const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/captures/${c.file_path}`
-
-              console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
-              console.log("FINAL URL:", publicUrl)
-
-              return (
-                <div key={c.id} style={rowCard}>
-                  <div style={urlCell}>
-                    <div>{urlData?.url}</div>
-                  </div>
-                  <div style={labelCell}>
-                    {c.label && <span style={labelBadge}>{c.label}</span>}
-                  </div>
-                  <div style={{ flex: 1 }}>{formatAlbertaTime(c.created_at)}</div>
-                  <div style={{ flex: 1 }}>
-                    <StatusBadge status={c.status} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={linkStyle}>
-                      Download
-                    </a>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          )}
         </div>
 
       </div>
@@ -1118,6 +1142,30 @@ const sectionTitle = {
   fontWeight: 600,
   marginBottom: 12,
   color: "#6A11CB",
+}
+
+const accordionToggle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  width: "100%",
+  background: "none",
+  border: "none",
+  padding: 0,
+  cursor: "pointer",
+  textAlign: "left",
+}
+
+function chevronStyle(open: boolean): React.CSSProperties {
+  return {
+    fontSize: 18,
+    color: "#6A11CB",
+    transition: "transform 0.2s",
+    transform: open ? "rotate(0deg)" : "rotate(-90deg)",
+    display: "inline-block",
+    lineHeight: 1,
+    userSelect: "none",
+  }
 }
 
 const rowCard = {
