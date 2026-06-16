@@ -2,37 +2,87 @@
 
 import { useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { completeSignupSetup } from "../../../lib/completeSignupSetup"
 import { supabase } from "../../../lib/supabase"
 
 const VALID_PLANS = new Set(["trial", "basic", "pro"])
+const CALLBACK_TIMEOUT_MS = 10_000
 
 export default function AuthCallbackPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectedRef = useRef(false)
+  const completedRef = useRef(false)
   const plan = searchParams.get("plan") || "trial"
   const safePlan = VALID_PLANS.has(plan) ? plan : "trial"
 
   useEffect(() => {
-    function redirectToSignup() {
+    function redirectToSignup(linkError?: string) {
       if (redirectedRef.current) return
       redirectedRef.current = true
-      router.replace(`/signup?confirmed=true&plan=${encodeURIComponent(safePlan)}`)
+      const params = new URLSearchParams({ plan: safePlan })
+      if (linkError) params.set("linkError", linkError)
+      router.replace(`/signup?${params.toString()}`)
     }
 
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        redirectToSignup()
-      }
-    })
+    async function finishSignup(session: NonNullable<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]>) {
+      if (completedRef.current) return
+      completedRef.current = true
 
-    void supabase.auth.getSession().then(({ data: sessionData }) => {
+      try {
+        const result = await completeSignupSetup({
+          user: session.user,
+          accessToken: session.access_token,
+          plan: safePlan,
+        })
+
+        if (result.redirectTo) {
+          window.location.href = result.redirectTo
+          return
+        }
+      } catch (error) {
+        console.error("Auth callback setup error:", error)
+      }
+
+      redirectToSignup("setup_failed")
+    }
+
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""))
+    const hashErrorCode = hashParams.get("error_code")
+    const hashError = hashParams.get("error")
+    if (hashErrorCode || hashError) {
+      redirectToSignup(hashErrorCode || hashError || "verification_failed")
+      return
+    }
+
+    const timeoutId = setTimeout(() => {
+      if (completedRef.current) return
+      redirectToSignup("session_timeout")
+    }, CALLBACK_TIMEOUT_MS)
+
+    const subRef: { current: { unsubscribe: () => void } | null } = { current: null }
+
+    void supabase.auth.getSession().then(async ({ data: sessionData }) => {
       if (sessionData.session) {
-        redirectToSignup()
+        clearTimeout(timeoutId)
+        subRef.current?.unsubscribe()
+        await finishSignup(sessionData.session)
       }
     })
 
-    return () => data.subscription.unsubscribe()
+    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
+        clearTimeout(timeoutId)
+        subRef.current?.unsubscribe()
+        await finishSignup(session)
+      }
+    })
+    subRef.current = data.subscription
+
+    return () => {
+      clearTimeout(timeoutId)
+      subRef.current?.unsubscribe()
+    }
   }, [router, safePlan])
 
   return (
@@ -58,7 +108,7 @@ export default function AuthCallbackPage() {
         boxShadow: "0 25px 60px rgba(0,0,0,0.12)",
         textAlign: "center",
       }}>
-        <p style={{ color: "#6B7280" }}>Confirming your account…</p>
+        <p style={{ color: "#6B7280" }}>Finishing your account setup…</p>
       </div>
     </main>
   )
