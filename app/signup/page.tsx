@@ -2,24 +2,22 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { completeSignupSetup } from "../../lib/completeSignupSetup"
 import { supabase } from "../../lib/supabase"
 
-const ACCESS_TOKEN_COOKIE = "sb-access-token"
-
-const PROFILE_READY_MAX_RETRIES = 5
-const PROFILE_READY_RETRY_DELAY_MS = 500
 // If neither an existing session nor a SIGNED_IN / INITIAL_SESSION event
 // arrives within this window after the confirmed=true redirect, send the
 // user back to the login page rather than leaving them on an infinite spinner.
 const CONFIRMATION_TIMEOUT_MS = 10_000
+const NEWEST_LINK_ONLY_MESSAGE = "Only the newest confirmation email works—older links are invalidated when you request a new confirmation email."
 
 export default function SignupPage() {
-
   const router = useRouter()
   const searchParams = useSearchParams()
   const plan = searchParams.get("plan") || "trial"
   const safePlan = plan === "basic" || plan === "pro" ? plan : "trial"
   const isConfirmed = searchParams.get("confirmed") === "true"
+  const linkError = searchParams.get("linkError")
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -29,11 +27,27 @@ export default function SignupPage() {
   const [submittedEmail, setSubmittedEmail] = useState("")
   const [resendLoading, setResendLoading] = useState(false)
   const [resendMessage, setResendMessage] = useState("")
+  const [resendEmail, setResendEmail] = useState("")
   const completedRef = useRef(false)
 
-  function getCookieAttributes(maxAgeSeconds: number) {
-    const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; secure" : ""
-    return `path=/; max-age=${maxAgeSeconds}; samesite=lax${secure}`
+  function getLinkErrorMessage(code: string | null) {
+    switch (code) {
+      case "otp_expired":
+      case "access_denied":
+        return "That verification link is no longer valid. Request a fresh confirmation email below and use only the newest link."
+      case "session_timeout":
+        return "We couldn't finish verifying your account from that link. Request a new confirmation email below or log in if your account was already confirmed."
+      case "setup_failed":
+        return "Your email may have been confirmed, but we couldn't finish setting up the account. Try logging in, or request a new confirmation email if needed."
+      case "verification_failed":
+        return "We couldn't verify that email link. Request a new confirmation email below."
+      default:
+        return ""
+    }
+  }
+
+  function isValidEmail(value: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
   }
 
   // Shared post-confirmation setup: upsert profile then redirect.
@@ -47,84 +61,25 @@ export default function SignupPage() {
     setError("")
 
     try {
-      let token = accessToken
-      if (!token) {
-        const { data: sessionData } = await supabase.auth.getSession()
-        token = sessionData.session?.access_token
-      }
-      if (!token) {
-        setError("Session expired. Please log in again.")
-        setLoading(false)
-        return
-      }
-      document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; ${getCookieAttributes(3600)}`
-
-      const profileRes = await fetch("/api/create-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          userId: user.id,
-          email: user.email,
-          plan: safePlan,
-          trialEndsAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-        }),
+      const result = await completeSignupSetup({
+        user,
+        accessToken,
+        plan: safePlan,
       })
 
-      if (!profileRes.ok) {
-        const profileData = await profileRes.json()
-        console.error("Profile creation error:", profileData.error)
-        setError("Failed to create profile")
-        setLoading(false)
+      if (result.redirectTo) {
+        window.location.href = result.redirectTo
         return
       }
 
-      if (safePlan === "basic" || safePlan === "pro") {
-        const res = await fetch("/api/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ email: user.email, plan: safePlan, userId: user.id }),
-        })
-        const data = await res.json()
-
-        if (!data.url) {
-          setError("Checkout failed")
-          setLoading(false)
-          return
-        }
-
-        window.location.href = data.url
-      } else {
-        let profileReady = false
-        for (let attempt = 0; attempt < PROFILE_READY_MAX_RETRIES; attempt++) {
-          const { data: profile, error: profileError } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("id", user.id)
-            .maybeSingle()
-
-          if (profile?.id) {
-            profileReady = true
-            break
-          }
-          if (profileError) {
-            console.warn("Profile readiness check failed:", profileError.message)
-          }
-
-          if (attempt < PROFILE_READY_MAX_RETRIES - 1) {
-            await new Promise(resolve => setTimeout(resolve, PROFILE_READY_RETRY_DELAY_MS))
-          }
-        }
-        if (!profileReady) {
-          console.warn("Profile readiness check exhausted retries; redirecting to /dashboard anyway")
-        }
-        window.location.href = "/dashboard"
-      }
+      setError(result.error || "Something went wrong")
+      setLoading(false)
     } catch (err) {
       console.error("Post-confirmation error:", err)
       setError("Something went wrong")
       setLoading(false)
     }
-  }, [safePlan, router])
+  }, [safePlan])
 
   // When the user returns from clicking their confirmation email link,
   // first check whether a session is already present (detectSessionInUrl
@@ -137,16 +92,10 @@ export default function SignupPage() {
   useEffect(() => {
     if (!isConfirmed) return
 
-    // Show the loading screen immediately so the user sees progress.
     setLoading(true)
 
-    // Use an object ref so the subscription can be captured by the callback
-    // closure even before the assignment on the next line completes.
     const subRef: { current: { unsubscribe: () => void } | null } = { current: null }
 
-    // Safety-net: if neither the eager session check nor the auth-state
-    // listener resolves within CONFIRMATION_TIMEOUT_MS, redirect to /login
-    // so the user is never permanently stuck on the spinner.
     const timeoutId = setTimeout(() => {
       if (completedRef.current) return
       subRef.current?.unsubscribe()
@@ -155,7 +104,6 @@ export default function SignupPage() {
     }, CONFIRMATION_TIMEOUT_MS)
 
     async function run() {
-      // Eagerly check for an existing session first.
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
         clearTimeout(timeoutId)
@@ -163,10 +111,6 @@ export default function SignupPage() {
         return
       }
 
-      // No session yet — subscribe as a fallback for delayed token exchange.
-      // Handle both INITIAL_SESSION (session already in localStorage when the
-      // listener is registered) and SIGNED_IN (token exchange completes after
-      // the listener is set up).
       const { data } = supabase.auth.onAuthStateChange(async (event, s) => {
         if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && s?.user) {
           clearTimeout(timeoutId)
@@ -215,7 +159,6 @@ export default function SignupPage() {
       setSubmittedEmail(email)
       setCheckEmail(true)
       setLoading(false)
-
     } catch (err) {
       console.error("Signup error:", err)
       setError("Something went wrong")
@@ -223,7 +166,17 @@ export default function SignupPage() {
     }
   }
 
-  async function handleResend() {
+  async function resendConfirmation(targetEmail: string) {
+    if (!targetEmail) {
+      setResendMessage("Enter your email address to resend the confirmation email.")
+      return
+    }
+
+    if (!isValidEmail(targetEmail)) {
+      setResendMessage("Enter a valid email address to resend the confirmation email.")
+      return
+    }
+
     setResendLoading(true)
     setResendMessage("")
 
@@ -231,7 +184,7 @@ export default function SignupPage() {
       const res = await fetch("/api/resend-confirmation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: submittedEmail, plan }),
+        body: JSON.stringify({ email: targetEmail, plan }),
       })
 
       const data = await res.json()
@@ -239,7 +192,8 @@ export default function SignupPage() {
       if (!res.ok || data.error || !data.ok) {
         setResendMessage("Failed to resend. Please try again.")
       } else {
-        setResendMessage("Confirmation email resent! Check your inbox.")
+        setSubmittedEmail(targetEmail)
+        setResendMessage(`Confirmation email resent. ${NEWEST_LINK_ONLY_MESSAGE}`)
       }
     } catch {
       setResendMessage("Failed to resend. Please try again.")
@@ -248,7 +202,10 @@ export default function SignupPage() {
     setResendLoading(false)
   }
 
-  // Show a spinner while processing the confirmed=true redirect
+  async function handleResend() {
+    await resendConfirmation(submittedEmail)
+  }
+
   if (isConfirmed && loading) {
     return (
       <main style={{
@@ -279,7 +236,6 @@ export default function SignupPage() {
     )
   }
 
-  // Show the "Check your email" confirmation screen
   if (checkEmail) {
     return (
       <main style={{
@@ -292,8 +248,6 @@ export default function SignupPage() {
         fontFamily: "system-ui, sans-serif",
         padding: 20,
       }}>
-
-        {/* LOGO */}
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <img className="dashboard-logo" src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160 }} />
         </div>
@@ -307,7 +261,6 @@ export default function SignupPage() {
           boxShadow: "0 25px 60px rgba(0,0,0,0.12)",
           textAlign: "center",
         }}>
-
           <div style={{ fontSize: 48, marginBottom: 16 }}>📧</div>
 
           <h1 style={{
@@ -335,6 +288,10 @@ export default function SignupPage() {
 
           <p style={{ color: "#6B7280", fontSize: 14, marginBottom: 8 }}>
             Click the link in the email to verify your account.
+          </p>
+
+          <p style={{ color: "#6B7280", fontSize: 14, marginBottom: 8 }}>
+            {NEWEST_LINK_ONLY_MESSAGE}
           </p>
 
           <p style={{ color: "#6B7280", fontSize: 14, marginBottom: 28 }}>
@@ -365,14 +322,12 @@ export default function SignupPage() {
             <p style={{
               marginTop: 14,
               fontSize: 13,
-              color: resendMessage.startsWith("Failed") ? "red" : "#059669",
+              color: resendMessage.startsWith("Failed") || resendMessage.startsWith("Enter") ? "red" : "#059669",
             }}>
               {resendMessage}
             </p>
           )}
-
         </div>
-
       </main>
     )
   }
@@ -388,8 +343,6 @@ export default function SignupPage() {
       fontFamily: "system-ui, sans-serif",
       padding: 20,
     }}>
-
-      {/* LOGO */}
       <div style={{ textAlign: "center", marginBottom: 24 }}>
         <img className="dashboard-logo" src="/Timedshot-logo.png" alt="Timedshot logo" style={{ height: 160 }} />
       </div>
@@ -402,7 +355,6 @@ export default function SignupPage() {
         borderRadius: 20,
         boxShadow: "0 25px 60px rgba(0,0,0,0.12)",
       }}>
-
         <h1 style={{
           fontSize: 26,
           fontWeight: 700,
@@ -411,6 +363,79 @@ export default function SignupPage() {
         }}>
           Create your account
         </h1>
+
+        {getLinkErrorMessage(linkError) && (
+          <div style={{
+            marginBottom: 20,
+            borderRadius: 12,
+            border: "1px solid #F59E0B",
+            background: "#FFFBEB",
+            padding: 16,
+          }}>
+            <p style={{ margin: "0 0 10px", color: "#92400E", fontSize: 14, fontWeight: 600 }}>
+              Verification link issue
+            </p>
+            <p style={{ margin: "0 0 14px", color: "#92400E", fontSize: 14, lineHeight: 1.5 }}>
+              {getLinkErrorMessage(linkError)}
+            </p>
+            <input
+              type="email"
+              placeholder="Enter your email to resend"
+              value={resendEmail}
+              onChange={(e) => setResendEmail(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: 12,
+                border: "1px solid #FCD34D",
+                fontSize: 14,
+                marginBottom: 10,
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => void resendConfirmation(resendEmail)}
+              disabled={resendLoading}
+              style={{
+                width: "100%",
+                background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
+                color: "white",
+                border: "none",
+                padding: "12px 18px",
+                borderRadius: 12,
+                fontWeight: 600,
+                cursor: resendLoading ? "not-allowed" : "pointer",
+                opacity: resendLoading ? 0.7 : 1,
+                fontSize: 14,
+                marginBottom: 10,
+              }}
+            >
+              {resendLoading ? "Sending…" : "Resend confirmation email"}
+            </button>
+            <a
+              href="/login"
+              style={{
+                display: "block",
+                textAlign: "center",
+                color: "#6A11CB",
+                fontSize: 14,
+                fontWeight: 600,
+                textDecoration: "none",
+              }}
+            >
+              Go to login
+            </a>
+            {resendMessage && (
+              <p style={{
+                margin: "12px 0 0",
+                fontSize: 13,
+                color: resendMessage.startsWith("Failed") || resendMessage.startsWith("Enter") ? "#B91C1C" : "#059669",
+              }}>
+                {resendMessage}
+              </p>
+            )}
+          </div>
+        )}
 
         {(plan !== "basic" && plan !== "pro") && (
           <p style={{ textAlign: "center", color: "#6B7280", marginBottom: 16, fontSize: 14 }}>
@@ -421,14 +446,13 @@ export default function SignupPage() {
         <form onSubmit={handleSignup} style={{
           display: "flex",
           flexDirection: "column",
-          gap: 14
+          gap: 14,
         }}>
-
           <input
             type="email"
             placeholder="Email"
             value={email}
-            onChange={(e)=>setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
             required
             style={{
               padding: "14px",
@@ -441,7 +465,7 @@ export default function SignupPage() {
             type="password"
             placeholder="Password"
             value={password}
-            onChange={(e)=>setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             required
             style={{
               padding: "14px",
@@ -462,12 +486,11 @@ export default function SignupPage() {
               borderRadius: 12,
               fontWeight: 600,
               cursor: "pointer",
-              opacity: loading ? 0.7 : 1
+              opacity: loading ? 0.7 : 1,
             }}
           >
             {loading ? "Creating account..." : (plan === "basic" || plan === "pro") ? "Continue to payment" : "Start Free Trial"}
           </button>
-
         </form>
 
         {error && (
@@ -475,9 +498,7 @@ export default function SignupPage() {
             {error}
           </p>
         )}
-
       </div>
-
     </main>
   )
 }
