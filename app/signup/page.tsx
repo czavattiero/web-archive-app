@@ -9,7 +9,7 @@ import { supabase } from "../../lib/supabase"
 // arrives within this window after the confirmed=true redirect, send the
 // user back to the login page rather than leaving them on an infinite spinner.
 const CONFIRMATION_TIMEOUT_MS = 10_000
-const LATEST_LINK_MESSAGE = "Only the newest confirmation email works—older links are invalidated when you request a new confirmation email."
+const NEWEST_LINK_ONLY_MESSAGE = "Only the newest confirmation email works—older links are invalidated when you request a new confirmation email."
 
 export default function SignupPage() {
   const router = useRouter()
@@ -44,6 +44,10 @@ export default function SignupPage() {
       default:
         return ""
     }
+  }
+
+  function isValidEmail(value: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
   }
 
   // Shared post-confirmation setup: upsert profile then redirect.
@@ -168,6 +172,11 @@ export default function SignupPage() {
       return
     }
 
+    if (!isValidEmail(targetEmail)) {
+      setResendMessage("Enter a valid email address to resend the confirmation email.")
+      return
+    }
+
     setResendLoading(true)
     setResendMessage("")
 
@@ -184,7 +193,7 @@ export default function SignupPage() {
         setResendMessage("Failed to resend. Please try again.")
       } else {
         setSubmittedEmail(targetEmail)
-        setResendMessage(`Confirmation email resent. ${LATEST_LINK_MESSAGE}`)
+        setResendMessage(`Confirmation email resent. ${NEWEST_LINK_ONLY_MESSAGE}`)
       }
     } catch {
       setResendMessage("Failed to resend. Please try again.")
@@ -282,7 +291,7 @@ export default function SignupPage() {
           </p>
 
           <p style={{ color: "#6B7280", fontSize: 14, marginBottom: 8 }}>
-            {LATEST_LINK_MESSAGE}
+            {NEWEST_LINK_ONLY_MESSAGE}
           </p>
 
           <p style={{ color: "#6B7280", fontSize: 14, marginBottom: 28 }}>

@@ -7,6 +7,7 @@ import { supabase } from "../../../lib/supabase"
 
 const CALLBACK_TIMEOUT_MS = 10_000
 type SignupPlan = "trial" | "basic" | "pro"
+type AuthSession = NonNullable<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]>
 
 function isSignupPlan(value: string): value is SignupPlan {
   return value === "trial" || value === "basic" || value === "pro"
@@ -29,7 +30,7 @@ export default function AuthCallbackPage() {
       router.replace(`/signup?${params.toString()}`)
     }
 
-    async function finishSignup(session: NonNullable<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]>) {
+    async function finishSignup(session: AuthSession) {
       if (completedRef.current) return
       completedRef.current = true
 

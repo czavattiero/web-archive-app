@@ -5,6 +5,7 @@ const ACCESS_TOKEN_COOKIE = "sb-access-token"
 const PROFILE_READY_MAX_RETRIES = 5
 const PROFILE_READY_RETRY_DELAY_MS = 500
 const TRIAL_DURATION_DAYS = 15
+const MS_PER_DAY = 24 * 60 * 60 * 1000
 
 function getCookieAttributes(maxAgeSeconds: number) {
   const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; secure" : ""
@@ -44,7 +45,7 @@ export async function completeSignupSetup({
       userId: user.id,
       email: user.email,
       plan,
-      trialEndsAt: new Date(Date.now() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+      trialEndsAt: new Date(Date.now() + TRIAL_DURATION_DAYS * MS_PER_DAY).toISOString(),
     }),
   })
 
