@@ -67,11 +67,9 @@ export default function SignupPage() {
         return
       }
 
-      completedRef.current = false
       setError(result.error || "Something went wrong")
       setLoading(false)
     } catch (err) {
-      completedRef.current = false
       console.error("Post-confirmation error:", err)
       setError("Something went wrong")
       setLoading(false)
