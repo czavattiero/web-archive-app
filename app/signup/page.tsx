@@ -185,7 +185,7 @@ export default function SignupPage() {
         setResendMessage("Failed to resend. Please try again.")
       } else {
         setSubmittedEmail(targetEmail)
-        setResendMessage("Confirmation email resent. Use the newest email link only—the previous one no longer works.")
+        setResendMessage("Confirmation email resent. Use the newest email link only—older links are invalidated when you request a new confirmation email.")
       }
     } catch {
       setResendMessage("Failed to resend. Please try again.")
@@ -283,7 +283,7 @@ export default function SignupPage() {
           </p>
 
           <p style={{ color: "#6B7280", fontSize: 14, marginBottom: 8 }}>
-            Only the newest confirmation email works—older links stop working as soon as you resend.
+            Only the newest confirmation email works—older links are invalidated when you request a new confirmation email.
           </p>
 
           <p style={{ color: "#6B7280", fontSize: 14, marginBottom: 28 }}>
