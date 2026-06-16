@@ -5,9 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { completeSignupSetup } from "../../../lib/completeSignupSetup"
 import { supabase } from "../../../lib/supabase"
 
-const VALID_PLANS = new Set(["trial", "basic", "pro"])
 const CALLBACK_TIMEOUT_MS = 10_000
 type SignupPlan = "trial" | "basic" | "pro"
+
+function isSignupPlan(value: string): value is SignupPlan {
+  return value === "trial" || value === "basic" || value === "pro"
+}
 
 export default function AuthCallbackPage() {
   const router = useRouter()
@@ -15,7 +18,7 @@ export default function AuthCallbackPage() {
   const redirectedRef = useRef(false)
   const completedRef = useRef(false)
   const plan = searchParams.get("plan") || "trial"
-  const safePlan: SignupPlan = VALID_PLANS.has(plan) ? plan as SignupPlan : "trial"
+  const safePlan: SignupPlan = isSignupPlan(plan) ? plan : "trial"
 
   useEffect(() => {
     function redirectToSignup(linkError?: string) {
