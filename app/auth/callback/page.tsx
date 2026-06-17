@@ -55,8 +55,11 @@ export default function AuthCallbackPage() {
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""))
     const hashErrorCode = hashParams.get("error_code")
     const hashError = hashParams.get("error")
-    if (hashErrorCode || hashError) {
-      redirectToSignup(hashErrorCode || hashError || "verification_failed")
+    // PKCE flow errors arrive as query params; implicit flow errors arrive in the hash
+    const queryErrorCode = searchParams.get("error_code")
+    const queryError = searchParams.get("error")
+    if (hashErrorCode || hashError || queryErrorCode || queryError) {
+      redirectToSignup(hashErrorCode || hashError || queryErrorCode || queryError || "verification_failed")
       return
     }
 
