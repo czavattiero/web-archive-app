@@ -19,8 +19,8 @@ function createSupabasePublicClient() {
   )
 }
 
-function buildEmailHtml(confirmationUrl: string) {
-  const verifyUrl = buildVerifyUrl(confirmationUrl)
+async function buildEmailHtml(confirmationUrl: string) {
+  const verifyUrl = await buildVerifyUrl(confirmationUrl)
   return `
 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
   <div style="text-align:center;margin-bottom:32px;">
@@ -117,7 +117,7 @@ export async function POST(req: Request) {
         from: FROM_EMAIL,
         to: email,
         subject: "Confirm your email – Timedshot",
-        html: buildEmailHtml(confirmationUrl),
+        html: await buildEmailHtml(confirmationUrl),
       })
 
       if (emailError) {

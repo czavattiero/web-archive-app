@@ -36,56 +36,88 @@ function PageShell({ children }: { children: React.ReactNode }) {
 
 export default function VerifyPage() {
   const [invalid, setInvalid] = useState(false)
-  // Holds the decoded OTP URL once the hash is parsed.  Until then the button
-  // is not shown so scanners that execute JS cannot trigger the redirect
-  // automatically — only an explicit user click will consume the token.
-  const [otpUrl, setOtpUrl] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string>("")
+  // Holds the verification token extracted from the hash
+  const [verificationToken, setVerificationToken] = useState<string | null>(null)
   const [verifying, setVerifying] = useState(false)
 
   useEffect(() => {
     const hash = window.location.hash.replace(/^#/, "")
     if (!hash) {
       setInvalid(true)
+      setErrorMessage("This link is missing required information.")
       return
     }
 
-    // Validate the decoded URL: it must point to the configured Supabase project
-    // to prevent an open-redirect attack where a crafted hash could send users
-    // to an arbitrary domain.
-    let decoded: string
-    try {
-      decoded = decodeURIComponent(hash)
-      const parsed = new URL(decoded)
-      const supabaseOrigin = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").origin
-      if (parsed.origin !== supabaseOrigin) {
+    // The hash now contains a verification token (not a full URL)
+    // Old format (URL-encoded OTP URL) might still exist for backwards compatibility
+    const isOldFormat = hash.includes("%") || hash.startsWith("http")
+    
+    if (isOldFormat) {
+      // Backwards compatibility: handle old URL-based format
+      try {
+        const decoded = decodeURIComponent(hash)
+        const parsed = new URL(decoded)
+        const supabaseOrigin = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").origin
+        if (parsed.origin !== supabaseOrigin) {
+          setInvalid(true)
+          setErrorMessage("Invalid verification link.")
+          return
+        }
+        // For old format, redirect directly (legacy behavior)
+        window.location.href = decoded
+        return
+      } catch {
         setInvalid(true)
+        setErrorMessage("Invalid verification link format.")
         return
       }
-    } catch {
-      setInvalid(true)
-      return
     }
 
-    // Store the URL so we can redirect only on an explicit button click.
-    // Email security scanners that execute JS will run this effect, but they
-    // do not simulate button clicks, so the one-time token is preserved for
-    // the real user.
-    setOtpUrl(decoded)
+    // New format: store the token for exchange
+    setVerificationToken(hash)
   }, [])
 
-  function handleConfirm() {
-    if (!otpUrl) return
+  async function handleConfirm() {
+    if (!verificationToken) return
     setVerifying(true)
-    window.location.href = otpUrl
+
+    try {
+      // Exchange the token for the actual OTP URL
+      const response = await fetch('/api/exchange-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: verificationToken }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        setVerifying(false)
+        setInvalid(true)
+        setErrorMessage(data.error || "Failed to verify your email. The link may have expired or already been used.")
+        return
+      }
+
+      const { otpUrl } = await response.json()
+      
+      // Redirect to the Supabase OTP URL
+      window.location.href = otpUrl
+    } catch (error) {
+      console.error('Token exchange error:', error)
+      setVerifying(false)
+      setInvalid(true)
+      setErrorMessage("Failed to verify your email. Please try again.")
+    }
   }
 
   if (invalid) {
     return (
       <PageShell>
-        <p style={{ color: "#EF4444", fontWeight: 600, marginBottom: 8 }}>Invalid verification link</p>
+        <p style={{ color: "#EF4444", fontWeight: 600, marginBottom: 8 }}>Verification failed</p>
         <p style={{ color: "#6B7280", fontSize: 14 }}>
-          This link is missing required information. Please use the link from your confirmation email or{" "}
-          <a href="/signup" style={{ color: "#6A11CB" }}>sign up again</a>.
+          {errorMessage || "This link is invalid or has expired."} Please{" "}
+          <a href="/signup" style={{ color: "#6A11CB" }}>sign up again</a> or{" "}
+          <a href="/login" style={{ color: "#6A11CB" }}>request a new verification email</a>.
         </p>
       </PageShell>
     )
@@ -99,7 +131,7 @@ export default function VerifyPage() {
     )
   }
 
-  if (otpUrl) {
+  if (verificationToken) {
     return (
       <PageShell>
         <div style={{ fontSize: 48, marginBottom: 16 }}>✉️</div>
