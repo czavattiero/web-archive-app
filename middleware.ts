@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { getAuthenticatedUserFromRequest, getBillingAccessDecision } from "./lib/server/billingAccess"
+import { getAuthenticatedUserStateFromRequest, getBillingAccessDecision } from "./lib/server/billingAccess"
 
 // Maximum number of times the middleware will redirect to /account-setup when a
 // profile row is not yet visible (e.g. replication lag). After this many
@@ -9,9 +9,15 @@ const MAX_PROFILE_SETUP_RETRIES = 5
 
 export async function middleware(req: NextRequest) {
   if (req.nextUrl.pathname.startsWith("/dashboard")) {
-    const authUser = await getAuthenticatedUserFromRequest(req)
-    if (!authUser) {
-      return NextResponse.redirect(new URL("/login", req.url))
+    const authUser = await getAuthenticatedUserStateFromRequest(req)
+    if (!authUser?.emailVerified) {
+      const loginUrl = new URL("/login", req.url)
+      if (authUser) {
+        loginUrl.searchParams.set("error", "email_not_confirmed")
+      }
+      const response = NextResponse.redirect(loginUrl)
+      response.cookies.set("sb-access-token", "", { path: "/", maxAge: 0, sameSite: "lax" })
+      return response
     }
 
     const fromPayment = req.nextUrl.searchParams.get("fromPayment") === "true"

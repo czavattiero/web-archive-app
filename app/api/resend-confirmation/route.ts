@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
 import { buildVerifyUrl } from "../../../lib/buildVerifyUrl"
+import { normalizeSignupPlan } from "../../../lib/signupPlan"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,8 +11,6 @@ const supabaseAdmin = createClient(
 
 const FROM_EMAIL = process.env.FROM_EMAIL || "Timedshot <noreply@timedshot.ca>"
 
-const VALID_PLANS = new Set(["trial", "basic", "pro"])
-
 function createSupabasePublicClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,8 +18,8 @@ function createSupabasePublicClient() {
   )
 }
 
-async function buildEmailHtml(confirmationUrl: string) {
-  const verifyUrl = await buildVerifyUrl(confirmationUrl)
+async function buildEmailHtml(confirmationUrl: string, plan: "trial" | "basic" | "pro") {
+  const verifyUrl = await buildVerifyUrl(confirmationUrl, plan)
   return `
 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
   <div style="text-align:center;margin-bottom:32px;">
@@ -59,8 +58,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
 
-    const safePlan = VALID_PLANS.has(plan) ? plan : "trial"
-    const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?plan=${safePlan}`
+    const safePlan = normalizeSignupPlan(plan)
+    const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
 
     // ── Resend path ───────────────────────────────────────────────────────────
     if (process.env.RESEND_API_KEY) {
@@ -68,7 +67,10 @@ export async function POST(req: Request) {
       const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
         type: "signup" as "magiclink",
         email,
-        options: { redirectTo: emailRedirectTo },
+        options: {
+          redirectTo: emailRedirectTo,
+          data: { signup_plan: safePlan },
+        } as any,
       })
 
       if (linkError) {
@@ -117,7 +119,7 @@ export async function POST(req: Request) {
         from: FROM_EMAIL,
         to: email,
         subject: "Confirm your email – Timedshot",
-        html: await buildEmailHtml(confirmationUrl),
+        html: await buildEmailHtml(confirmationUrl, safePlan),
       })
 
       if (emailError) {

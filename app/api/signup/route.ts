@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
 import { buildVerifyUrl } from "../../../lib/buildVerifyUrl"
+import { type SignupPlan, normalizeSignupPlan } from "../../../lib/signupPlan"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,7 +11,6 @@ const supabaseAdmin = createClient(
 
 const FROM_EMAIL = process.env.FROM_EMAIL || "Timedshot <noreply@timedshot.ca>"
 
-const VALID_PLANS = new Set(["trial", "basic", "pro"])
 const ALREADY_REGISTERED_ERROR = "already registered"
 
 function createSupabasePublicClient() {
@@ -20,8 +20,8 @@ function createSupabasePublicClient() {
   )
 }
 
-async function buildEmailHtml(confirmationUrl: string) {
-  const verifyUrl = await buildVerifyUrl(confirmationUrl)
+async function buildEmailHtml(confirmationUrl: string, plan: SignupPlan) {
+  const verifyUrl = await buildVerifyUrl(confirmationUrl, plan)
   return `
 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
   <div style="text-align:center;margin-bottom:32px;">
@@ -91,14 +91,15 @@ function buildWelcomeEmailHtml(confirmationUrl: string) {
 async function sendViaResendWithFallback(
   email: string,
   confirmationUrl: string,
-  emailRedirectTo: string
+  emailRedirectTo: string,
+  plan: SignupPlan
 ) {
   const resend = new Resend(process.env.RESEND_API_KEY!)
   const { error: emailError } = await resend.emails.send({
     from: FROM_EMAIL,
     to: email,
     subject: "Confirm your email – Timedshot",
-    html: await buildEmailHtml(confirmationUrl),
+    html: await buildEmailHtml(confirmationUrl, plan),
   })
 
   if (!emailError) return { error: null }
@@ -124,12 +125,19 @@ async function sendViaResendWithFallback(
   return { error: null }
 }
 
-async function resendSignupConfirmationEmail(email: string, emailRedirectTo: string): Promise<{ error: { message?: string } | null }> {
+async function resendSignupConfirmationEmail(
+  email: string,
+  emailRedirectTo: string,
+  plan: SignupPlan
+): Promise<{ error: { message?: string } | null }> {
   if (process.env.RESEND_API_KEY) {
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "signup" as any,
       email,
-      options: { redirectTo: emailRedirectTo },
+      options: {
+        redirectTo: emailRedirectTo,
+        data: { signup_plan: plan },
+      } as any,
     })
 
     if (linkError) return { error: linkError }
@@ -147,7 +155,7 @@ async function resendSignupConfirmationEmail(email: string, emailRedirectTo: str
       return { error: error ?? null }
     }
 
-    const { error: sendError } = await sendViaResendWithFallback(email, confirmationUrl, emailRedirectTo)
+    const { error: sendError } = await sendViaResendWithFallback(email, confirmationUrl, emailRedirectTo, plan)
     return { error: sendError }
   }
 
@@ -179,8 +187,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    const safePlan = VALID_PLANS.has(plan) ? plan : "trial"
-    const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?plan=${safePlan}`
+    const safePlan = normalizeSignupPlan(plan)
+    const emailRedirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
 
     // ── Resend path: generateLink atomically creates the user + generates a
     //    confirmation link in one call, avoiding the double-create conflict. ──
@@ -190,14 +198,17 @@ export async function POST(req: Request) {
         type: "signup",
         email,
         password,
-        options: { redirectTo: emailRedirectTo },
+        options: {
+          redirectTo: emailRedirectTo,
+          data: { signup_plan: safePlan },
+        } as any,
       })
 
       if (linkError) {
         console.error("Signup: generateLink failed:", linkError.message)
         if (isAlreadyRegisteredError(linkError.message)) {
           console.log("Signup: user already registered, resending confirmation email")
-          const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
+          const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo, safePlan)
           if (!resendError) return NextResponse.json({ ok: true })
           return NextResponse.json(
             { error: errorMessage(resendError, "Failed to resend confirmation email") },
@@ -210,7 +221,7 @@ export async function POST(req: Request) {
       const confirmationUrl = linkData?.properties?.action_link
       if (confirmationUrl) {
         console.log("Signup: generateLink succeeded, sending via Resend")
-        const { error: sendError } = await sendViaResendWithFallback(email, confirmationUrl, emailRedirectTo)
+        const { error: sendError } = await sendViaResendWithFallback(email, confirmationUrl, emailRedirectTo, safePlan)
         if (sendError) {
           console.error("Signup: Resend send failed:", sendError.message)
           return NextResponse.json(
@@ -250,14 +261,17 @@ export async function POST(req: Request) {
     const { error: signUpError } = await supabasePublic.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo },
+      options: {
+        emailRedirectTo,
+        data: { signup_plan: safePlan },
+      },
     })
 
     if (signUpError) {
       console.error("Signup: Supabase SMTP signUp failed:", signUpError.message)
       if (isAlreadyRegisteredError(signUpError.message)) {
         console.log("Signup: user already registered (SMTP path), resending confirmation email")
-        const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo)
+        const { error: resendError } = await resendSignupConfirmationEmail(email, emailRedirectTo, safePlan)
         if (!resendError) return NextResponse.json({ ok: true })
         return NextResponse.json(
           { error: errorMessage(resendError, "Failed to resend confirmation email") },

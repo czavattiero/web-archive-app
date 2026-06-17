@@ -4,28 +4,47 @@ import { useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { completeSignupSetup } from "../../../lib/completeSignupSetup"
 import { supabase } from "../../../lib/supabase"
+import { SIGNUP_PLAN_STORAGE_KEY, normalizeSignupPlan, parseSignupPlan, type SignupPlan } from "../../../lib/signupPlan"
 
 const CALLBACK_TIMEOUT_MS = 10_000
-type SignupPlan = "trial" | "basic" | "pro"
 type AuthSession = NonNullable<Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]>
-
-function isSignupPlan(value: string): value is SignupPlan {
-  return value === "trial" || value === "basic" || value === "pro"
-}
 
 export default function AuthCallbackPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectedRef = useRef(false)
   const completedRef = useRef(false)
-  const plan = searchParams.get("plan") || "trial"
-  const safePlan: SignupPlan = isSignupPlan(plan) ? plan : "trial"
 
   useEffect(() => {
+    function getStoredPlan() {
+      try {
+        return normalizeSignupPlan(window.localStorage.getItem(SIGNUP_PLAN_STORAGE_KEY))
+      } catch {
+        return "trial"
+      }
+    }
+
+    function getPlanForSession(session: AuthSession): SignupPlan {
+      const metadataPlan = parseSignupPlan(
+        typeof session.user.user_metadata?.signup_plan === "string"
+          ? session.user.user_metadata.signup_plan
+          : null
+      )
+      const queryPlan = parseSignupPlan(searchParams.get("plan"))
+      const storedPlan = getStoredPlan()
+      const resolvedPlan = metadataPlan ?? queryPlan ?? storedPlan
+      try {
+        window.localStorage.setItem(SIGNUP_PLAN_STORAGE_KEY, resolvedPlan)
+      } catch {
+        // no-op
+      }
+      return resolvedPlan
+    }
+
     function redirectToSignup(linkError?: string) {
       if (redirectedRef.current) return
       redirectedRef.current = true
-      const params = new URLSearchParams({ plan: safePlan })
+      const params = new URLSearchParams({ plan: getStoredPlan() })
       if (linkError) params.set("linkError", linkError)
       router.replace(`/signup?${params.toString()}`)
     }
@@ -38,7 +57,7 @@ export default function AuthCallbackPage() {
         const result = await completeSignupSetup({
           user: session.user,
           accessToken: session.access_token,
-          plan: safePlan,
+          plan: getPlanForSession(session),
         })
 
         if (result.redirectTo) {
@@ -70,13 +89,28 @@ export default function AuthCallbackPage() {
 
     const subRef: { current: { unsubscribe: () => void } | null } = { current: null }
 
-    void supabase.auth.getSession().then(async ({ data: sessionData }) => {
+    void (async () => {
+      const code = searchParams.get("code")
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+        if (exchangeError) {
+          clearTimeout(timeoutId)
+          redirectToSignup(
+            exchangeError.code === "otp_expired" || exchangeError.code === "access_denied"
+              ? exchangeError.code
+              : "verification_failed"
+          )
+          return
+        }
+      }
+
+      const { data: sessionData } = await supabase.auth.getSession()
       if (sessionData.session) {
         clearTimeout(timeoutId)
         subRef.current?.unsubscribe()
         await finishSignup(sessionData.session)
       }
-    })
+    })()
 
     const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
       if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
@@ -91,7 +125,7 @@ export default function AuthCallbackPage() {
       clearTimeout(timeoutId)
       subRef.current?.unsubscribe()
     }
-  }, [router, safePlan])
+  }, [router, searchParams])
 
   return (
     <main style={{

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import { isEmailVerified } from "../emailVerification"
 
 type ProfileRow = {
   id: string
@@ -97,13 +98,25 @@ export function getAccessTokenFromRequest(req: Request): string | null {
 }
 
 export async function getAuthenticatedUserFromRequest(req: Request): Promise<{ id: string; token: string } | null> {
+  const authState = await getAuthenticatedUserStateFromRequest(req)
+  if (!authState?.emailVerified) return null
+  return { id: authState.id, token: authState.token }
+}
+
+export async function getAuthenticatedUserStateFromRequest(
+  req: Request
+): Promise<{ id: string; token: string; emailVerified: boolean } | null> {
   const token = getAccessTokenFromRequest(req)
   if (!token) return null
 
   const { data, error } = await supabaseAdmin.auth.getUser(token)
   if (error || !data.user) return null
 
-  return { id: data.user.id, token }
+  return {
+    id: data.user.id,
+    token,
+    emailVerified: isEmailVerified(data.user),
+  }
 }
 
 async function getProfileById(userId: string): Promise<ProfileRow | null> {
