@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
+import { buildVerifyUrl } from "../../../lib/buildVerifyUrl"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,6 +20,7 @@ function createSupabasePublicClient() {
 }
 
 function buildEmailHtml(confirmationUrl: string) {
+  const verifyUrl = buildVerifyUrl(confirmationUrl)
   return `
 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
   <div style="text-align:center;margin-bottom:32px;">
@@ -31,7 +33,7 @@ function buildEmailHtml(confirmationUrl: string) {
     Thanks for signing up! Click the button below to verify your email address and activate your account.
   </p>
   <div style="text-align:center;margin-bottom:32px;">
-    <a href="${confirmationUrl}"
+    <a href="${verifyUrl}"
        style="background:linear-gradient(135deg,#6A11CB,#FF7A00);color:white;text-decoration:none;padding:14px 32px;border-radius:12px;font-weight:600;font-size:15px;display:inline-block;">
       Confirm my email
     </a>
@@ -40,7 +42,7 @@ function buildEmailHtml(confirmationUrl: string) {
     If the button doesn't work, copy and paste this link into your browser:
   </p>
   <p style="font-size:12px;word-break:break-all;color:#6A11CB;">
-    <a href="${confirmationUrl}" style="color:#6A11CB;">${confirmationUrl}</a>
+    <a href="${verifyUrl}" style="color:#6A11CB;">${verifyUrl}</a>
   </p>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0;">
   <p style="font-size:12px;color:#aaa;text-align:center;">
@@ -70,8 +72,21 @@ export async function POST(req: Request) {
       })
 
       if (linkError) {
-        console.error("ResendConfirmation: generateLink failed:", linkError.message)
-        return NextResponse.json({ error: linkError.message }, { status: 400 })
+        // generateLink can fail for existing users (e.g. rate limits or SDK version
+        // differences).  Fall back to auth.resend() before giving up.
+        console.warn("ResendConfirmation: generateLink failed, falling back to auth.resend:", linkError.message)
+        const supabasePublicFallback = createSupabasePublicClient()
+        const { error: resendFallbackError } = await supabasePublicFallback.auth.resend({
+          type: "signup",
+          email,
+          options: { emailRedirectTo },
+        })
+        if (resendFallbackError) {
+          console.error("ResendConfirmation: auth.resend fallback also failed:", resendFallbackError.message)
+          return NextResponse.json({ error: "Email delivery failed. Please try again." }, { status: 500 })
+        }
+        console.log("ResendConfirmation: confirmation email sent via auth.resend fallback after generateLink failure")
+        return NextResponse.json({ ok: true })
       }
 
       console.log("ResendConfirmation: generateLink succeeded")
@@ -126,7 +141,7 @@ export async function POST(req: Request) {
       }
 
       console.log("ResendConfirmation: confirmation email sent successfully via Resend")
-      return NextResponse.json({ ok: true, confirmationUrl })
+      return NextResponse.json({ ok: true })
     }
 
     // ── Fallback path – Supabase native SMTP ─────────────────────────────────
