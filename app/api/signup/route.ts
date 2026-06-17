@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
+import { buildVerifyUrl } from "../../../lib/buildVerifyUrl"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,11 +18,6 @@ function createSupabasePublicClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
-}
-
-function buildVerifyUrl(otpUrl: string): string {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || ""
-  return `${siteUrl}/verify#${encodeURIComponent(otpUrl)}`
 }
 
 function buildEmailHtml(confirmationUrl: string) {
