@@ -36,6 +36,11 @@ function PageShell({ children }: { children: React.ReactNode }) {
 
 export default function VerifyPage() {
   const [invalid, setInvalid] = useState(false)
+  // Holds the decoded OTP URL once the hash is parsed.  Until then the button
+  // is not shown so scanners that execute JS cannot trigger the redirect
+  // automatically — only an explicit user click will consume the token.
+  const [otpUrl, setOtpUrl] = useState<string | null>(null)
+  const [verifying, setVerifying] = useState(false)
 
   useEffect(() => {
     const hash = window.location.hash.replace(/^#/, "")
@@ -44,21 +49,35 @@ export default function VerifyPage() {
       return
     }
 
-    let otpUrl: string
+    // Validate the decoded URL: it must point to the configured Supabase project
+    // to prevent an open-redirect attack where a crafted hash could send users
+    // to an arbitrary domain.
+    let decoded: string
     try {
-      otpUrl = decodeURIComponent(hash)
-      // Basic sanity check: must parse as an absolute URL
-      new URL(otpUrl)
+      decoded = decodeURIComponent(hash)
+      const parsed = new URL(decoded)
+      const supabaseOrigin = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").origin
+      if (parsed.origin !== supabaseOrigin) {
+        setInvalid(true)
+        return
+      }
     } catch {
       setInvalid(true)
       return
     }
 
-    // Navigate to the Supabase OTP link — scanners never reach here because
-    // they make plain GET requests (no JS execution) and the fragment is never
-    // sent to the server, so the one-time token is preserved for the real user.
-    window.location.href = otpUrl
+    // Store the URL so we can redirect only on an explicit button click.
+    // Email security scanners that execute JS will run this effect, but they
+    // do not simulate button clicks, so the one-time token is preserved for
+    // the real user.
+    setOtpUrl(decoded)
   }, [])
+
+  function handleConfirm() {
+    if (!otpUrl) return
+    setVerifying(true)
+    window.location.href = otpUrl
+  }
 
   if (invalid) {
     return (
@@ -72,9 +91,48 @@ export default function VerifyPage() {
     )
   }
 
+  if (verifying) {
+    return (
+      <PageShell>
+        <p style={{ color: "#6B7280" }}>Verifying your email…</p>
+      </PageShell>
+    )
+  }
+
+  if (otpUrl) {
+    return (
+      <PageShell>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>✉️</div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 10, color: "#111" }}>
+          Confirm your email
+        </h1>
+        <p style={{ color: "#6B7280", fontSize: 14, marginBottom: 28 }}>
+          Click the button below to verify your email address and activate your Timedshot account.
+        </p>
+        <button
+          onClick={handleConfirm}
+          style={{
+            background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
+            color: "white",
+            border: "none",
+            padding: "14px 32px",
+            borderRadius: 12,
+            fontWeight: 600,
+            fontSize: 15,
+            cursor: "pointer",
+            width: "100%",
+          }}
+        >
+          Confirm my email →
+        </button>
+      </PageShell>
+    )
+  }
+
+  // Hash not yet parsed (brief moment before useEffect runs)
   return (
     <PageShell>
-      <p style={{ color: "#6B7280" }}>Verifying your email…</p>
+      <p style={{ color: "#6B7280" }}>Loading…</p>
     </PageShell>
   )
 }
