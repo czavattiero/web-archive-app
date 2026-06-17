@@ -41,6 +41,14 @@ export default function SignupPage() {
   const emailSentAtRef = useRef<number | null>(null)
   const completedRef = useRef(false)
 
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SIGNUP_PLAN_STORAGE_KEY, safePlan)
+    } catch {
+      // no-op
+    }
+  }, [safePlan])
+
   function getLinkErrorMessage(code: string | null) {
     switch (code) {
       case "otp_expired":
@@ -553,10 +561,3 @@ export default function SignupPage() {
     </main>
   )
 }
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(SIGNUP_PLAN_STORAGE_KEY, safePlan)
-    } catch {
-      // no-op
-    }
-  }, [safePlan])
