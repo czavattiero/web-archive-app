@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { completeSignupSetup } from "../../lib/completeSignupSetup"
 import { supabase } from "../../lib/supabase"
+import { SIGNUP_PLAN_STORAGE_KEY, normalizeSignupPlan } from "../../lib/signupPlan"
 
 // If neither an existing session nor a SIGNED_IN / INITIAL_SESSION event
 // arrives within this window after the confirmed=true redirect, send the
@@ -22,8 +23,8 @@ function formatTimeLeft(seconds: number): string {
 export default function SignupPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const plan = searchParams.get("plan") || "trial"
-  const safePlan = plan === "basic" || plan === "pro" ? plan : "trial"
+  const plan = searchParams.get("plan")
+  const safePlan = normalizeSignupPlan(plan)
   const isConfirmed = searchParams.get("confirmed") === "true"
   const linkError = searchParams.get("linkError")
 
@@ -39,6 +40,14 @@ export default function SignupPage() {
   const [timeLeft, setTimeLeft] = useState(RESEND_DELAY_SECONDS)
   const emailSentAtRef = useRef<number | null>(null)
   const completedRef = useRef(false)
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SIGNUP_PLAN_STORAGE_KEY, safePlan)
+    } catch {
+      // no-op
+    }
+  }, [safePlan])
 
   function getLinkErrorMessage(code: string | null) {
     switch (code) {
@@ -183,7 +192,7 @@ export default function SignupPage() {
       const res = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, plan }),
+        body: JSON.stringify({ email, password, plan: safePlan }),
       })
 
       const data = await res.json()
@@ -223,7 +232,7 @@ export default function SignupPage() {
       const res = await fetch("/api/resend-confirmation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: targetEmail, plan }),
+        body: JSON.stringify({ email: targetEmail, plan: safePlan }),
       })
 
       const data = await res.json()
@@ -338,7 +347,7 @@ export default function SignupPage() {
           </p>
 
           <p style={{ color: "#6B7280", fontSize: 14, marginBottom: 28 }}>
-            {(plan === "basic" || plan === "pro")
+            {(safePlan === "basic" || safePlan === "pro")
               ? "After verification you'll be redirected to complete your payment."
               : "After verification you'll be redirected to your dashboard."}
           </p>
@@ -487,7 +496,7 @@ export default function SignupPage() {
           </div>
         )}
 
-        {(plan !== "basic" && plan !== "pro") && (
+        {safePlan === "trial" && (
           <p style={{ textAlign: "center", color: "#6B7280", marginBottom: 16, fontSize: 14 }}>
             15-day free trial · No credit card required
           </p>
@@ -539,7 +548,7 @@ export default function SignupPage() {
               opacity: loading ? 0.7 : 1,
             }}
           >
-            {loading ? "Creating account..." : (plan === "basic" || plan === "pro") ? "Continue to payment" : "Start Free Trial"}
+            {loading ? "Creating account..." : safePlan === "trial" ? "Start Free Trial" : "Continue to payment"}
           </button>
         </form>
 

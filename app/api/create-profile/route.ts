@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { isEmailVerified } from "../../../lib/emailVerification"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,6 +23,10 @@ export async function POST(req: Request) {
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token)
   if (authError || !authData.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  if (!isEmailVerified(authData.user)) {
+    return NextResponse.json({ error: "Email not verified" }, { status: 403 })
   }
 
   let body: {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "../../lib/supabase"
+import { isEmailVerified } from "../../lib/emailVerification"
 
 const ACCESS_TOKEN_COOKIE = "sb-access-token"
 const MAX_SESSION_RETRY_ATTEMPTS = 3
@@ -19,6 +20,13 @@ export default function LoginPage() {
   const [loginError, setLoginError] = useState("")
   const [existingUser, setExistingUser] = useState<{ email: string } | null>(null)
 
+  async function signOutUnverifiedUser(message: string) {
+    await supabase.auth.signOut()
+    document.cookie = `${ACCESS_TOKEN_COOKIE}=; ${getCookieAttributes(0)}`
+    setExistingUser(null)
+    setLoginError(message)
+  }
+
   function getCookieAttributes(maxAgeSeconds: number) {
     const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; secure" : ""
     return `path=/; max-age=${maxAgeSeconds}; samesite=lax${secure}`
@@ -27,6 +35,10 @@ export default function LoginPage() {
   useEffect(() => {
     async function checkSession() {
       const { data } = await supabase.auth.getUser()
+      if (data.user && !isEmailVerified(data.user)) {
+        await signOutUnverifiedUser("Please verify your email before logging in.")
+        return
+      }
 
       // ✅ KEY FIX: DO NOT redirect if coming from signup/payment
       const fromSignup = searchParams.get("fromSignup")
@@ -45,6 +57,12 @@ export default function LoginPage() {
 
     checkSession()
   }, [router, searchParams])
+
+  useEffect(() => {
+    if (searchParams.get("error") === "email_not_confirmed") {
+      setLoginError("Please verify your email before accessing the dashboard.")
+    }
+  }, [searchParams])
 
   async function goToDashboard(accessToken?: string) {
     let token = accessToken
@@ -86,6 +104,12 @@ export default function LoginPage() {
 
     if (error) {
       setLoginError(error.message)
+      setLoading(false)
+      return
+    }
+
+    if (data.user && !isEmailVerified(data.user)) {
+      await signOutUnverifiedUser("Please verify your email before logging in.")
       setLoading(false)
       return
     }

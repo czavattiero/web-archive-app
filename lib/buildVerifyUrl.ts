@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import crypto from "crypto"
+import { type SignupPlan } from "./signupPlan"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,8 +19,10 @@ const supabaseAdmin = createClient(
  * 
  * This ensures scanners cannot access the actual Supabase OTP URL.
  */
-export async function buildVerifyUrl(otpUrl: string): Promise<string> {
+export async function buildVerifyUrl(otpUrl: string, plan: SignupPlan): Promise<string> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || ""
+  const verifyUrl = new URL("/verify", siteUrl)
+  verifyUrl.searchParams.set("plan", plan)
   
   // Generate a cryptographically secure random token
   const token = crypto.randomBytes(32).toString('base64url')
@@ -36,14 +39,14 @@ export async function buildVerifyUrl(otpUrl: string): Promise<string> {
     if (error) {
       console.error('Failed to store verification token:', error.message)
       // Fallback to old behavior if database insert fails
-      return `${siteUrl}/verify#${encodeURIComponent(otpUrl)}`
+      return `${verifyUrl.toString()}#${encodeURIComponent(otpUrl)}`
     }
     
     // Return URL with just the random token (not the OTP URL)
-    return `${siteUrl}/verify#${token}`
+    return `${verifyUrl.toString()}#${token}`
   } catch (err) {
     console.error('Error in buildVerifyUrl:', err)
     // Fallback to old behavior on error
-    return `${siteUrl}/verify#${encodeURIComponent(otpUrl)}`
+    return `${verifyUrl.toString()}#${encodeURIComponent(otpUrl)}`
   }
 }

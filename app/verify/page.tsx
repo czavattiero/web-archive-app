@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
+import { SIGNUP_PLAN_STORAGE_KEY, normalizeSignupPlan } from "../../lib/signupPlan"
 
 const LOGO_PATH = "/Timedshot-logo.png"
 
@@ -35,13 +37,21 @@ function PageShell({ children }: { children: React.ReactNode }) {
 }
 
 export default function VerifyPage() {
+  const searchParams = useSearchParams()
   const [invalid, setInvalid] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string>("")
   // Holds the verification token extracted from the hash
   const [verificationToken, setVerificationToken] = useState<string | null>(null)
   const [verifying, setVerifying] = useState(false)
+  const safePlan = normalizeSignupPlan(searchParams.get("plan"))
 
   useEffect(() => {
+    try {
+      window.localStorage.setItem(SIGNUP_PLAN_STORAGE_KEY, safePlan)
+    } catch {
+      // no-op
+    }
+
     const hash = window.location.hash.replace(/^#/, "")
     if (!hash) {
       setInvalid(true)
@@ -76,7 +86,7 @@ export default function VerifyPage() {
 
     // New format: store the token for exchange
     setVerificationToken(hash)
-  }, [])
+  }, [safePlan])
 
   async function handleConfirm() {
     if (!verificationToken) return

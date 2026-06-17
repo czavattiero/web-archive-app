@@ -1,5 +1,6 @@
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "./supabase"
+import type { SignupPlan } from "./signupPlan"
 
 const ACCESS_TOKEN_COOKIE = "sb-access-token"
 const PROFILE_READY_MAX_RETRIES = 5
@@ -19,7 +20,7 @@ export async function completeSignupSetup({
 }: {
   user: Pick<User, "id" | "email">
   accessToken?: string
-  plan: "trial" | "basic" | "pro"
+  plan: SignupPlan
 }) {
   let token = accessToken
   if (!token) {
