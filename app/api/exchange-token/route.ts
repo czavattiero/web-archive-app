@@ -60,46 +60,60 @@ export async function POST(req: Request) {
 
     const clientIp = getClientIp(req)
 
-    // Look up the token
-    const { data: tokenData, error: lookupError } = await supabaseAdmin
+    // Use atomic update with WHERE clause to ensure token can only be consumed once
+    // This prevents race conditions where multiple requests could exchange the same token
+    const { data: updatedToken, error: updateError } = await supabaseAdmin
       .from('verification_tokens')
-      .select('id, otp_url, consumed_at')
+      .update({
+        consumed_at: new Date().toISOString(),
+        consumed_by_ip: clientIp,
+      })
       .eq('token', token)
+      .is('consumed_at', null) // Only update if not already consumed
+      .select('id, otp_url')
       .single()
 
-    if (lookupError || !tokenData) {
-      console.error('Token lookup failed:', lookupError?.message)
+    if (updateError || !updatedToken) {
+      // Token doesn't exist, already consumed, or database error
+      if (updateError?.code === 'PGRST116') {
+        // No rows matched = token already consumed or doesn't exist
+        console.warn('Token not found or already consumed:', token)
+        return NextResponse.json(
+          { error: 'This verification link has expired or already been used' },
+          { status: 410 }
+        )
+      }
+      
+      console.error('Token update failed:', updateError?.message)
       return NextResponse.json(
         { error: 'Invalid or expired token' },
         { status: 404 }
       )
     }
 
-    // Check if token has already been consumed
-    if (tokenData.consumed_at) {
-      console.warn('Token already consumed:', token)
-      return NextResponse.json(
-        { error: 'This verification link has already been used' },
-        { status: 410 }
-      )
-    }
-
-    // Mark token as consumed
-    const { error: updateError } = await supabaseAdmin
+    // Check if token is too old (older than 24 hours)
+    // Note: We do this after the update to ensure atomic consumption
+    // but could also add a check before the update to fail faster
+    const { data: tokenAge, error: ageError } = await supabaseAdmin
       .from('verification_tokens')
-      .update({
-        consumed_at: new Date().toISOString(),
-        consumed_by_ip: clientIp,
-      })
-      .eq('id', tokenData.id)
+      .select('created_at')
+      .eq('id', updatedToken.id)
+      .single()
 
-    if (updateError) {
-      console.error('Failed to mark token as consumed:', updateError.message)
-      // Continue anyway - better to let the user through than fail
+    if (!ageError && tokenAge) {
+      const ageInHours = (Date.now() - new Date(tokenAge.created_at).getTime()) / (1000 * 60 * 60)
+      if (ageInHours > 24) {
+        console.warn('Token is older than 24 hours:', token)
+        return NextResponse.json(
+          { error: 'This verification link has expired' },
+          { status: 410 }
+        )
+      }
     }
 
     // Return the OTP URL
-    return NextResponse.json({ otpUrl: tokenData.otp_url })
+    console.log('Token successfully exchanged:', { token: token.substring(0, 8) + '...', ip: clientIp })
+    return NextResponse.json({ otpUrl: updatedToken.otp_url })
   } catch (err: any) {
     console.error('Exchange token API error:', err)
     return NextResponse.json(
