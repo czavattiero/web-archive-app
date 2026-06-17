@@ -93,12 +93,6 @@ export default function VerifyPage() {
     setVerifying(true)
 
     try {
-      try {
-        window.localStorage.setItem(SIGNUP_PLAN_STORAGE_KEY, safePlan)
-      } catch {
-        // no-op
-      }
-
       // Exchange the token for the actual OTP URL
       const response = await fetch('/api/exchange-token', {
         method: 'POST',
