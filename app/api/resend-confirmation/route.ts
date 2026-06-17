@@ -72,8 +72,21 @@ export async function POST(req: Request) {
       })
 
       if (linkError) {
-        console.error("ResendConfirmation: generateLink failed:", linkError.message)
-        return NextResponse.json({ error: linkError.message }, { status: 400 })
+        // generateLink can fail for existing users (e.g. rate limits or SDK version
+        // differences).  Fall back to auth.resend() before giving up.
+        console.warn("ResendConfirmation: generateLink failed, falling back to auth.resend:", linkError.message)
+        const supabasePublicFallback = createSupabasePublicClient()
+        const { error: resendFallbackError } = await supabasePublicFallback.auth.resend({
+          type: "signup",
+          email,
+          options: { emailRedirectTo },
+        })
+        if (resendFallbackError) {
+          console.error("ResendConfirmation: auth.resend fallback also failed:", resendFallbackError.message)
+          return NextResponse.json({ error: "Email delivery failed. Please try again." }, { status: 500 })
+        }
+        console.log("ResendConfirmation: confirmation email sent via auth.resend fallback after generateLink failure")
+        return NextResponse.json({ ok: true })
       }
 
       console.log("ResendConfirmation: generateLink succeeded")

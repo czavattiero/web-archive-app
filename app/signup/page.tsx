@@ -10,6 +10,14 @@ import { supabase } from "../../lib/supabase"
 // user back to the login page rather than leaving them on an infinite spinner.
 const CONFIRMATION_TIMEOUT_MS = 10_000
 const NEWEST_LINK_ONLY_MESSAGE = "Only the newest confirmation email works—older links are invalidated when you request a new confirmation email."
+// How long users must wait before they can request a new confirmation email.
+const RESEND_DELAY_SECONDS = 15 * 60
+
+function formatTimeLeft(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${s.toString().padStart(2, "0")}`
+}
 
 export default function SignupPage() {
   const router = useRouter()
@@ -28,6 +36,8 @@ export default function SignupPage() {
   const [resendLoading, setResendLoading] = useState(false)
   const [resendMessage, setResendMessage] = useState("")
   const [resendEmail, setResendEmail] = useState("")
+  const [timeLeft, setTimeLeft] = useState(RESEND_DELAY_SECONDS)
+  const emailSentAtRef = useRef<number | null>(null)
   const completedRef = useRef(false)
 
   function getLinkErrorMessage(code: string | null) {
@@ -134,6 +144,35 @@ export default function SignupPage() {
     }
   }, [isConfirmed, completeSetup, router])
 
+  // Countdown timer: after signing up, the user must wait RESEND_DELAY_SECONDS
+  // before the resend button becomes available.
+  useEffect(() => {
+    if (!checkEmail) {
+      // Reset the timer if the user ever returns to the signup form
+      emailSentAtRef.current = null
+      return
+    }
+
+    // Record when the email was sent (only on first entry into checkEmail state)
+    if (!emailSentAtRef.current) {
+      emailSentAtRef.current = Date.now()
+    }
+
+    // Apply immediately so there is no 1-second delay on mount
+    const elapsed = Math.floor((Date.now() - emailSentAtRef.current) / 1000)
+    setTimeLeft(Math.max(0, RESEND_DELAY_SECONDS - elapsed))
+
+    // id is declared before the callback so clearInterval(id) is always valid
+    const id = setInterval(() => {
+      const ms = Math.floor((Date.now() - emailSentAtRef.current!) / 1000)
+      const remaining = Math.max(0, RESEND_DELAY_SECONDS - ms)
+      setTimeLeft(remaining)
+      if (remaining === 0) clearInterval(id)
+    }, 1000)
+
+    return () => clearInterval(id)
+  }, [checkEmail])
+
   async function handleSignup(e: any) {
     e.preventDefault()
 
@@ -193,6 +232,10 @@ export default function SignupPage() {
         setResendMessage("Failed to resend. Please try again.")
       } else {
         setSubmittedEmail(targetEmail)
+        // Reset the timer so the user must wait another 15 minutes before
+        // requesting another resend.
+        emailSentAtRef.current = Date.now()
+        setTimeLeft(RESEND_DELAY_SECONDS)
         setResendMessage(`Confirmation email resent. ${NEWEST_LINK_ONLY_MESSAGE}`)
       }
     } catch {
@@ -300,23 +343,30 @@ export default function SignupPage() {
               : "After verification you'll be redirected to your dashboard."}
           </p>
 
-          <button
-            onClick={handleResend}
-            disabled={resendLoading}
-            style={{
-              background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
-              color: "white",
-              border: "none",
-              padding: "12px 24px",
-              borderRadius: 12,
-              fontWeight: 600,
-              cursor: resendLoading ? "not-allowed" : "pointer",
-              opacity: resendLoading ? 0.7 : 1,
-              fontSize: 14,
-            }}
-          >
-            {resendLoading ? "Sending…" : "Resend confirmation email"}
-          </button>
+          {timeLeft > 0 ? (
+            <p style={{ color: "#6B7280", fontSize: 14 }}>
+              Didn&apos;t receive the email? You can request a new one in{" "}
+              <span style={{ fontWeight: 600, color: "#6A11CB" }}>{formatTimeLeft(timeLeft)}</span>
+            </p>
+          ) : (
+            <button
+              onClick={handleResend}
+              disabled={resendLoading}
+              style={{
+                background: "linear-gradient(135deg, #6A11CB, #FF7A00)",
+                color: "white",
+                border: "none",
+                padding: "12px 24px",
+                borderRadius: 12,
+                fontWeight: 600,
+                cursor: resendLoading ? "not-allowed" : "pointer",
+                opacity: resendLoading ? 0.7 : 1,
+                fontSize: 14,
+              }}
+            >
+              {resendLoading ? "Sending…" : "Resend confirmation email"}
+            </button>
+          )}
 
           {resendMessage && (
             <p style={{
