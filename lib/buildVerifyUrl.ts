@@ -1,52 +1,41 @@
-import { createClient } from "@supabase/supabase-js"
 import crypto from "crypto"
 import { type SignupPlan } from "./signupPlan"
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000
+const STATELESS_TOKEN_PREFIX = "st1"
+
+function buildStatelessVerificationToken(otpUrl: string): string {
+  const signingKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!signingKey) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for verification token signing")
+  }
+  const payload = {
+    otpUrl,
+    exp: Date.now() + VERIFICATION_TOKEN_TTL_MS,
+  }
+  const payloadBase64 = Buffer.from(JSON.stringify(payload)).toString("base64url")
+  const signature = crypto
+    .createHmac("sha256", signingKey)
+    .update(payloadBase64)
+    .digest("base64url")
+  return `${STATELESS_TOKEN_PREFIX}.${payloadBase64}.${signature}`
+}
 
 /**
- * Wraps a Supabase OTP URL in the scanner-safe /verify redirect with token exchange.
+ * Wraps a Supabase OTP URL in a scanner-safe /verify redirect with token exchange.
  *
  * Email security scanners (Gmail, Microsoft SafeLinks, Barracuda, …) pre-fetch
- * every <a href> in an email and can even extract embedded URLs from the href
- * attribute. To prevent scanners from consuming the one-time Supabase token, we:
- * 1. Generate a random token and store it in the database with the OTP URL
- * 2. Put only the random token in the URL hash (not the OTP URL)
- * 3. When the user clicks the button, exchange the token for the OTP URL via API
- * 
- * This ensures scanners cannot access the actual Supabase OTP URL.
+ * email links. To avoid exposing Supabase OTP URLs directly, we sign a short-lived
+ * payload and place it in the URL hash. The browser exchanges this token for the
+ * real OTP URL only after explicit user interaction on /verify.
  */
 export async function buildVerifyUrl(otpUrl: string, plan: SignupPlan): Promise<string> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || ""
   const verifyUrl = new URL("/verify", siteUrl)
   verifyUrl.searchParams.set("plan", plan)
-  
-  // Generate a cryptographically secure random token
-  const token = crypto.randomBytes(32).toString('base64url')
-  
-  try {
-    // Store the token and OTP URL mapping in the database
-    const { error } = await supabaseAdmin
-      .from('verification_tokens')
-      .insert({
-        token,
-        otp_url: otpUrl,
-      })
-    
-    if (error) {
-      console.error('Failed to store verification token:', error.message)
-      // Fallback to old behavior if database insert fails
-      return `${verifyUrl.toString()}#${encodeURIComponent(otpUrl)}`
-    }
-    
-    // Return URL with just the random token (not the OTP URL)
-    return `${verifyUrl.toString()}#${token}`
-  } catch (err) {
-    console.error('Error in buildVerifyUrl:', err)
-    // Fallback to old behavior on error
-    return `${verifyUrl.toString()}#${encodeURIComponent(otpUrl)}`
-  }
+
+  // Use a signed, stateless token for new links so scanner prefetches cannot
+  // invalidate the link by consuming server-side one-time state.
+  const statelessToken = buildStatelessVerificationToken(otpUrl)
+  return `${verifyUrl.toString()}#${statelessToken}`
 }
