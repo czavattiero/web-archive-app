@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import crypto from "crypto"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,6 +22,8 @@ const SCANNER_PATTERNS = [
   /mimecast/i,
   /proofpoint/i,
 ]
+const STATELESS_TOKEN_PREFIX = "st1"
+const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000
 
 function isLikelyScanner(userAgent: string): boolean {
   return SCANNER_PATTERNS.some(pattern => pattern.test(userAgent))
@@ -38,6 +41,47 @@ function getClientIp(req: Request): string {
     || headers['x-real-ip'] 
     || headers['cf-connecting-ip']
     || 'unknown'
+}
+
+function decodeStatelessToken(token: string): { otpUrl: string; exp: number } | null {
+  const [prefix, payloadBase64, signature] = token.split(".")
+  if (!prefix || !payloadBase64 || !signature || prefix !== STATELESS_TOKEN_PREFIX) {
+    return null
+  }
+
+  const signingKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!signingKey) return null
+
+  const expectedSignature = crypto
+    .createHmac("sha256", signingKey)
+    .update(payloadBase64)
+    .digest("base64url")
+
+  const actualSig = Buffer.from(signature, "base64url")
+  const expectedSig = Buffer.from(expectedSignature, "base64url")
+  if (actualSig.length !== expectedSig.length || !crypto.timingSafeEqual(actualSig, expectedSig)) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(Buffer.from(payloadBase64, "base64url").toString("utf8"))
+    if (!parsed || typeof parsed.otpUrl !== "string" || typeof parsed.exp !== "number") {
+      return null
+    }
+    return { otpUrl: parsed.otpUrl, exp: parsed.exp }
+  } catch {
+    return null
+  }
+}
+
+function isValidSupabaseOtpUrl(otpUrl: string): boolean {
+  try {
+    const parsed = new URL(otpUrl)
+    const supabaseOrigin = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").origin
+    return Boolean(supabaseOrigin) && parsed.origin === supabaseOrigin
+  } catch {
+    return false
+  }
 }
 
 export async function POST(req: Request) {
@@ -58,7 +102,32 @@ export async function POST(req: Request) {
       )
     }
 
+    // New stateless format used by recently-sent emails.
+    const statelessPayload = decodeStatelessToken(token)
+    if (statelessPayload) {
+      if (Date.now() > statelessPayload.exp) {
+        return NextResponse.json(
+          { error: 'This verification link has expired' },
+          { status: 410 }
+        )
+      }
+      if (statelessPayload.exp - Date.now() > VERIFICATION_TOKEN_TTL_MS) {
+        return NextResponse.json(
+          { error: 'Invalid verification link' },
+          { status: 400 }
+        )
+      }
+      if (!isValidSupabaseOtpUrl(statelessPayload.otpUrl)) {
+        return NextResponse.json(
+          { error: 'Invalid verification link' },
+          { status: 400 }
+        )
+      }
+      return NextResponse.json({ otpUrl: statelessPayload.otpUrl })
+    }
+
     const clientIp = getClientIp(req)
+    const minCreatedAt = new Date(Date.now() - VERIFICATION_TOKEN_TTL_MS).toISOString()
 
     // Use atomic update with WHERE clause to ensure token can only be consumed once
     // This prevents race conditions where multiple requests could exchange the same token
@@ -70,7 +139,8 @@ export async function POST(req: Request) {
       })
       .eq('token', token)
       .is('consumed_at', null) // Only update if not already consumed
-      .select('id, otp_url')
+      .gt('created_at', minCreatedAt) // Expire old links atomically
+      .select('otp_url')
       .single()
 
     if (updateError || !updatedToken) {
@@ -91,24 +161,11 @@ export async function POST(req: Request) {
       )
     }
 
-    // Check if token is too old (older than 24 hours)
-    // Note: We do this after the update to ensure atomic consumption
-    // but could also add a check before the update to fail faster
-    const { data: tokenAge, error: ageError } = await supabaseAdmin
-      .from('verification_tokens')
-      .select('created_at')
-      .eq('id', updatedToken.id)
-      .single()
-
-    if (!ageError && tokenAge) {
-      const ageInHours = (Date.now() - new Date(tokenAge.created_at).getTime()) / (1000 * 60 * 60)
-      if (ageInHours > 24) {
-        console.warn('Token is older than 24 hours:', token)
-        return NextResponse.json(
-          { error: 'This verification link has expired' },
-          { status: 410 }
-        )
-      }
+    if (!isValidSupabaseOtpUrl(updatedToken.otp_url)) {
+      return NextResponse.json(
+        { error: 'Invalid verification link' },
+        { status: 400 }
+      )
     }
 
     // Return the OTP URL
