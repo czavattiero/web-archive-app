@@ -485,7 +485,11 @@ async function runWorker() {
 
       // Neutralize fixed/sticky elements so they don't overlap with the timestamp banner
       await page.evaluate(() => {
-        document.querySelectorAll("*").forEach(el => {
+        // Candidate tags most likely to carry fixed/sticky positioning
+        const candidates = document.querySelectorAll(
+          "header, nav, footer, aside, div, section, form, [class], [id]"
+        )
+        candidates.forEach(el => {
           try {
             const computed = window.getComputedStyle(el)
             if (computed.position === "fixed" || computed.position === "sticky") {
@@ -497,6 +501,12 @@ async function runWorker() {
         })
       })
 
+      const escapedUrl = item.url
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+
       console.log("📄 Generating PDF...")
 
       const pdfBuffer = await page.pdf({
@@ -504,7 +514,7 @@ async function runWorker() {
         displayHeaderFooter: true,
         headerTemplate: `
           <div style="width:100%; font-size:11px; padding:6px 12px; background:white; color:black; border-bottom:1px solid #ccc; display:flex; justify-content:space-between; align-items:center; box-sizing:border-box;">
-            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">${item.url}</span>
+            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">${escapedUrl}</span>
             <span style="white-space:nowrap; margin-left:8px;">Captured: ${captureTimestamp}</span>
           </div>
         `,
