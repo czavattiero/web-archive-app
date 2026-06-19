@@ -501,44 +501,20 @@ async function runWorker() {
         })
       })
 
-      // Inject a timestamp banner as the very first child of <body>.
-      // Because the banner is in normal document flow (position: relative) and comes
-      // before any site header/logo, the logo is always rendered below the banner —
-      // eliminating the overlap that occurred with the PDF displayHeaderFooter approach.
-      await page.evaluate(({ url, captureTimestamp }) => {
-        const banner = document.createElement("div")
-        banner.style.cssText = [
-          "position:relative",
-          "width:100%",
-          "background:white",
-          "color:black",
-          "font-family:Arial,sans-serif",
-          "font-size:11px",
-          "padding:6px 12px",
-          "border-bottom:1px solid #ccc",
-          "box-sizing:border-box",
-          "display:flex",
-          "justify-content:space-between",
-          "align-items:center",
-        ].join(";")
-        const urlSpan = document.createElement("span")
-        urlSpan.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;"
-        urlSpan.textContent = url
-        const tsSpan = document.createElement("span")
-        tsSpan.style.cssText = "white-space:nowrap;margin-left:8px;"
-        tsSpan.textContent = "Captured: " + captureTimestamp
-        banner.appendChild(urlSpan)
-        banner.appendChild(tsSpan)
-        document.body.prepend(banner)
-      }, { url: item.url, captureTimestamp })
-
       console.log("📄 Generating PDF...")
 
+      // Use displayHeaderFooter so the timestamp banner is repeated on every page.
+      // Fixed/sticky elements have already been neutralised above, so the header
+      // template will not overlap any site logo or nav bar.
+      const escUrl = item.url.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
       const pdfBuffer = await page.pdf({
         format: "A4",
         printBackground: true,
+        displayHeaderFooter: true,
+        headerTemplate: `<div style="width:100%;font-family:Arial,sans-serif;font-size:10px;padding:4px 12px;border-bottom:1px solid #ccc;color:#000;background:#fff;box-sizing:border-box;display:flex;justify-content:space-between;align-items:center;"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;">${escUrl}</span><span style="white-space:nowrap;margin-left:8px;">Captured: ${captureTimestamp}</span></div>`,
+        footerTemplate: "<span></span>",
         margin: {
-          top: "10px",
+          top: "40px",
           bottom: "30px",
         },
       })

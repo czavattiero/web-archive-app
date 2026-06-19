@@ -159,48 +159,32 @@ async function run() {
 
       const captureId = Date.now()
 
-      // ✅ SAFE banner (no overlap)
-      await page.evaluate(({ timestamp, captureUrl, captureId }) => {
-
-        const banner = document.createElement("div")
-
-        banner.style.width = "100%"
-        banner.style.background = "white"
-        banner.style.color = "black"
-        banner.style.fontFamily = "Arial, sans-serif"
-        banner.style.fontSize = "14px"
-        banner.style.padding = "12px"
-        banner.style.borderBottom = "2px solid black"
-        banner.style.boxSizing = "border-box"
-
-        banner.innerHTML = `
-          <div><strong>Captured:</strong> ${timestamp} — <strong>URL:</strong> ${captureUrl}</div>
-          <div><strong>System:</strong> WebArchive</div>
-          <div><strong>Capture ID:</strong> ${captureId}</div>
-        `
-
-        document.body.prepend(banner)
-
-        // Push fixed/sticky elements down by the banner height to prevent overlap
-        const bannerHeight = banner.getBoundingClientRect().height
+      // Neutralise ALL fixed/sticky elements so they don't overlap the PDF header.
+      await page.evaluate(() => {
         document.querySelectorAll("*").forEach(el => {
-          if (el === banner) return
-          const pos = window.getComputedStyle(el).position
-          if (pos === "fixed" || pos === "sticky") {
-            const rawTop = window.getComputedStyle(el).top
-            const currentTop = rawTop === "auto" ? 0 : (parseFloat(rawTop) || 0)
-            el.style.top = (currentTop + bannerHeight) + "px"
+          try {
+            const computed = window.getComputedStyle(el)
+            if (computed.position === "fixed" || computed.position === "sticky") {
+              el.style.setProperty("position", "relative", "important")
+              el.style.setProperty("top", "auto", "important")
+            }
+          } catch {
+            // ignore elements that can't be styled
           }
         })
+      })
 
-      }, { timestamp, captureUrl: url.url, captureId })
-
+      // Use displayHeaderFooter so the timestamp banner repeats on every page.
+      const escCaptureUrl = url.url.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
       // ✅ Generate PDF directly (NO local file)
       const pdfBuffer = await page.pdf({
         format: "A4",
         printBackground: true,
+        displayHeaderFooter: true,
+        headerTemplate: `<div style="width:100%;font-family:Arial,sans-serif;font-size:10px;padding:4px 12px;border-bottom:1px solid #000;color:#000;background:#fff;box-sizing:border-box;"><div><strong>Captured:</strong> ${timestamp} — <strong>URL:</strong> ${escCaptureUrl}</div><div><strong>System:</strong> WebArchive &nbsp;|&nbsp; <strong>Capture ID:</strong> ${captureId}</div></div>`,
+        footerTemplate: "<span></span>",
         margin: {
-          top: "40px",
+          top: "56px",
           bottom: "40px",
           left: "25px",
           right: "25px"
