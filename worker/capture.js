@@ -483,19 +483,34 @@ async function runWorker() {
       }
       const safeJobTitle = safeName(rawJobTitle) || item.id
 
+      // Neutralize fixed/sticky elements so they don't overlap with the timestamp banner
+      await page.evaluate(() => {
+        document.querySelectorAll("*").forEach(el => {
+          try {
+            const computed = window.getComputedStyle(el)
+            if (computed.position === "fixed" || computed.position === "sticky") {
+              el.style.setProperty("position", "relative", "important")
+            }
+          } catch {
+            // ignore elements that can't be styled
+          }
+        })
+      })
+
       console.log("📄 Generating PDF...")
 
       const pdfBuffer = await page.pdf({
         format: "A4",
         displayHeaderFooter: true,
         headerTemplate: `
-          <div style="width:100%; font-size:11px; padding:8px 12px; text-align:right; background:white; color:black; border-bottom:1px solid #ccc;">
-            Captured: ${captureTimestamp}
+          <div style="width:100%; font-size:11px; padding:6px 12px; background:white; color:black; border-bottom:1px solid #ccc; display:flex; justify-content:space-between; align-items:center; box-sizing:border-box;">
+            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">${item.url}</span>
+            <span style="white-space:nowrap; margin-left:8px;">Captured: ${captureTimestamp}</span>
           </div>
         `,
         footerTemplate: `<div></div>`,
         margin: {
-          top: "70px",
+          top: "50px",
           bottom: "30px",
         },
         printBackground: true,
