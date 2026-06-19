@@ -186,11 +186,10 @@ async function run() {
         document.querySelectorAll("*").forEach(el => {
           if (el === banner) return
           const pos = window.getComputedStyle(el).position
-          if (pos === "fixed") {
-            const currentTop = parseFloat(window.getComputedStyle(el).top) || 0
+          if (pos === "fixed" || pos === "sticky") {
+            const rawTop = window.getComputedStyle(el).top
+            const currentTop = rawTop === "auto" ? 0 : (parseFloat(rawTop) || 0)
             el.style.top = (currentTop + bannerHeight) + "px"
-          } else if (pos === "sticky") {
-            el.style.position = "relative"
           }
         })
 
