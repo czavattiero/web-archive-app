@@ -160,7 +160,7 @@ async function run() {
       const captureId = Date.now()
 
       // ✅ SAFE banner (no overlap)
-      await page.evaluate(({ timestamp, url, captureId }) => {
+      await page.evaluate(({ timestamp, captureUrl, captureId }) => {
 
         const banner = document.createElement("div")
 
@@ -171,17 +171,29 @@ async function run() {
         banner.style.fontSize = "14px"
         banner.style.padding = "12px"
         banner.style.borderBottom = "2px solid black"
+        banner.style.boxSizing = "border-box"
 
         banner.innerHTML = `
-          <div><strong>Captured:</strong> ${timestamp}</div>
-          <div><strong>URL:</strong> ${url}</div>
+          <div><strong>Captured:</strong> ${timestamp} — <strong>URL:</strong> ${captureUrl}</div>
           <div><strong>System:</strong> WebArchive</div>
           <div><strong>Capture ID:</strong> ${captureId}</div>
         `
 
         document.body.prepend(banner)
 
-      }, { timestamp, url: url.url, captureId })
+        // Push fixed/sticky elements down by the banner height to prevent overlap
+        const bannerHeight = banner.getBoundingClientRect().height
+        document.querySelectorAll("*").forEach(el => {
+          if (el === banner) return
+          const pos = window.getComputedStyle(el).position
+          if (pos === "fixed" || pos === "sticky") {
+            const rawTop = window.getComputedStyle(el).top
+            const currentTop = rawTop === "auto" ? 0 : (parseFloat(rawTop) || 0)
+            el.style.top = (currentTop + bannerHeight) + "px"
+          }
+        })
+
+      }, { timestamp, captureUrl: url.url, captureId })
 
       // ✅ Generate PDF directly (NO local file)
       const pdfBuffer = await page.pdf({
