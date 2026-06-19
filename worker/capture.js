@@ -483,17 +483,17 @@ async function runWorker() {
       }
       const safeJobTitle = safeName(rawJobTitle) || item.id
 
-      // Neutralize fixed/sticky elements so they don't overlap with the timestamp banner
+      // Neutralize ALL fixed/sticky elements so they flow in normal document order
+      // and cannot overlap the timestamp banner injected below.
+      // Using "*" catches every element (including those without a class/id).
+      // Resetting top to "auto" prevents a relative-offset from a former sticky top value.
       await page.evaluate(() => {
-        // Candidate tags most likely to carry fixed/sticky positioning
-        const candidates = document.querySelectorAll(
-          "header, nav, footer, aside, div, section, form, [class], [id]"
-        )
-        candidates.forEach(el => {
+        document.querySelectorAll("*").forEach(el => {
           try {
             const computed = window.getComputedStyle(el)
             if (computed.position === "fixed" || computed.position === "sticky") {
               el.style.setProperty("position", "relative", "important")
+              el.style.setProperty("top", "auto", "important")
             }
           } catch {
             // ignore elements that can't be styled
@@ -501,29 +501,46 @@ async function runWorker() {
         })
       })
 
-      const escapedUrl = item.url
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
+      // Inject a timestamp banner as the very first child of <body>.
+      // Because the banner is in normal document flow (position: relative) and comes
+      // before any site header/logo, the logo is always rendered below the banner —
+      // eliminating the overlap that occurred with the PDF displayHeaderFooter approach.
+      await page.evaluate(({ url, captureTimestamp }) => {
+        const banner = document.createElement("div")
+        banner.style.cssText = [
+          "position:relative",
+          "width:100%",
+          "background:white",
+          "color:black",
+          "font-family:Arial,sans-serif",
+          "font-size:11px",
+          "padding:6px 12px",
+          "border-bottom:1px solid #ccc",
+          "box-sizing:border-box",
+          "display:flex",
+          "justify-content:space-between",
+          "align-items:center",
+        ].join(";")
+        const urlSpan = document.createElement("span")
+        urlSpan.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;"
+        urlSpan.textContent = url
+        const tsSpan = document.createElement("span")
+        tsSpan.style.cssText = "white-space:nowrap;margin-left:8px;"
+        tsSpan.textContent = "Captured: " + captureTimestamp
+        banner.appendChild(urlSpan)
+        banner.appendChild(tsSpan)
+        document.body.prepend(banner)
+      }, { url: item.url, captureTimestamp })
 
       console.log("📄 Generating PDF...")
 
       const pdfBuffer = await page.pdf({
         format: "A4",
-        displayHeaderFooter: true,
-        headerTemplate: `
-          <div style="width:100%; font-size:11px; padding:6px 12px; background:white; color:black; border-bottom:1px solid #ccc; display:flex; justify-content:space-between; align-items:center; box-sizing:border-box;">
-            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70%;">${escapedUrl}</span>
-            <span style="white-space:nowrap; margin-left:8px;">Captured: ${captureTimestamp}</span>
-          </div>
-        `,
-        footerTemplate: `<div></div>`,
+        printBackground: true,
         margin: {
-          top: "50px",
+          top: "10px",
           bottom: "30px",
         },
-        printBackground: true,
       })
 
       const dateFolder = captureDate
