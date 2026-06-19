@@ -65,6 +65,8 @@ function calculateNextCapture(scheduleType, prevScheduledAt) {
 
 const MIN_BODY_TEXT_LENGTH = 200
 const EMPTY_BODY_RETRY_DELAY_MS = 10000
+const PDF_TOP_MARGIN = "50px"
+const PDF_BOTTOM_MARGIN = "30px"
 
 const EXTENDED_RETRY_DELAYS = [
   5 * 60 * 1000,   // 5 minutes
@@ -483,6 +485,12 @@ async function runWorker() {
       }
       const safeJobTitle = safeName(rawJobTitle) || item.id
 
+      // Switch to print media mode before running the fixed/sticky neutralization so
+      // that getComputedStyle() returns print-media styles. This catches elements that
+      // are position:fixed/sticky only under @media print (e.g. UCalgary career site
+      // page headers) which would otherwise cover the PDF header on pages 2+.
+      await page.emulateMedia({ media: "print" })
+
       // Neutralize ALL fixed/sticky elements so they flow in normal document order
       // and cannot overlap the timestamp banner injected below.
       // Using "*" catches every element (including those without a class/id).
@@ -501,6 +509,14 @@ async function runWorker() {
         })
       })
 
+      // Inject @page rules after all site stylesheets so that any site-level
+      // @page { margin: 0 } or @page:first { margin-top: … } rules that reduce the
+      // top margin on pages 2+ are overridden. Without this, the displayHeaderFooter
+      // header has no space to render on non-first pages.
+      await page.addStyleTag({
+        content: `@page { margin-top: ${PDF_TOP_MARGIN} !important; margin-bottom: ${PDF_BOTTOM_MARGIN} !important; } @page:first { margin-top: ${PDF_TOP_MARGIN} !important; margin-bottom: ${PDF_BOTTOM_MARGIN} !important; }`,
+      })
+
       console.log("📄 Generating PDF...")
 
       // Use displayHeaderFooter so the timestamp banner is repeated on every page.
@@ -514,8 +530,8 @@ async function runWorker() {
         headerTemplate: `<div style="width:100%;font-family:Arial,sans-serif;font-size:10px;padding:4px 12px;border-bottom:1px solid #ccc;color:#000;background:#fff;box-sizing:border-box;display:flex;justify-content:space-between;align-items:center;"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;">${escUrl}</span><span style="white-space:nowrap;margin-left:8px;">Captured: ${captureTimestamp}</span></div>`,
         footerTemplate: "<span></span>",
         margin: {
-          top: "40px",
-          bottom: "30px",
+          top: PDF_TOP_MARGIN,
+          bottom: PDF_BOTTOM_MARGIN,
         },
       })
 
