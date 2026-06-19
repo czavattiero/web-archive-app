@@ -175,7 +175,7 @@ async function run() {
       })
 
       // Use displayHeaderFooter so the timestamp banner repeats on every page.
-      const escCaptureUrl = url.url.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      const escCaptureUrl = url.url.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
       // ✅ Generate PDF directly (NO local file)
       const pdfBuffer = await page.pdf({
         format: "A4",

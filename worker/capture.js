@@ -506,7 +506,7 @@ async function runWorker() {
       // Use displayHeaderFooter so the timestamp banner is repeated on every page.
       // Fixed/sticky elements have already been neutralised above, so the header
       // template will not overlap any site logo or nav bar.
-      const escUrl = item.url.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      const escUrl = item.url.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
       const pdfBuffer = await page.pdf({
         format: "A4",
         printBackground: true,
