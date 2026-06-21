@@ -1,6 +1,10 @@
 "use client"
 
+import { useState } from "react"
+
 export default function Home() {
+  const [disclaimerExpanded, setDisclaimerExpanded] = useState(false)
+
   return (
     <main style={{
       minHeight: "100vh",
@@ -409,6 +413,97 @@ export default function Home() {
             Start Free
           </button>
         </a>
+      </section>
+
+      {/* IMPORTANT INFORMATION DISCLAIMER */}
+      <section style={{
+        background: "#F9FAFB",
+        borderTop: "1px solid #E5E7EB",
+        padding: "20px 24px",
+        textAlign: "center",
+      }}>
+        <div style={{ maxWidth: 800, margin: "0 auto" }}>
+          <button
+            onClick={() => setDisclaimerExpanded((v) => !v)}
+            aria-expanded={disclaimerExpanded}
+            aria-label="Toggle important information disclaimer"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 12,
+              color: "#9CA3AF",
+              padding: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span>ℹ️</span>
+            <span style={{ textDecoration: "underline" }}>Important information</span>
+            <span style={{ fontSize: 10 }}>{disclaimerExpanded ? "▲" : "▼"}</span>
+          </button>
+
+          {disclaimerExpanded && (
+            <div style={{
+              marginTop: 12,
+              fontSize: 12,
+              color: "#6B7280",
+              lineHeight: 1.7,
+              textAlign: "left",
+            }}>
+              <p style={{ marginBottom: 8 }}>
+                Capture attempts for certain URLs — particularly those hosted on job posting platforms — may
+                fail due to restrictions or blocking mechanisms enforced by those websites.{" "}
+                <strong style={{ color: "#374151" }}>
+                  It is your responsibility to verify that both immediate and scheduled captures have
+                  completed successfully.
+                </strong>
+              </p>
+              <ul style={{ paddingLeft: 18, margin: "0 0 8px" }}>
+                <li style={{ marginBottom: 6 }}>
+                  <strong style={{ color: "#374151" }}>Failed captures will not count toward your monthly URL limit.</strong>{" "}
+                  If an immediate capture attempt is unsuccessful, that URL will not be deducted from your
+                  plan&apos;s monthly allowance (e.g., 15 or 40 URLs).
+                </li>
+                <li style={{ marginBottom: 6 }}>
+                  <strong style={{ color: "#374151" }}>Scheduled captures will still be retried.</strong>{" "}
+                  The system will continue attempting to capture a failed URL according to your selected
+                  schedule (e.g., weekly, biweekly, every 29 or 30 days, or on a specific date).
+                </li>
+                <li style={{ marginBottom: 6 }}>
+                  <strong style={{ color: "#374151" }}>Some platforms are more restrictive than others.</strong>{" "}
+                  URLs from sites such as <strong style={{ color: "#374151" }}>Monster</strong>,{" "}
+                  <strong style={{ color: "#374151" }}>Glassdoor</strong>,{" "}
+                  <strong style={{ color: "#374151" }}>Workopolis</strong>,{" "}
+                  <strong style={{ color: "#374151" }}>Eluta</strong>, and{" "}
+                  <strong style={{ color: "#374151" }}>Ziprecruiter</strong> are more likely to fail.
+                </li>
+                <li style={{ marginBottom: 6 }}>
+                  <strong style={{ color: "#374151" }}>When a job site provides a &ldquo;copy link&rdquo; option,</strong>{" "}
+                  copy the link to the specific job posting.
+                </li>
+                <li style={{ marginBottom: 6 }}>
+                  <strong style={{ color: "#374151" }}>Some captures may look successful even when the full posting was not captured.</strong>{" "}
+                  Job sites that do not provide a &ldquo;copy link&rdquo; option and require clicking
+                  &ldquo;show more&rdquo; (e.g., LinkedIn) may return captures that show as
+                  &ldquo;success&rdquo; but do not include the full job posting.
+                </li>
+                <li style={{ marginBottom: 6 }}>
+                  <strong style={{ color: "#374151" }}>The job boards with the highest success rates include:</strong>{" "}
+                  Indeed Canada, Job Bank (Government of Canada), SimplyHired Canada, Talent.com Canada,
+                  WowJobs, Aboriginal Job Board, New Canadian Jobs, Jobboom (French), Canadian Medical
+                  Association Jobs, University Affairs, Academic Work (CAUT), and most Canadian
+                  universities&apos; career sites.
+                </li>
+              </ul>
+              <p style={{ margin: 0 }}>
+                We recommend regularly reviewing your capture history to confirm successful captures and
+                take any necessary action.
+              </p>
+            </div>
+          )}
+        </div>
       </section>
 
       {/* FOOTER */}
