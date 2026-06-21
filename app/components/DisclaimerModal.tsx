@@ -116,7 +116,8 @@ export default function DisclaimerModal({ userId, onClose }: DisclaimerModalProp
           <li style={{ marginBottom: 8 }}>
             <strong>Highest-success job sites include:</strong> Indeed Canada, Job Bank (Government of
             Canada), SimplyHired Canada, Talent.com Canada, WowJobs, Aboriginal Job Board, New
-            Canadian Jobs, Jobboom (French), and Canadian Medical Association Jobs.
+            Canadian Jobs, Jobboom (French), Canadian Medical Association Jobs, University Affairs,
+            Academic Work (CAUT), and most Canadian universities&apos; career sites.
           </li>
         </ul>
 
