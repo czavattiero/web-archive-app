@@ -58,6 +58,10 @@ export default function DisclaimerBanner() {
                 as <strong>Monster</strong>, <strong>Glassdoor</strong>, <strong>Workopolis</strong>,
                 and <strong>Eluta</strong> are more likely to fail due to blocking mechanisms.
               </li>
+              <li style={{ marginBottom: 6 }}>
+                <strong>To capture jobs posted in Indeed,</strong> use &ldquo;copy link&rdquo; to the
+                specific job posting by clicking on the &ldquo;share&rdquo; button.
+              </li>
             </ul>
           )}
           {expanded && (
