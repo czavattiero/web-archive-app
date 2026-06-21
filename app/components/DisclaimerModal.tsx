@@ -114,7 +114,7 @@ export default function DisclaimerModal({ userId, onClose }: DisclaimerModalProp
             captures that show as &ldquo;success&rdquo; but do not include the full job posting.
           </li>
           <li style={{ marginBottom: 8 }}>
-            <strong>Highest-success job sites include:</strong> Indeed Canada, Job Bank (Government of
+            <strong>The job boards with the highest success rates include:</strong> Indeed Canada, Job Bank (Government of
             Canada), SimplyHired Canada, Talent.com Canada, WowJobs, Aboriginal Job Board, New
             Canadian Jobs, Jobboom (French), Canadian Medical Association Jobs, University Affairs,
             Academic Work (CAUT), and most Canadian universities&apos; career sites.
