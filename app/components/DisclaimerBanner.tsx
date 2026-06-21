@@ -56,11 +56,23 @@ export default function DisclaimerBanner() {
               <li style={{ marginBottom: 6 }}>
                 <strong>Some platforms are more restrictive than others.</strong> URLs from sites such
                 as <strong>Monster</strong>, <strong>Glassdoor</strong>, <strong>Workopolis</strong>,
-                and <strong>Eluta</strong> are more likely to fail due to blocking mechanisms.
+                <strong>Eluta</strong>, and <strong>Ziprecruiter</strong> are more likely to fail due
+                to blocking mechanisms.
               </li>
               <li style={{ marginBottom: 6 }}>
-                <strong>To capture jobs posted in Indeed,</strong> use &ldquo;copy link&rdquo; to the
-                specific job posting by clicking on the &ldquo;share&rdquo; button.
+                <strong>When a job site provides a &ldquo;copy link&rdquo; option,</strong> copy the
+                link to the specific job posting.
+              </li>
+              <li style={{ marginBottom: 6 }}>
+                <strong>Some captures may appear successful but still be incomplete.</strong> Job sites
+                that do not provide a &ldquo;copy link&rdquo; option and require clicking
+                &ldquo;show more&rdquo; to view hidden posting content (e.g., LinkedIn) may show
+                captures as &ldquo;success&rdquo; even when the full job posting was not captured.
+              </li>
+              <li style={{ marginBottom: 6 }}>
+                <strong>Highest-success job sites include:</strong> Indeed Canada, Job Bank (Government
+                of Canada), SimplyHired Canada, Talent.com Canada, WowJobs, Aboriginal Job Board, New
+                Canadian Jobs, Jobboom (French), and Canadian Medical Association Jobs.
               </li>
             </ul>
           )}
