@@ -276,8 +276,8 @@ export default function Home() {
                 <li style={{ marginBottom: 6 }}>
                   <strong style={{ color: "#374151" }}>The job boards with the highest success rates include:</strong>{" "}
                   Indeed Canada, Job Bank (Government of Canada), SimplyHired Canada, Talent.com Canada,
-                  WowJobs, Aboriginal Job Board, New Canadian Jobs, Jobboom (French), Canadian Medical
-                  Association Jobs, University Affairs, Academic Work (CAUT), and most Canadian
+                  WowJobs, Aboriginal Job Board, New Canadian Jobs, Jobboom (French), University Affairs,
+                  Academic Work (CAUT), and most Canadian
                   universities&apos; career sites.
                 </li>
               </ul>
