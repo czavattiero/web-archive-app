@@ -114,6 +114,13 @@ async function sendViaResendWithFallback(
   })
 
   if (fallbackError) {
+    // If the Supabase SMTP fallback is rate-limited (account was just created),
+    // guide the user to wait and retry instead of surfacing raw internal errors.
+    if (fallbackError.message?.toLowerCase().includes("you can only request this after")) {
+      const seconds = fallbackError.message.match(/after (\d+) seconds?/)?.[1]
+      const waitMsg = seconds ? ` Please wait ${seconds} seconds and try again.` : " Please wait a moment and try again."
+      return { error: { message: `Could not send confirmation email.${waitMsg}` } }
+    }
     const resendMsg = (emailError as any).message ?? "unknown"
     return {
       error: {
