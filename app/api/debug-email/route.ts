@@ -60,7 +60,7 @@ export async function GET() {
       NEXT_PUBLIC_SUPABASE_URL: supabaseUrl ? "set" : "NOT SET",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: anonKey ? "set" : "NOT SET",
       SUPABASE_SERVICE_ROLE_KEY: serviceKey ? "set" : "NOT SET",
-      FROM_EMAIL: fromEmail || "not set (using default: Timedshot <noreply@timedshot.com>)",
+      FROM_EMAIL: fromEmail || "not set (using default: Timedshot <noreply@timedshot.ca>)",
     },
     supabaseAdmin: {
       ok: supabaseAdminOk,
