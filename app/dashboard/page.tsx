@@ -685,7 +685,7 @@ export default function Dashboard() {
           {maxRetriesReached && (
             <div style={{ marginBottom: 20 }}>
               <a
-                href="mailto:support@timedshot.com"
+                href="mailto:support@timedshot.ca"
                 style={{ color: "#6A11CB", fontWeight: 600, fontSize: 15, textDecoration: "underline" }}
               >
                 Contact Support
