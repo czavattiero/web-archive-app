@@ -16,7 +16,6 @@ export const CLOUDFLARE_BLOCK_PATTERN = new RegExp(
     "Checking your browser",
     "Access denied",
     "cf-ray",
-    "This site is protected by",
     "unusual traffic",
     "automated access",
     "Your request has been blocked",
