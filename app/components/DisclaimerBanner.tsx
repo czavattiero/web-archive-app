@@ -49,15 +49,10 @@ export default function DisclaimerBanner() {
                 plan&apos;s monthly allowance (e.g., 15 or 40 URLs).
               </li>
               <li style={{ marginBottom: 6 }}>
-                <strong>Scheduled captures will still be retried.</strong> The system will continue
-                attempting to capture a failed URL according to your selected schedule (e.g., weekly,
-                biweekly, every 29 or 30 days, or on a specific date).
-              </li>
-              <li style={{ marginBottom: 6 }}>
-                <strong>Some platforms are more restrictive than others.</strong> URLs from sites such
-                as <strong>Monster</strong>, <strong>Glassdoor</strong>, <strong>Workopolis</strong>,
-                <strong>Eluta</strong>, and <strong>Ziprecruiter</strong> are more likely to fail due
-                to blocking mechanisms.
+                <strong>Some platforms are more restrictive than others.</strong> URLs from job sites
+                such as <strong>Indeed</strong>, <strong>Monster</strong>,{" "}
+                <strong>Glassdoor</strong>, <strong>Workopolis</strong>, <strong>Eluta</strong>, and{" "}
+                <strong>Ziprecruiter</strong> will most likely fail due to blocking mechanisms.
               </li>
               <li style={{ marginBottom: 6 }}>
                 <strong>When a job site provides a &ldquo;copy link&rdquo; option,</strong> copy the
@@ -70,9 +65,9 @@ export default function DisclaimerBanner() {
                 captures as &ldquo;success&rdquo; even when the full job posting was not captured.
               </li>
               <li style={{ marginBottom: 6 }}>
-                <strong>The job boards with the highest success rates include:</strong> Indeed Canada, Job Bank (Government
-                of Canada), SimplyHired Canada, Talent.com Canada, WowJobs, Aboriginal Job Board, New
-                Canadian Jobs, Jobboom (French), University Affairs,
+                <strong>The job boards with the highest success rates include:</strong> canadajobs.com,
+                Job Bank (Government of Canada), SimplyHired Canada, Talent.com Canada, WowJobs,
+                Aboriginal Job Board, New Canadian Jobs, Jobboom (French), University Affairs,
                 Academic Work (CAUT), and most Canadian universities&apos; career sites.
               </li>
             </ul>
