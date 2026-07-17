@@ -86,11 +86,23 @@ async function captureWithRetry(page, url, maxRetries = 3) {
     console.log(`🌐 Attempt ${attempt}: Opening ${url}`)
 
     try {
-      await page.goto(url, {
-        // domcontentloaded prevents timeouts on Indeed/Glassdoor
-        waitUntil: "domcontentloaded",
-        timeout: 60000,
-      })
+      try {
+        await page.goto(url, {
+          // domcontentloaded prevents timeouts on Indeed/Glassdoor
+          waitUntil: "domcontentloaded",
+          timeout: 60000,
+        })
+      } catch (navErr) {
+        if (/interrupted by another navigation/i.test(navErr.message)) {
+          // Likely caused by Browserless's CAPTCHA-solve triggering a follow-up
+          // redirect while goto() was still resolving. Not fatal — the page has
+          // likely landed somewhere; let the content checks below determine
+          // whether it's a real page or still blocked.
+          console.log(`⚠️ Navigation interrupted (attempt ${attempt}) — likely a CAPTCHA redirect, continuing`)
+        } else {
+          throw navErr
+        }
+      }
 
       const isSlowJobSiteHost = /(^|\.)(indeed|glassdoor)\.(com|ca)$/i.test(new URL(url).hostname)
       // Indeed/Glassdoor's bot-detection JS challenge typically resolves 5–10s after
