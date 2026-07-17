@@ -226,7 +226,7 @@ export default function Home() {
           >
             <span>ℹ️</span>
             <span style={{ textDecoration: "underline" }}>Important information</span>
-            <span style={{ fontSize: 10 }}>{disclaimerExpanded ? "Show less" : "▼"}</span>
+            <span style={{ fontSize: 10 }}>{disclaimerExpanded ? "Show less" : "Show more"}</span>
           </button>
           {disclaimerExpanded && (
             <div style={{
