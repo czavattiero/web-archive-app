@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js"
 import { chromium } from "playwright"
 import { Resend } from "resend"
 import { DateTime } from "luxon"
-import { CLOUDFLARE_BLOCK_PATTERN } from "./cloudflareDetection.js"
+import { CLOUDFLARE_BLOCK_PATTERN, JOB_SITE_BLOCK_PATTERN } from "./cloudflareDetection.js"
 
 dotenv.config()
 
@@ -92,19 +92,34 @@ async function captureWithRetry(page, url, maxRetries = 3) {
         timeout: 60000,
       })
 
-      await page.waitForTimeout(8000)
+      const isSlowJobSiteHost = /(^|\.)(indeed|glassdoor)\.(com|ca)$/i.test(new URL(url).hostname)
+      // Indeed/Glassdoor's bot-detection JS challenge typically resolves 5–10s after
+      // DOMContentLoaded; give it more headroom than other sites before reading content.
+      await page.waitForTimeout(isSlowJobSiteHost ? 15000 : 8000)
 
       const content = await page.content()
 
       if (CLOUDFLARE_BLOCK_PATTERN.test(content)) {
-        console.log(`⚠️ Cloudflare block detected (attempt ${attempt})`)
+        console.log(`⚠️ Cloudflare/WAF block detected (attempt ${attempt})`)
 
         if (attempt < maxRetries) {
           console.log("🔁 Retrying...")
           await page.waitForTimeout(5000)
           continue
         } else {
-          throw new Error("Blocked by Cloudflare")
+          throw new Error("Blocked by Cloudflare/WAF")
+        }
+      }
+
+      if (JOB_SITE_BLOCK_PATTERN.test(content)) {
+        console.log(`⚠️ Indeed/Glassdoor bot-block/login-wall detected (attempt ${attempt})`)
+
+        if (attempt < maxRetries) {
+          console.log("🔁 Retrying...")
+          await page.waitForTimeout(5000)
+          continue
+        } else {
+          throw new Error("Blocked by Indeed/Glassdoor bot detection")
         }
       }
 
