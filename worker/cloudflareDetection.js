@@ -25,3 +25,28 @@ export const CLOUDFLARE_BLOCK_PATTERN = new RegExp(
   ].join("|"),
   "i"
 )
+
+/**
+ * Regex matching bot-detection and login-wall phrases specific to Indeed and
+ * Glassdoor. Neither site uses Cloudflare/Imperva/Akamai, so these pages pass
+ * CLOUDFLARE_BLOCK_PATTERN undetected without this separate check.
+ */
+export const JOB_SITE_BLOCK_PATTERN = new RegExp(
+  [
+    // Indeed
+    "There was a problem",
+    "To continue, please complete the security check",
+    "Your request could not be completed",
+    "Please verify to continue",
+    "Sign in to continue",
+    "Sign in to see more jobs",
+    "help us protect our community",
+    // Glassdoor
+    "Please help us protect Glassdoor",
+    "make sure you're not a robot",
+    "we've detected unusual activity",
+    "verify you're a human",
+    "Glassdoor is temporarily unavailable",
+  ].join("|"),
+  "i"
+)
