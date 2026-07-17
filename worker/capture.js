@@ -111,7 +111,7 @@ async function captureWithRetry(page, url, maxRetries = 3) {
         }
       }
 
-      if (JOB_SITE_BLOCK_PATTERN.test(content)) {
+      if (isSlowJobSiteHost && JOB_SITE_BLOCK_PATTERN.test(content)) {
         console.log(`⚠️ Indeed/Glassdoor bot-block/login-wall detected (attempt ${attempt})`)
 
         if (attempt < maxRetries) {
