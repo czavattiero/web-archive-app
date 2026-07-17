@@ -226,7 +226,7 @@ export default function Home() {
           >
             <span>ℹ️</span>
             <span style={{ textDecoration: "underline" }}>Important information</span>
-            <span style={{ fontSize: 10 }}>{disclaimerExpanded ? "▲" : "▼"}</span>
+            <span style={{ fontSize: 10 }}>{disclaimerExpanded ? "Show less" : "Show more"}</span>
           </button>
           {disclaimerExpanded && (
             <div style={{
@@ -237,12 +237,12 @@ export default function Home() {
               textAlign: "left",
             }}>
               <p style={{ marginBottom: 8 }}>
-                Capture attempts for certain URLs — particularly those hosted on job posting platforms — may
-                fail due to restrictions or blocking mechanisms enforced by those websites.{" "}
                 <strong style={{ color: "#374151" }}>
-                  It is your responsibility to verify that both immediate and scheduled captures have
-                  completed successfully.
+                  Important Notice: URL Capture Limitations —{" "}
                 </strong>
+                Capture attempts for certain URLs (e.g., job posting platforms) may fail due to
+                restrictions enforced by those websites. It is your responsibility to verify that captures
+                have completed successfully.
               </p>
               <ul style={{ paddingLeft: 18, margin: "0 0 8px" }}>
                 <li style={{ marginBottom: 6 }}>
@@ -251,34 +251,30 @@ export default function Home() {
                   plan&apos;s monthly allowance (e.g., 15 or 40 URLs).
                 </li>
                 <li style={{ marginBottom: 6 }}>
-                  <strong style={{ color: "#374151" }}>Scheduled captures will still be retried.</strong>{" "}
-                  The system will continue attempting to capture a failed URL according to your selected
-                  schedule (e.g., weekly, biweekly, every 29 or 30 days, or on a specific date).
-                </li>
-                <li style={{ marginBottom: 6 }}>
                   <strong style={{ color: "#374151" }}>Some platforms are more restrictive than others.</strong>{" "}
-                  URLs from sites such as <strong style={{ color: "#374151" }}>Monster</strong>,{" "}
+                  URLs from job sites such as <strong style={{ color: "#374151" }}>Indeed</strong>,{" "}
+                  <strong style={{ color: "#374151" }}>Monster</strong>,{" "}
                   <strong style={{ color: "#374151" }}>Glassdoor</strong>,{" "}
                   <strong style={{ color: "#374151" }}>Workopolis</strong>,{" "}
                   <strong style={{ color: "#374151" }}>Eluta</strong>, and{" "}
-                  <strong style={{ color: "#374151" }}>Ziprecruiter</strong> are more likely to fail.
+                  <strong style={{ color: "#374151" }}>Ziprecruiter</strong> will most likely fail due to
+                  blocking mechanisms.
                 </li>
                 <li style={{ marginBottom: 6 }}>
                   <strong style={{ color: "#374151" }}>When a job site provides a &ldquo;copy link&rdquo; option,</strong>{" "}
                   copy the link to the specific job posting.
                 </li>
                 <li style={{ marginBottom: 6 }}>
-                  <strong style={{ color: "#374151" }}>Some captures may look successful even when the full posting was not captured.</strong>{" "}
+                  <strong style={{ color: "#374151" }}>Some captures may appear successful but still be incomplete.</strong>{" "}
                   Job sites that do not provide a &ldquo;copy link&rdquo; option and require clicking
-                  &ldquo;show more&rdquo; (e.g., LinkedIn) may return captures that show as
-                  &ldquo;success&rdquo; but do not include the full job posting.
+                  &ldquo;show more&rdquo; to view hidden posting content (e.g., LinkedIn) may show
+                  captures as &ldquo;success&rdquo; even when the full job posting was not captured.
                 </li>
                 <li style={{ marginBottom: 6 }}>
                   <strong style={{ color: "#374151" }}>The job boards with the highest success rates include:</strong>{" "}
-                  Indeed Canada, Job Bank (Government of Canada), SimplyHired Canada, Talent.com Canada,
+                  canadajobs.com, Job Bank (Government of Canada), SimplyHired Canada, Talent.com Canada,
                   WowJobs, Aboriginal Job Board, New Canadian Jobs, Jobboom (French), University Affairs,
-                  Academic Work (CAUT), and most Canadian
-                  universities&apos; career sites.
+                  Academic Work (CAUT), and most Canadian universities&apos; career sites.
                 </li>
               </ul>
               <p style={{ margin: 0 }}>
