@@ -44,6 +44,7 @@ export default function Dashboard() {
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteLoading, setInviteLoading] = useState(false)
   const [deletingSubUserId, setDeletingSubUserId] = useState<string | null>(null)
+  const [deletingUrlId, setDeletingUrlId] = useState<string | null>(null)
 
   const [urls, setUrls] = useState<any[]>([])
   const [captures, setCaptures] = useState<any[]>([])
@@ -617,6 +618,34 @@ export default function Dashboard() {
     }
   }
 
+  async function handleDeleteUrl(urlItem: any) {
+    if (!user?.id) return
+    const confirmDelete = window.confirm(
+      `Delete URL ${urlItem.url}?\n\nThis removes it from your dashboard and stops future captures. It does not restore quota for this billing period.`
+    )
+    if (!confirmDelete) return
+
+    setDeletingUrlId(urlItem.id)
+    try {
+      const deleteHeaders = await getAuthorizedHeaders(true)
+      const res = await fetch("/api/delete-url", {
+        method: "DELETE",
+        headers: deleteHeaders,
+        body: JSON.stringify({ urlId: urlItem.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        alert("Delete failed: " + (data.error || "Unknown error"))
+      } else {
+        await fetchData(user)
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message)
+    } finally {
+      setDeletingUrlId(null)
+    }
+  }
+
   function getUrlById(id: string) {
     return urls.find((u) => u.id === id)
   }
@@ -651,6 +680,7 @@ export default function Dashboard() {
   }
 
   const filteredUrls = urls.filter((u) => {
+    if (u.status === "deleted") return false
     const q = search.toLowerCase()
     return u.url.toLowerCase().includes(q) || (u.label || "").toLowerCase().includes(q)
   })
@@ -1011,6 +1041,7 @@ export default function Dashboard() {
                   <div style={{ flex: 1 }}>Next</div>
                   <div style={{ flex: 1 }}>Status</div>
                   <div style={{ flex: 1 }}>Added</div>
+                  <div style={{ flex: 1, textAlign: "right" }}>Actions</div>
                 </div>
 
                 {filteredUrls.map((u) => (
@@ -1027,6 +1058,18 @@ export default function Dashboard() {
                       <StatusBadge status={u.status} />
                     </div>
                     <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
+                    <div style={{ flex: 1, textAlign: "right" }}>
+                      <button
+                        onClick={() => handleDeleteUrl(u)}
+                        disabled={deletingUrlId === u.id}
+                        style={{
+                          ...buttonGhostDanger,
+                          ...(deletingUrlId === u.id ? { opacity: 0.7, cursor: "not-allowed" } : {}),
+                        }}
+                      >
+                        {deletingUrlId === u.id ? "Deleting..." : "Delete"}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
