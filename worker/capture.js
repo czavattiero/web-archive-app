@@ -268,6 +268,7 @@ async function handleRetry(item, captureMode) {
         status: "active",
       })
       .eq("id", item.id)
+      .neq("status", "deleted")
     if (updateError) {
       console.error("❌ Failed to schedule retry for URL", item.id, updateError.message)
     } else {
@@ -312,6 +313,7 @@ async function handleRetry(item, captureMode) {
         status: nextStatus,
       })
       .eq("id", item.id)
+      .neq("status", "deleted")
     if (updateError) {
       console.error("❌ Failed to schedule next capture for URL", item.id, updateError.message)
     } else {
@@ -361,6 +363,7 @@ async function runWorker() {
           last_captured_at: new Date(Date.now() - 1000).toISOString(),
         })
         .eq("id", url.id)
+        .neq("status", "deleted")
     }
 
     urlsToCapture = urls
@@ -658,6 +661,7 @@ async function runWorker() {
         .from("urls")
         .update(updateData)
         .eq("id", item.id)
+        .neq("status", "deleted")
 
       console.log("✅ URL updated - next capture:", updateData.next_capture_at)
 
