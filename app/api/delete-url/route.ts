@@ -26,7 +26,7 @@ export async function DELETE(req: Request) {
   const accountUserIds = await getAccountUserIds(billingDecision.ownerId)
   const { data: existingUrl, error: existingUrlError } = await supabase
     .from("urls")
-    .select("id, user_id")
+    .select("id, user_id, status")
     .eq("id", urlId)
     .maybeSingle()
 
@@ -40,6 +40,10 @@ export async function DELETE(req: Request) {
 
   if (!accountUserIds.includes(existingUrl.user_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  if (existingUrl.status === "deleted") {
+    return NextResponse.json({ success: true })
   }
 
   const { error } = await supabase
