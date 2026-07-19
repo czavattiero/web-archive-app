@@ -11,7 +11,7 @@ const supabase = createClient(
 )
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM_EMAIL = process.env.FROM_EMAIL || "Screenly <noreply@screenly.ca>"
+const FROM_EMAIL = process.env.FROM_EMAIL || "Timedshot <noreply@timedshot.ca>"
 
 async function runCleanup() {
   console.log("🧹 Cleanup worker started")
@@ -19,29 +19,32 @@ async function runCleanup() {
   const now = DateTime.now().setZone("America/Edmonton")
 
   let warnedUsers = 0
-  let deletedUrls = 0
   let deletedCaptures = 0
 
-  // --- WARNING EMAILS (day 60) ---
+  // --- WARNING EMAILS (captures approaching 62 days old) ---
+  // Retention is keyed off captures.captured_at, NOT urls.created_at. This means
+  // a URL with an active recurring schedule is never touched here — only its
+  // individual old capture files age out, one at a time, on their own 62-day clock.
   const day60Start = now.minus({ days: 61 }).toUTC().toISO()
   const day60End = now.minus({ days: 60 }).toUTC().toISO()
 
-  console.log(`📧 Querying URLs created between ${day60Start} and ${day60End}...`)
+  console.log(`📧 Querying captures taken between ${day60Start} and ${day60End}...`)
 
-  const { data: warnUrls, error: warnError } = await supabase
-    .from("urls")
-    .select("id, url, user_id, created_at")
-    .lte("created_at", day60End)
-    .gt("created_at", day60Start)
+  const { data: warnCaptures, error: warnError } = await supabase
+    .from("captures")
+    .select("id, url_id, user_id, captured_at, urls(url)")
+    .lte("captured_at", day60End)
+    .gt("captured_at", day60Start)
+    .eq("status", "success")
 
   if (warnError) {
-    console.error("❌ Error querying URLs for warning:", warnError)
-  } else if (warnUrls && warnUrls.length > 0) {
-    console.log(`📬 Found ${warnUrls.length} URL(s) to warn about`)
+    console.error("❌ Error querying captures for warning:", warnError)
+  } else if (warnCaptures && warnCaptures.length > 0) {
+    console.log(`📬 Found ${warnCaptures.length} capture(s) to warn about`)
 
     // Group by user_id
     const byUser = {}
-    for (const row of warnUrls) {
+    for (const row of warnCaptures) {
       if (!byUser[row.user_id]) {
         byUser[row.user_id] = []
       }
@@ -50,7 +53,7 @@ async function runCleanup() {
 
     const deletionDate = now.plus({ days: 2 }).toFormat("MMM d, yyyy")
 
-    for (const [userId, urls] of Object.entries(byUser)) {
+    for (const [userId, captures] of Object.entries(byUser)) {
       try {
         const { data: userData, error: userError } =
           await supabase.auth.admin.getUserById(userId)
@@ -62,35 +65,41 @@ async function runCleanup() {
 
         const userEmail = userData.user.email
 
-        const urlListHtml = urls
-          .map((u) => `<li style="margin-bottom:6px;"><code>${u.url}</code></li>`)
+        const captureListHtml = captures
+          .map((c) => {
+            const capturedDate = DateTime.fromISO(c.captured_at, { zone: "utc" })
+              .setZone("America/Edmonton")
+              .toFormat("MMM d, yyyy")
+            const urlText = c.urls?.url || "(URL unavailable)"
+            return `<li style="margin-bottom:6px;"><code>${urlText}</code> — captured ${capturedDate}</li>`
+          })
           .join("")
 
         const html = `
 <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#333;">
-  <h2 style="color:#e53e3e;">⚠️ Your archived URLs will be deleted in 2 days</h2>
+  <h2 style="color:#e53e3e;">⚠️ Some of your capture files will be deleted in 2 days</h2>
   <p>Hi,</p>
-  <p>As part of our <strong>62-day data retention policy</strong>, the following archived URLs are scheduled for automatic deletion on <strong>${deletionDate}</strong>:</p>
+  <p>As part of our <strong>62-day data retention policy</strong>, the following capture files are scheduled for automatic deletion on <strong>${deletionDate}</strong>:</p>
   <ul style="background:#fff8f8;border:1px solid #fed7d7;border-radius:6px;padding:16px 16px 16px 32px;">
-    ${urlListHtml}
+    ${captureListHtml}
   </ul>
-  <p>This includes all associated capture files (PDFs) stored for these URLs.</p>
-  <p>If you wish to keep these captures, please download them from your dashboard before <strong>${deletionDate}</strong>.</p>
+  <p>This only affects these specific capture files — any URL you have set to recur will continue to be captured on its normal schedule, and each new capture gets its own 62-day retention window.</p>
+  <p>If you wish to keep a copy of any of these captures, please download them from your dashboard before <strong>${deletionDate}</strong>.</p>
   <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
-  <p style="font-size:12px;color:#999;">This is an automated message from Screenly. Deletion occurs automatically 62 days after a URL is added per our data retention policy.</p>
+  <p style="font-size:12px;color:#999;">This is an automated message from Timedshot. Individual capture files are automatically deleted 62 days after they are taken, per our data retention policy.</p>
 </div>`
 
         const { error: emailError } = await resend.emails.send({
           from: FROM_EMAIL,
           to: userEmail,
-          subject: "⚠️ Your archived URLs will be deleted in 2 days",
+          subject: "⚠️ Some of your capture files will be deleted in 2 days",
           html,
         })
 
         if (emailError) {
           console.error(`❌ Failed to send warning email to ${userEmail}:`, emailError)
         } else {
-          console.log(`✉️ Warning email sent to ${userEmail} (${urls.length} URL(s))`)
+          console.log(`✉️ Warning email sent to ${userEmail} (${captures.length} capture(s))`)
           warnedUsers++
         }
       } catch (err) {
@@ -98,93 +107,82 @@ async function runCleanup() {
       }
     }
   } else {
-    console.log("ℹ️ No URLs in the 60-day warning window")
+    console.log("ℹ️ No captures in the 60-day warning window")
   }
 
-  // --- DELETION (day 62+) ---
+  // --- DELETION (captures 62+ days old) ---
+  // Only individual capture rows/files are removed. The parent urls row is never
+  // touched, so recurring schedules and next_capture_at are completely unaffected.
   const day62Cutoff = now.minus({ days: 62 }).toUTC().toISO()
 
-  console.log(`🗑️ Querying URLs created before ${day62Cutoff}...`)
+  console.log(`🗑️ Querying captures taken before ${day62Cutoff}...`)
 
-  const { data: expiredUrls, error: expireError } = await supabase
-    .from("urls")
-    .select("id, url, user_id")
-    .lte("created_at", day62Cutoff)
+  const { data: expiredCaptures, error: expireError } = await supabase
+    .from("captures")
+    .select("id, url_id, file_path")
+    .lte("captured_at", day62Cutoff)
 
   if (expireError) {
-    console.error("❌ Error querying expired URLs:", expireError)
-  } else if (expiredUrls && expiredUrls.length > 0) {
-    console.log(`🗑️ Found ${expiredUrls.length} expired URL(s) to delete`)
+    console.error("❌ Error querying expired captures:", expireError)
+  } else if (expiredCaptures && expiredCaptures.length > 0) {
+    console.log(`🗑️ Found ${expiredCaptures.length} expired capture(s) to delete`)
 
-    for (const urlRow of expiredUrls) {
+    for (const capture of expiredCaptures) {
       try {
-        // 1. Fetch all captures for this URL
-        const { data: captures, error: capturesError } = await supabase
-          .from("captures")
-          .select("id, file_path")
-          .eq("url_id", urlRow.id)
+        // 1. Delete the PDF from storage, if present
+        if (capture.file_path) {
+          const { error: storageError } = await supabase.storage
+            .from("captures")
+            .remove([capture.file_path])
 
-        if (capturesError) {
-          console.error(`❌ Error fetching captures for URL ${urlRow.url}:`, capturesError)
-          continue
-        }
-
-        const captureCount = captures ? captures.length : 0
-
-        // 2. Delete each capture's PDF from storage
-        if (captures && captures.length > 0) {
-          for (const capture of captures) {
-            if (capture.file_path) {
-              const { error: storageError } = await supabase.storage
-                .from("captures")
-                .remove([capture.file_path])
-
-              if (storageError) {
-                console.error(
-                  `❌ Error deleting storage file ${capture.file_path}:`,
-                  storageError
-                )
-              }
+          if (storageError) {
+            console.error(
+              `❌ Error deleting storage file ${capture.file_path}:`,
+              storageError
+            )
+            // Continue anyway — better to remove the DB row than leave an
+            // orphaned reference to a file we already tried to delete.
+            // Log the failure so the orphaned file can be found and cleaned
+            // up later instead of silently accumulating in storage.
+            const { error: logError } = await supabase
+              .from("storage_deletion_failures")
+              .insert({
+                capture_id: capture.id,
+                file_path: capture.file_path,
+                error: storageError.message || JSON.stringify(storageError),
+              })
+            if (logError) {
+              console.error(
+                `❌ Also failed to log storage deletion failure for ${capture.file_path}:`,
+                logError
+              )
             }
           }
         }
 
-        // 3. Delete all captures rows for this URL
-        const { error: deleteCapturesError } = await supabase
+        // 2. Delete the capture row itself
+        const { error: deleteCaptureError } = await supabase
           .from("captures")
           .delete()
-          .eq("url_id", urlRow.id)
+          .eq("id", capture.id)
 
-        if (deleteCapturesError) {
-          console.error(`❌ Error deleting captures for URL ${urlRow.url}:`, deleteCapturesError)
+        if (deleteCaptureError) {
+          console.error(`❌ Error deleting capture ${capture.id}:`, deleteCaptureError)
           continue
         }
 
-        // 4. Delete the URL row
-        const { error: deleteUrlError } = await supabase
-          .from("urls")
-          .delete()
-          .eq("id", urlRow.id)
-
-        if (deleteUrlError) {
-          console.error(`❌ Error deleting URL ${urlRow.url}:`, deleteUrlError)
-          continue
-        }
-
-        // 5. Log deletion
-        console.log(`🗑️ Deleted URL "${urlRow.url}" and ${captureCount} capture(s)`)
-        deletedUrls++
-        deletedCaptures += captureCount
+        console.log(`🗑️ Deleted capture ${capture.id} (file: ${capture.file_path || "none"})`)
+        deletedCaptures++
       } catch (err) {
-        console.error(`❌ Error deleting URL ${urlRow.url}:`, err.message)
+        console.error(`❌ Error deleting capture ${capture.id}:`, err.message)
       }
     }
   } else {
-    console.log("ℹ️ No expired URLs to delete")
+    console.log("ℹ️ No expired captures to delete")
   }
 
   console.log(
-    `✅ Cleanup complete. Warned: ${warnedUsers} users. Deleted: ${deletedUrls} URLs, ${deletedCaptures} captures.`
+    `✅ Cleanup complete. Warned: ${warnedUsers} users. Deleted: ${deletedCaptures} capture(s).`
   )
 }
 
