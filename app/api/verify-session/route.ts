@@ -125,11 +125,24 @@ export async function POST(req: Request) {
       console.warn("Could not determine plan from line items:", lineItemsError)
     }
 
-    const { data: existingProfile } = await supabase
+    // Fixed: previously only `data` was destructured here, silently discarding
+    // any query error. Before the subscription_started_at column existed, this
+    // lookup always failed, existingProfile was always null, and the code below
+    // treated every checkout as if it were the user's first — resetting their
+    // subscription_started_at (and, via that malformed payload, causing the
+    // profile upsert itself to fail against the nonexistent column). Now that
+    // the column exists, we explicitly check for a lookup error and skip
+    // touching subscription_started_at if we can't confirm its current value,
+    // rather than assuming "no data" means "never set."
+    const { data: existingProfile, error: existingProfileError } = await supabase
       .from("profiles")
       .select("subscription_started_at")
       .eq("id", userId)
       .maybeSingle()
+
+    if (existingProfileError) {
+      console.warn("Could not look up existing subscription_started_at (non-fatal):", existingProfileError)
+    }
 
     const profileUpsertData: Record<string, unknown> = {
       id: userId,
@@ -138,7 +151,10 @@ export async function POST(req: Request) {
       stripe_customer_id: customerId,
       plan,
     }
-    if (!existingProfile?.subscription_started_at) {
+    // Only set subscription_started_at if we successfully confirmed it isn't
+    // already set. If the lookup itself failed, leave it untouched rather than
+    // risk overwriting an existing value.
+    if (!existingProfileError && !existingProfile?.subscription_started_at) {
       profileUpsertData.subscription_started_at = new Date().toISOString()
     }
 
@@ -174,7 +190,7 @@ export async function POST(req: Request) {
 
     if (profileError) {
       const minimalUpdate: Record<string, unknown> = { subscribed: true, trial_ends_at: null, plan }
-      if (!existingProfile?.subscription_started_at) {
+      if (!existingProfileError && !existingProfile?.subscription_started_at) {
         minimalUpdate.subscription_started_at = new Date().toISOString()
       }
       const { error: minimalUpdateError } = await supabase
