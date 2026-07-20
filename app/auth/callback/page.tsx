@@ -32,7 +32,7 @@ export default function AuthCallbackPage() {
       )
       const queryPlan = parseSignupPlan(searchParams.get("plan"))
       const storedPlan = getStoredPlan()
-      const resolvedPlan = metadataPlan ?? queryPlan ?? storedPlan
+      const resolvedPlan = queryPlan ?? storedPlan ?? metadataPlan ?? "trial"
       try {
         window.localStorage.setItem(SIGNUP_PLAN_STORAGE_KEY, resolvedPlan)
       } catch {
