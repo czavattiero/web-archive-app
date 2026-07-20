@@ -241,7 +241,7 @@ export async function getBillingAccessDecision(userId: string): Promise<BillingA
   // row from an incomplete earlier signup, or a DB propagation race).  Set the
   // trial window now so the user gets their 15 free days and can reach the
   // dashboard immediately.
-  if (billingProfile.plan === "trial" && !billingProfile.trial_ends_at) {
+  if (billingProfile.plan === "trial" && !billingProfile.trial_ends_at && !billingProfile.subscribed) {
     const trialEndsAt = new Date(Date.now() + PROFILE_AUTO_REPAIR_TRIAL_DAYS * MS_PER_DAY).toISOString()
     const { error: repairError } = await supabaseAdmin
       .from("profiles")
