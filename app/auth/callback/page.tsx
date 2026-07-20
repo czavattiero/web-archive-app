@@ -90,26 +90,21 @@ export default function AuthCallbackPage() {
     const subRef: { current: { unsubscribe: () => void } | null } = { current: null }
 
     void (async () => {
-      const code = searchParams.get("code")
-      if (code) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-        if (exchangeError) {
-          clearTimeout(timeoutId)
-          redirectToSignup(
-            exchangeError.code === "otp_expired" || exchangeError.code === "access_denied"
-              ? exchangeError.code
-              : "verification_failed"
-          )
-          return
-        }
-      }
-
+      // lib/supabase.ts sets detectSessionInUrl: true, so the Supabase client
+      // automatically exchanges any PKCE code (or implicit-flow hash token) in
+      // the URL during its async initialization. getSession() awaits that
+      // initialization before returning, so calling exchangeCodeForSession()
+      // manually here would attempt to consume the code a second time and fail.
+      // Instead, just wait for the session that detectSessionInUrl already obtained.
       const { data: sessionData } = await supabase.auth.getSession()
       if (sessionData.session) {
         clearTimeout(timeoutId)
         subRef.current?.unsubscribe()
         await finishSignup(sessionData.session)
       }
+      // If no session is available after initialization, onAuthStateChange will
+      // call finishSignup when SIGNED_IN or INITIAL_SESSION fires. If neither
+      // fires within CALLBACK_TIMEOUT_MS the timeout redirects to /signup.
     })()
 
     const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
