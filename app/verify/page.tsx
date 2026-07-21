@@ -136,7 +136,7 @@ export default function VerifyPage() {
   if (verifying) {
     return (
       <PageShell>
-        <p style={{ color: "#6B7280" }}>Verifying your email…</p>
+        <p style={{ color: "#6B7280" }}>Activating your account…</p>
       </PageShell>
     )
   }
@@ -144,12 +144,12 @@ export default function VerifyPage() {
   if (verificationToken) {
     return (
       <PageShell>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>✉️</div>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
         <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 10, color: "#111" }}>
-          Confirm your email
+          You're almost in
         </h1>
         <p style={{ color: "#6B7280", fontSize: 14, marginBottom: 28 }}>
-          Click the button below to verify your email address and activate your Timedshot account.
+          One last click to activate your Timedshot account and open your dashboard.
         </p>
         <button
           onClick={handleConfirm}
@@ -165,7 +165,7 @@ export default function VerifyPage() {
             width: "100%",
           }}
         >
-          Confirm my email →
+          Go to my dashboard →
         </button>
       </PageShell>
     )
