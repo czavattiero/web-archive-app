@@ -160,7 +160,7 @@ async function getOptionalSubscriptionStartedAt(userId: string): Promise<string 
 async function autoRepairMissingProfile(userId: string): Promise<void> {
   try {
     const existingProfile = await getProfileById(userId)
-    if (existingProfile) return
+    if (existingProfile && (existingProfile.plan || existingProfile.subscribed)) return
 
     const { data: authUserData, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(userId)
     if (authUserError || !authUserData?.user) {
@@ -193,7 +193,16 @@ async function autoRepairMissingProfile(userId: string): Promise<void> {
 
 export async function getBillingAccessDecision(userId: string): Promise<BillingAccessDecision> {
   let userProfile = await getProfileById(userId)
-  if (!userProfile) {
+
+  // A profile row can exist but be incomplete: the handle_new_user() DB
+  // trigger inserts a bare (id, email) row the instant someone signs up,
+  // before /api/create-profile has a chance to set plan/trial_ends_at. If
+  // that step never completes (network error, client bug, tab closed mid
+  // signup, etc.), the row is left with plan: null forever. Without this
+  // check that reads as "not on trial and not subscribed" and routes the
+  // user to /choose-plan instead of giving them the trial they signed up
+  // for. Treat a planless row the same as a missing one so it gets repaired.
+  if (!userProfile || (!userProfile.plan && !userProfile.subscribed)) {
     await autoRepairMissingProfile(userId)
     userProfile = await getProfileById(userId)
   }
