@@ -215,9 +215,6 @@ async function sendFailureEmail(item, errorMessage) {
   <p style="font-size:15px;color:#555;margin-bottom:12px;">
     <strong>Reason:</strong> ${safeErrorMessage}
   </p>
-  <p style="font-size:15px;color:#555;margin-bottom:28px;">
-    Our system will automatically retry the capture. You will be notified if it continues to fail.
-  </p>
   <hr style="border:none;border-top:1px solid #eee;margin:28px 0;">
   <p style="font-size:12px;color:#aaa;text-align:center;">
     This is an automated message from Timedshot.
