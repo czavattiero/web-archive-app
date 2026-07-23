@@ -97,15 +97,15 @@ export function getAccessTokenFromRequest(req: Request): string | null {
   return null
 }
 
-export async function getAuthenticatedUserFromRequest(req: Request): Promise<{ id: string; token: string } | null> {
+export async function getAuthenticatedUserFromRequest(req: Request): Promise<{ id: string; email: string | null; token: string } | null> {
   const authState = await getAuthenticatedUserStateFromRequest(req)
   if (!authState?.emailVerified) return null
-  return { id: authState.id, token: authState.token }
+  return { id: authState.id, email: authState.email, token: authState.token }
 }
 
 export async function getAuthenticatedUserStateFromRequest(
   req: Request
-): Promise<{ id: string; token: string; emailVerified: boolean } | null> {
+): Promise<{ id: string; email: string | null; token: string; emailVerified: boolean } | null> {
   const token = getAccessTokenFromRequest(req)
   if (!token) return null
 
@@ -114,6 +114,7 @@ export async function getAuthenticatedUserStateFromRequest(
 
   return {
     id: data.user.id,
+    email: data.user.email ?? null,
     token,
     emailVerified: isEmailVerified(data.user),
   }

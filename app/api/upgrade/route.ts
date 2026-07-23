@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
 import { getAuthenticatedUserFromRequest } from "../../../lib/server/billingAccess"
+import { alertAdmin } from "../../../lib/server/alertAdmin"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
@@ -64,6 +65,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ url: session.url })
   } catch (err: any) {
     console.error("❌ Upgrade checkout error:", err)
+    await alertAdmin("upgrade", "Unhandled error in /api/upgrade", err.message, authUser)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

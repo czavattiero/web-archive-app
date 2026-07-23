@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
 import { buildVerifyUrl } from "../../../lib/buildVerifyUrl"
 import { type SignupPlan, normalizeSignupPlan } from "../../../lib/signupPlan"
+import { alertAdmin } from "../../../lib/server/alertAdmin"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -180,8 +181,11 @@ function errorMessage(error: { message?: string } | null | undefined, fallback: 
 }
 
 export async function POST(req: Request) {
+  let email: string | undefined
   try {
-    const { email, password, plan } = await req.json()
+    const parsed = await req.json()
+    email = parsed.email
+    const { password, plan } = parsed
 
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
@@ -288,6 +292,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true })
   } catch (err: any) {
     console.error("Signup API error:", err)
+    await alertAdmin("signup", "Unhandled error in /api/signup", err?.message || String(err), { email })
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 }
