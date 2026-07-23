@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
 import { getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../../lib/server/billingAccess"
+import { alertAdmin } from "../../../../lib/server/alertAdmin"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
@@ -74,9 +75,10 @@ export async function POST(req: Request) {
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       fallbackLookupFailed = true
       console.error("Stripe customer fallback lookup failed:", error)
+      await alertAdmin("stripe-portal", "Stripe customer fallback lookup failed", error?.message || String(error), authUser)
     }
   }
 
@@ -104,10 +106,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No Stripe customer" }, { status: 400 })
   }
 
-  const session = await stripe.billingPortal.sessions.create({
-    customer: customerId,
-    return_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
-  })
+  try {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
+    })
 
-  return NextResponse.json({ url: session.url })
+    return NextResponse.json({ url: session.url })
+  } catch (err: any) {
+    console.error("Failed to create Stripe billing portal session:", err)
+    await alertAdmin("stripe-portal", "Failed to create Stripe billing portal session", err?.message || String(err), authUser)
+    return NextResponse.json({ error: "Failed to open billing portal" }, { status: 500 })
+  }
 }

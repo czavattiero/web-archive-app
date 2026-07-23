@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
+import { alertAdmin } from "../../../lib/server/alertAdmin"
 
 // 🔥 Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -31,6 +32,11 @@ export async function POST(req: Request) {
     )
   } catch (err: any) {
     console.error("❌ Webhook signature error:", err.message)
+    await alertAdmin(
+      "stripe-webhook-signature",
+      "Stripe webhook signature verification failing",
+      `${err.message}\n\nIf this keeps happening, STRIPE_WEBHOOK_SECRET in Vercel likely doesn't match the live-mode endpoint's signing secret — every real payment event is being silently rejected until this is fixed.`
+    )
     return new Response(`Webhook Error: ${err.message}`, { status: 400 })
   }
 
@@ -298,8 +304,9 @@ if (event.type === "invoice.payment_succeeded") {
     }
 
     return NextResponse.json({ received: true })
-  } catch (err) {
+  } catch (err: any) {
     console.error("❌ Webhook handler error:", err)
+    await alertAdmin("stripe-webhook-handler", "Stripe webhook handler failed", err?.message || String(err))
     return new Response("Webhook handler failed", { status: 500 })
   }
 }

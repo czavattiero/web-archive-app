@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
 import { getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../../lib/server/billingAccess"
+import { alertAdmin } from "../../../../lib/server/alertAdmin"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -203,6 +204,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true })
   } catch (err: any) {
     console.error("❌ Invite error:", err)
+    await alertAdmin("sub-users-invite", "Unhandled error in /api/sub-users/invite", err.message, authUser)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

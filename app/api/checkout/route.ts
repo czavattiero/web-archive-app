@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
 import { getAuthenticatedUserFromRequest } from "../../../lib/server/billingAccess"
+import { alertAdmin } from "../../../lib/server/alertAdmin"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -12,8 +13,9 @@ const supabase = createClient(
 )
 
 export async function POST(req: Request) {
+  let authUser: { id: string; email: string | null; token: string } | null = null
   try {
-    const authUser = await getAuthenticatedUserFromRequest(req)
+    authUser = await getAuthenticatedUserFromRequest(req)
     if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -102,6 +104,7 @@ export async function POST(req: Request) {
 
   } catch (err: any) {
     console.error("Checkout error:", err)
+    await alertAdmin("checkout", "Unhandled error in /api/checkout", err.message, authUser)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
