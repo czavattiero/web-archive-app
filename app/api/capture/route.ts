@@ -43,7 +43,17 @@ export async function POST(request: Request) {
     if (!res.ok) {
       const errorText = await res.text()
       console.error("GitHub API error:", res.status, errorText)
-      throw new Error(`GitHub API error: ${res.status} ${errorText}`)
+      // Forward GitHub's real status and message instead of masking it as a
+      // generic 500 — this is what made a bad/under-scoped GITHUB_TOKEN so
+      // hard to diagnose from the UI last time.
+      return NextResponse.json(
+        {
+          success: false,
+          error: `GitHub API error (${res.status}): ${errorText || "no additional detail"}`,
+          upstreamStatus: res.status,
+        },
+        { status: res.status >= 400 && res.status < 600 ? res.status : 502 }
+      )
     }
 
     console.log("✅ Workflow dispatch succeeded")
