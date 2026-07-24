@@ -2,7 +2,7 @@ name: Web Archive Capture Worker
 
 on:
   schedule:
-    - cron: "0 14 * * *"   # Daily at 14:00 UTC (≈ 08:00 Alberta MDT)
+    - cron: "45 15 * * *"   # Daily at 15:45 UTC (≈ 09:45 Alberta MDT)
   workflow_dispatch:
     inputs:
       capture_mode:
