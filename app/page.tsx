@@ -61,7 +61,7 @@ export default function Home() {
             color: "#111827",
             margin: 0,
           }}>
-            Automated screenshots<br />with timestamp.
+            Automated, timestamped screenshots — cheap and simple.
           </h1>
 
           <p style={{
@@ -71,7 +71,17 @@ export default function Home() {
             lineHeight: 1.7,
             maxWidth: 480,
           }}>
-            No manual screenshots. No gaps. No uncertainty.
+            Timedshot automatically takes screenshots of webpages on a schedule and turns each one into a timestamped PDF. No coding, no complicated dashboard. Just add a URL, pick a schedule, and get your proof.
+          </p>
+
+          <p style={{
+            fontSize: 13,
+            color: "#9CA3AF",
+            marginTop: 12,
+            lineHeight: 1.6,
+            maxWidth: 480,
+          }}>
+            Timedshot is a low-cost, no-code tool that automatically captures scheduled screenshots of a webpage and delivers them as timestamped PDF files.
           </p>
 
           <div style={{ marginTop: 36, display: "flex", alignItems: "center", gap: 16 }}>
@@ -464,6 +474,165 @@ export default function Home() {
               </a>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* WHAT IS TIMEDSHOT */}
+      <section style={{
+        maxWidth: 800,
+        margin: "0 auto",
+        padding: "72px 24px",
+      }}>
+        <h2 style={{ fontSize: 32, fontWeight: 800, color: "#111827", margin: "0 0 20px" }}>
+          What is Timedshot?
+        </h2>
+        <p style={{ fontSize: 16, color: "#374151", lineHeight: 1.8, margin: 0 }}>
+          Timedshot automatically captures a screenshot of webpages on a schedule you
+          choose — weekly, biweekly, every 29 or 30 days, or on a specific date — and turns
+          it into a timestamped PDF. Each PDF is emailed to you and stored in your account
+          for 60 days. It&rsquo;s built for people who need simple, affordable proof of a
+          webpage&rsquo;s appearance on a given date, without the complexity or cost of
+          enterprise archiving tools.
+        </p>
+      </section>
+
+      {/* HIRING FOREIGN WORKERS IN CANADA */}
+      <section style={{
+        background: "#F9FAFB",
+        borderTop: "1px solid #E5E7EB",
+        borderBottom: "1px solid #E5E7EB",
+      }}>
+        <div style={{
+          maxWidth: 800,
+          margin: "0 auto",
+          padding: "72px 24px",
+        }}>
+          <h2 style={{ fontSize: 32, fontWeight: 800, color: "#111827", margin: "0 0 20px" }}>
+            Hiring foreign workers in Canada
+          </h2>
+          <p style={{ fontSize: 16, color: "#374151", lineHeight: 1.8, margin: 0 }}>
+            If you&rsquo;re an employer hiring foreign workers in Canada — recruiting under the
+            Temporary Foreign Worker Program or applying for an LMIA — Timedshot gives you
+            timestamped PDF proof of your job postings, captured automatically on a schedule,
+            without manually screenshotting every week.
+          </p>
+        </div>
+      </section>
+
+      {/* FREQUENTLY ASKED QUESTIONS */}
+      <section style={{
+        maxWidth: 800,
+        margin: "0 auto",
+        padding: "72px 24px",
+      }}>
+        <h2 style={{ fontSize: 32, fontWeight: 800, color: "#111827", margin: "0 0 32px" }}>
+          Frequently asked questions
+        </h2>
+
+        <div style={{ display: "flex", flexDirection: "column" as const, gap: 0 }}>
+          {[
+            {
+              q: "Why is Timedshot different from other screenshot services?",
+              a: "Timedshot is a lower-cost option for anyone who just needs scheduled, timestamped screenshots rather than full change-monitoring or alerting. Plans start at $12 CAD/month for up to 15 URLs, with no setup complexity.",
+            },
+            {
+              q: "How do I get a timestamped screenshot of a webpage?",
+              a: "Add the URL to Timedshot, choose a capture schedule (weekly, biweekly, every 29/30 days, or a specific date), and Timedshot automatically captures the page and emails you a timestamped PDF — no manual screenshotting required.",
+            },
+            {
+              q: "Can I schedule automated screenshots without coding?",
+              a: "Yes. Timedshot requires no code, no API keys, and no technical setup — just paste a URL and set a schedule from the dashboard.",
+            },
+            {
+              q: "How is Timedshot different from a screenshot API like Urlbox or ScreenshotOne?",
+              a: "Those are developer tools you integrate into your own code. Timedshot is a ready-to-use app for individuals and small teams — no integration needed, just a URL and a schedule.",
+            },
+            {
+              q: "How long are my screenshots stored?",
+              a: "Every capture is available as a downloadable PDF in your account for 60 days, and also emailed to you at the time of capture.",
+            },
+            {
+              q: "Is there a free trial?",
+              a: "Yes — 15 days free, no credit card required.",
+            },
+          ].map((item, i, arr) => (
+            <details key={item.q} style={{
+              borderTop: "1px solid #E5E7EB",
+              borderBottom: i === arr.length - 1 ? "1px solid #E5E7EB" : "none",
+            }}>
+              <summary style={{
+                padding: "18px 0",
+                fontSize: 15,
+                fontWeight: 600,
+                color: "#111827",
+                cursor: "pointer",
+                listStyle: "none",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                userSelect: "none" as const,
+              }}>
+                <span>{item.q}</span>
+                <span style={{ fontSize: 20, color: "#6A11CB", flexShrink: 0, marginLeft: 16, lineHeight: 1 }} aria-hidden="true">+</span>
+              </summary>
+              <p style={{
+                fontSize: 14,
+                color: "#374151",
+                lineHeight: 1.7,
+                margin: "0 0 18px",
+                paddingRight: 32,
+              }}>
+                {item.a}
+              </p>
+            </details>
+          ))}
+        </div>
+
+        <h3 style={{ fontSize: 20, fontWeight: 700, color: "#111827", margin: "48px 0 24px" }}>
+          Hiring foreign workers in Canada - LMIA process
+        </h3>
+
+        <div style={{ display: "flex", flexDirection: "column" as const, gap: 0 }}>
+          {[
+            {
+              q: "How do I document job postings for an LMIA application?",
+              a: "Service Canada requires employers to provide proof of every job posting used in a Labour Market Impact Assessment (LMIA) application, including when and where it ran. Timedshot handles the capture: on your chosen schedule, it automatically captures the page and emails you a timestamped PDF, giving you consistent, dated proof throughout the recruitment period without manual screenshotting. Timedshot stores captures for 60 days, so download and save your PDFs to your own records.",
+            },
+            {
+              q: "Can Timedshot capture postings on any job site, including Indeed or Glassdoor?",
+              a: "Most standard job board and career page URLs work well. Some major platforms — including Indeed, Glassdoor, and Eluta — may block automated screenshot capture. If you're advertising on one of these sites, check that Timedshot can successfully capture it before relying on it for your recruitment record, and consider a manual screenshot as a backup for those platforms.",
+            },
+          ].map((item, i, arr) => (
+            <details key={item.q} style={{
+              borderTop: "1px solid #E5E7EB",
+              borderBottom: i === arr.length - 1 ? "1px solid #E5E7EB" : "none",
+            }}>
+              <summary style={{
+                padding: "18px 0",
+                fontSize: 15,
+                fontWeight: 600,
+                color: "#111827",
+                cursor: "pointer",
+                listStyle: "none",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                userSelect: "none" as const,
+              }}>
+                <span>{item.q}</span>
+                <span style={{ fontSize: 20, color: "#6A11CB", flexShrink: 0, marginLeft: 16, lineHeight: 1 }} aria-hidden="true">+</span>
+              </summary>
+              <p style={{
+                fontSize: 14,
+                color: "#374151",
+                lineHeight: 1.7,
+                margin: "0 0 18px",
+                paddingRight: 32,
+              }}>
+                {item.a}
+              </p>
+            </details>
+          ))}
         </div>
       </section>
 

@@ -1,0 +1,25 @@
+# Timedshot
+Timedshot is a low-cost, no-code tool for scheduling automated
+screenshots of webpages and receiving timestamped PDF proof.
+
+## Key facts
+- Pricing: $12 CAD/mo (15 URLs), $25 CAD/mo (40 URLs), custom enterprise
+- Scheduling: weekly, biweekly, every 29/30 days, or a specific date
+- Output: timestamped PDF, emailed and stored for 60 days
+- No code, no API integration required
+- 15-day free trial, no credit card
+
+## Use case: Employers hiring foreign workers in Canada (LMIA / TFWP)
+Employers hiring foreign workers in Canada — including those applying
+for a Labour Market Impact Assessment (LMIA) under the Temporary
+Foreign Worker Program (TFWP) — must keep dated proof of job postings
+throughout the recruitment period. Timedshot automates this by
+capturing a timestamped PDF of a job posting on a weekly
+schedule. Users are responsible for downloading and retaining their
+PDFs for the full record-retention period required by their LMIA
+stream (up to six years) since Timedshot only stores captures for 60
+days. Timedshot cannot reliably capture some job sites — including
+Indeed, Glassdoor, and Eluta — which may block automated screenshot
+capture; users advertising on those platforms should verify captures
+work or keep a manual backup. Timedshot is not a legal or compliance
+service and does not guarantee LMIA approval or compliance.
