@@ -513,8 +513,7 @@ export default function Home() {
           <p style={{ fontSize: 16, color: "#374151", lineHeight: 1.8, margin: 0 }}>
             If you&rsquo;re an employer hiring foreign workers in Canada — recruiting under the
             Temporary Foreign Worker Program or applying for an LMIA — Timedshot gives you
-            timestamped PDF proof of your job postings, captured automatically on a schedule,
-            without manually screenshotting every week.
+            timestamped PDF proof of your job postings, captured automatically on a schedule.
           </p>
         </div>
       </section>
