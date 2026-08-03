@@ -3,7 +3,7 @@ import "./globals.css"
 export const dynamic = "force-dynamic"
 
 export const metadata = {
-  title: "Timedshot",
+  title: "Timedshot: Scheduled Screenshots, Timestamped PDF Proof",
   description: "Automated screenshots with timestamp",
 }
 
