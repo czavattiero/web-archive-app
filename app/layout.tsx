@@ -4,6 +4,9 @@ export const dynamic = "force-dynamic"
 
 export const metadata = {
   metadataBase: new URL("https://www.timedshot.ca"),
+  alternates: {
+    canonical: "/",
+  },
   title: "Timedshot: Scheduled Screenshots, Timestamped PDF Proof",
   description: "Automated screenshots with timestamp",
 }
