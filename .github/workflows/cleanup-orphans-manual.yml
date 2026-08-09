@@ -32,4 +32,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node scripts/cleanup-orphans.mjs ${{ github.event.inputs.confirm == 'true' && '--confirm' || '' }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          if [ "$CONFIRM" = "true" ]; then
+            node scripts/cleanup-orphans.mjs --confirm
+          else
+            node scripts/cleanup-orphans.mjs
+          fi
