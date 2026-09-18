@@ -219,7 +219,7 @@ export async function getBillingAccessDecision(userId: string): Promise<BillingA
   }
 
   const ownerId = userProfile.parent_user_id || userProfile.id
-  const billingProfile = ownerId === userProfile.id ? userProfile : await getProfileById(ownerId)
+  let billingProfile = ownerId === userProfile.id ? userProfile : await getProfileById(ownerId)
 
   if (!billingProfile) {
     return {
@@ -243,6 +243,26 @@ export async function getBillingAccessDecision(userId: string): Promise<BillingA
       ownerId,
       userProfile,
       billingProfile: hydratedBillingProfile,
+    }
+  }
+
+  // Repair: a trial profile with no trial_ends_at means the user just confirmed
+  // their email but the profile was not yet fully initialised (e.g. pre-existing
+  // row from an incomplete earlier signup, or a DB propagation race).  Set the
+  // trial window now so the user gets their 15 free days and can reach the
+  // dashboard immediately.
+  if (billingProfile.plan === "trial" && !billingProfile.trial_ends_at && !billingProfile.subscribed) {
+    const trialEndsAt = new Date(Date.now() + PROFILE_AUTO_REPAIR_TRIAL_DAYS * MS_PER_DAY).toISOString()
+    const { error: repairError } = await supabaseAdmin
+      .from("profiles")
+      .update({ trial_ends_at: trialEndsAt })
+      .eq("id", ownerId)
+      .is("trial_ends_at", null)
+
+    if (!repairError) {
+      billingProfile = { ...billingProfile, trial_ends_at: trialEndsAt }
+    } else {
+      console.warn("⚠️ Failed to repair missing trial_ends_at for profile:", ownerId, repairError.message)
     }
   }
 
