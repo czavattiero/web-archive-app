@@ -38,10 +38,10 @@ function calculateNextCapture(scheduleType, prevScheduledAt) {
 
   const now = DateTime.now().setZone("America/Edmonton")
 
-  // When a previous scheduled time is provided and already in the past, advance directly
-  // from its date. The time is always normalised to 9 AM Alberta: the worker only runs
-  // once a day (~9:45 AM Alberta), so a next_capture_at later in the day (e.g. inherited
-  // from a manual retry or an off-schedule run) would be skipped on its due date.
+  // When a previous scheduled time is provided and already in the past, advance from its
+  // date, but always normalise the time to 9 AM Alberta. The scheduled worker runs once a
+  // day (~9:45 AM Alberta), so a time-of-day later than that (e.g. one set by a manual
+  // Retry at 10:20 AM) would otherwise miss its due day every cycle and be captured late.
   if (prevScheduledAt) {
     const prev = DateTime.fromISO(prevScheduledAt, { zone: "utc" }).setZone("America/Edmonton")
     if (prev <= now) {
@@ -385,8 +385,9 @@ async function runWorker() {
       return
     }
 
-    // The worker runs once a day, so anything scheduled for today (Alberta time) is due
-    // now — otherwise a URL scheduled later in the day than the run would be missed.
+    // The scheduled run happens once a day, so anything due at any point today (Alberta
+    // time) is captured now; otherwise a URL due later in the day would be skipped until
+    // the following day's run.
     const endOfTodayAlberta = DateTime.now().setZone("America/Edmonton").endOf("day").toJSDate()
 
     urlsToCapture = urls.filter(item => {
