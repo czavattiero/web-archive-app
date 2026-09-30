@@ -38,14 +38,16 @@ function calculateNextCapture(scheduleType, prevScheduledAt) {
 
   const now = DateTime.now().setZone("America/Edmonton")
 
-  // When a previous scheduled time is provided and already in the past, advance directly
-  // from it (preserving its time-of-day offset) so that duplicate URLs with different
-  // scheduled times don't converge onto the same next_capture_at after being processed
-  // in the same worker run.
+  // When a previous scheduled time is provided and already in the past, advance from its
+  // date, but always normalise the time to 9 AM Alberta. The scheduled worker runs once a
+  // day (~9:45 AM Alberta), so a time-of-day later than that (e.g. one set by a manual
+  // Retry at 10:20 AM) would otherwise miss its due day every cycle and be captured late.
   if (prevScheduledAt) {
     const prev = DateTime.fromISO(prevScheduledAt, { zone: "utc" }).setZone("America/Edmonton")
     if (prev <= now) {
-      const next = prev.plus({ days: daysToAdd })
+      const next = prev
+        .plus({ days: daysToAdd })
+        .set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
       // Only use prev-based next if it lands in the future; otherwise fall through to
       // the now-based default so a severely overdue URL gets a sensible schedule.
       if (next > now) {
@@ -383,8 +385,10 @@ async function runWorker() {
       return
     }
 
-    const toleranceMs = 10 * 60 * 1000
-    const now = new Date()
+    // The scheduled run happens once a day, so anything due at any point today (Alberta
+    // time) is captured now; otherwise a URL due later in the day would be skipped until
+    // the following day's run.
+    const endOfTodayAlberta = DateTime.now().setZone("America/Edmonton").endOf("day").toJSDate()
 
     urlsToCapture = urls.filter(item => {
       const nextCapture = item.next_capture_at ? new Date(item.next_capture_at) : null
@@ -393,7 +397,7 @@ async function runWorker() {
         return false
       }
 
-      const isDue = now >= new Date(nextCapture.getTime() - toleranceMs)
+      const isDue = nextCapture <= endOfTodayAlberta
       console.log(`  ${isDue ? "✅" : "⏭️"} ${item.url} - due: ${nextCapture.toISOString()}`)
       return isDue
     })
