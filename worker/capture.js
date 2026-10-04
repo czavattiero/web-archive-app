@@ -87,19 +87,27 @@ const safeName = (s) =>
 // CAPTCHA solving). Retrying on the same page can never succeed after one of these.
 const DEAD_PAGE_PATTERN = /Frame was detached|Target (page, context or browser )?(has been )?closed|Target closed/i
 
+// Phrases on "not found" pages. Only checked when a page is already being rejected for
+// having almost no content, so a real page mentioning these words is never affected.
+const NOT_FOUND_TEXT_PATTERN = /page (can['’]?t|cannot|could ?n['’]?o?t) be found|page not found|404 not found|no longer (available|exists)/i
+const NOT_FOUND_MESSAGE = "Page not found — the page may have been removed from the site"
+
 // Returns the page that loaded successfully, which may be a fresh page if the original
 // one died during an attempt. Callers must use the returned page from then on.
 async function captureWithRetry(page, url, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     console.log(`🌐 Attempt ${attempt}: Opening ${url}`)
 
+    let httpStatus = null
+
     try {
       try {
-        await page.goto(url, {
+        const response = await page.goto(url, {
           // domcontentloaded prevents timeouts on Indeed/Glassdoor
           waitUntil: "domcontentloaded",
           timeout: 60000,
         })
+        httpStatus = response?.status() ?? null
       } catch (navErr) {
         if (/interrupted by another navigation/i.test(navErr.message)) {
           // Likely caused by Browserless's CAPTCHA-solve triggering a follow-up
@@ -146,6 +154,14 @@ async function captureWithRetry(page, url, maxRetries = 3) {
       const bodyText = await page.evaluate(() => document.body?.innerText?.trim() ?? "")
       if (bodyText.length < MIN_BODY_TEXT_LENGTH) {
         console.log(`⚠️ Page appears empty or blocked (body text: ${bodyText.length} chars)`)
+        // The site says the page doesn't exist (e.g. a removed job posting). Retrying in
+        // this run won't help, so fail now with a message that says what happened.
+        const isNotFoundStatus = httpStatus === 404 || httpStatus === 410
+        if (isNotFoundStatus || NOT_FOUND_TEXT_PATTERN.test(bodyText)) {
+          const notFoundError = new Error(isNotFoundStatus ? `${NOT_FOUND_MESSAGE} (HTTP ${httpStatus})` : NOT_FOUND_MESSAGE)
+          notFoundError.isNotFound = true
+          throw notFoundError
+        }
         if (attempt < maxRetries) {
           await page.waitForTimeout(EMPTY_BODY_RETRY_DELAY_MS)
           continue
@@ -160,7 +176,7 @@ async function captureWithRetry(page, url, maxRetries = 3) {
     } catch (err) {
       console.log(`❌ Attempt ${attempt} failed: ${err.message}`)
 
-      if (attempt === maxRetries) {
+      if (attempt === maxRetries || err.isNotFound) {
         throw err
       }
 
