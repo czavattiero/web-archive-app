@@ -83,6 +83,12 @@ const safeName = (s) =>
     .replace(/^_|_$/g, "")
     .substring(0, 40)
 
+// Errors meaning the tab itself is gone (e.g. closed by a redirect or by Browserless during
+// CAPTCHA solving). Retrying on the same page can never succeed after one of these.
+const DEAD_PAGE_PATTERN = /Frame was detached|Target (page, context or browser )?(has been )?closed|Target closed/i
+
+// Returns the page that loaded successfully, which may be a fresh page if the original
+// one died during an attempt. Callers must use the returned page from then on.
 async function captureWithRetry(page, url, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     console.log(`🌐 Attempt ${attempt}: Opening ${url}`)
@@ -149,13 +155,20 @@ async function captureWithRetry(page, url, maxRetries = 3) {
       }
 
       console.log("✅ Page loaded successfully")
-      return true
+      return page
 
     } catch (err) {
       console.log(`❌ Attempt ${attempt} failed: ${err.message}`)
 
       if (attempt === maxRetries) {
         throw err
+      }
+
+      if (DEAD_PAGE_PATTERN.test(err.message)) {
+        console.log("🆕 Page was closed — opening a new page for the next attempt")
+        const context = page.context()
+        await page.close().catch(() => {})
+        page = await context.newPage()
       }
 
       await page.waitForTimeout(5000)
@@ -445,11 +458,12 @@ async function runWorker() {
       extraHTTPHeaders: { "accept-language": "en-US,en;q=0.9" },
     })
 
-    const page = await context.newPage()
+    let page = await context.newPage()
 
     try {
-      // 🔥 Stealth patch — extra layer on top of Browserless stealth
-      await page.addInitScript(() => {
+      // 🔥 Stealth patch — extra layer on top of Browserless stealth. Added on the context
+      // so it also applies to any replacement page opened by captureWithRetry.
+      await context.addInitScript(() => {
         Object.defineProperty(navigator, "webdriver", {
           get: () => false,
         })
@@ -473,7 +487,7 @@ async function runWorker() {
       console.log("🌍 Opening page...")
 
       try {
-        await captureWithRetry(page, item.url)
+        page = await captureWithRetry(page, item.url)
       } catch (err) {
         console.error("❌ Page load failed:", err.message)
         const errorMessage = "Page load failed: " + err.message
