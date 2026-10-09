@@ -269,7 +269,7 @@ async function sendFailureEmail(item, errorMessage) {
   }
 }
 
-async function handleRetry(item, captureMode) {
+async function handleRetry(item) {
   const { data: urlRecord, error: fetchError } = await supabase
     .from("urls")
     .select("retry_count")
@@ -307,23 +307,25 @@ async function handleRetry(item, captureMode) {
     let nextStatus
 
     if (item.schedule_type === "custom") {
-      if (captureMode === "IMMEDIATE") {
-        if (item.schedule_value) {
-          const parsedDate = DateTime.fromISO(item.schedule_value, { zone: "America/Edmonton" })
-          if (parsedDate.isValid) {
-            nextCaptureAt = parsedDate
-              .set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
-              .toUTC()
-              .toISO()
-            nextStatus = "active"
-          } else {
-            nextCaptureAt = null
-            nextStatus = "completed"
-          }
-        } else {
-          nextCaptureAt = null
-          nextStatus = "completed"
-        }
+      // Decide by the scheduled date, not by capture mode: retries of a failed first
+      // capture run in SCHEDULED mode, so mode alone can't tell whether the date has
+      // passed.
+      const parsedDate = item.schedule_value
+        ? DateTime.fromISO(item.schedule_value, { zone: "America/Edmonton" })
+        : null
+      const todayAlberta = DateTime.now().setZone("America/Edmonton").startOf("day")
+
+      if (parsedDate?.isValid && parsedDate.startOf("day") > todayAlberta) {
+        // Scheduled date is still ahead: keep it.
+        nextCaptureAt = parsedDate
+          .set({ hour: 9, minute: 0, second: 0, millisecond: 0 })
+          .toUTC()
+          .toISO()
+        nextStatus = "active"
+      } else if (parsedDate?.isValid) {
+        // Scheduled date has arrived and every attempt failed: no PDF for that date.
+        nextCaptureAt = null
+        nextStatus = "missed"
       } else {
         nextCaptureAt = null
         nextStatus = "completed"
@@ -517,7 +519,7 @@ async function runWorker() {
         })
 
         await sendFailureEmail(item, errorMessage)
-        await handleRetry(item, captureMode)
+        await handleRetry(item)
 
         await page.close()
         await context.close()
@@ -638,7 +640,7 @@ async function runWorker() {
         })
 
         await sendFailureEmail(item, errorMessage)
-        await handleRetry(item, captureMode)
+        await handleRetry(item)
 
         await page.close()
         await context.close()
@@ -767,7 +769,7 @@ async function runWorker() {
       })
 
       await sendFailureEmail(item, errorMessage)
-      await handleRetry(item, captureMode)
+      await handleRetry(item)
     }
 
     // ✅ Always close page and context after each URL
