@@ -658,6 +658,17 @@ export default function Dashboard() {
       .toFormat("MMM d, yyyy, h:mm a")
   }
 
+  // Short, plain-language reason for a failed capture row. The full worker error is
+  // kept in the row's tooltip.
+  function friendlyCaptureError(error: string | null | undefined) {
+    const e = String(error || "")
+    if (/HTTP 404|Page not found/i.test(e)) return "Page removed (404)"
+    if (/Cloudflare|WAF|bot block|login wall|captcha/i.test(e)) return "Blocked by site"
+    if (/Upload failed/i.test(e)) return "PDF could not be saved"
+    if (/timeout/i.test(e)) return "Page timed out"
+    return "Page didn't load"
+  }
+
   function StatusBadge({ status }: { status: string }) {
     const base = {
       padding: "3px 10px",
@@ -1120,9 +1131,15 @@ export default function Dashboard() {
                       <StatusBadge status={c.status} />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={linkStyle}>
-                        Download
-                      </a>
+                      {c.status === "success" && c.file_path ? (
+                        <a href={publicUrl} target="_blank" rel="noopener noreferrer" style={linkStyle}>
+                          Download
+                        </a>
+                      ) : (
+                        <span title={c.error || undefined} style={{ fontSize: 12, color: "#6B7280" }}>
+                          No PDF — {friendlyCaptureError(c.error)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )
