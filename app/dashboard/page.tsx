@@ -676,7 +676,32 @@ export default function Dashboard() {
     if (status === "failed")
       return <span style={{ ...base, background: "#FEE2E2", color: "#B91C1C" }}>Failed</span>
 
+    if (status === "missed")
+      return <span style={{ ...base, background: "#FEE2E2", color: "#B91C1C" }}>Missed</span>
+
+    if (status === "retrying")
+      return <span style={{ ...base, background: "#FEF3C7", color: "#B45309" }}>Retrying</span>
+
     return <span style={{ ...base, background: "#E5E7EB", color: "#374151" }}>{status}</span>
+  }
+
+  // Captures are loaded newest first, so the first match is the latest attempt.
+  function latestCaptureFor(urlId: string) {
+    return captures.find((c) => c.url_id === urlId)
+  }
+
+  function formatScheduledDate(value: string | null) {
+    if (!value) return null
+    const d = DateTime.fromISO(value, { zone: "America/Edmonton" })
+    return d.isValid ? d.toFormat("MMM d, yyyy") : null
+  }
+
+  function scheduleLabel(u: { schedule_type: string; schedule_value: string | null }) {
+    if (u.schedule_type === "custom") {
+      const date = formatScheduledDate(u.schedule_value)
+      return date ? `Once — ${date}` : "Once"
+    }
+    return u.schedule_type
   }
 
   const filteredUrls = urls.filter((u) => {
@@ -1052,10 +1077,54 @@ export default function Dashboard() {
                     <div style={labelCell}>
                       {u.label && <span style={labelBadge}>{u.label}</span>}
                     </div>
-                    <div style={{ flex: 1 }}>{u.schedule_type}</div>
-                    <div style={{ flex: 1 }}>{formatAlbertaTime(u.next_capture_at)}</div>
+                    <div style={{ flex: 1 }}>{scheduleLabel(u)}</div>
                     <div style={{ flex: 1 }}>
-                      <StatusBadge status={u.status} />
+                      {u.status === "active" && u.retry_count > 0 && u.next_capture_at
+                        ? `Retry at ${formatAlbertaTime(u.next_capture_at)}`
+                        : formatAlbertaTime(u.next_capture_at)}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      {(() => {
+                        const latest = latestCaptureFor(u.id)
+                        const lastError = latest?.status === "failed" ? latest.error : null
+
+                        if (u.status === "missed") {
+                          const date = formatScheduledDate(u.schedule_value)
+                          const message =
+                            `We couldn't capture this page on ${date || "its scheduled date"}.` +
+                            (lastError ? ` Last error: ${lastError}.` : "") +
+                            " No PDF was created for this date."
+                          return (
+                            <div title={message}>
+                              <StatusBadge status="missed" />
+                              <div style={{ fontSize: 11, color: "#B91C1C", marginTop: 4 }}>
+                                No PDF for {date || "this date"}
+                              </div>
+                            </div>
+                          )
+                        }
+
+                        if (u.status === "active" && u.retry_count > 0) {
+                          return (
+                            <div title={lastError || undefined}>
+                              <StatusBadge status="retrying" />
+                            </div>
+                          )
+                        }
+
+                        if (u.status === "active" && lastError) {
+                          return (
+                            <div title={lastError}>
+                              <StatusBadge status="active" />
+                              <div style={{ fontSize: 11, color: "#B45309", marginTop: 4 }}>
+                                Last attempt failed
+                              </div>
+                            </div>
+                          )
+                        }
+
+                        return <StatusBadge status={u.status} />
+                      })()}
                     </div>
                     <div style={{ flex: 1 }}>{formatAlbertaTime(u.created_at)}</div>
                     <div style={{ flex: 1, textAlign: "right" }}>
