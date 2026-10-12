@@ -8,6 +8,10 @@ import DisclaimerBanner from "../components/DisclaimerBanner"
 import DisclaimerModal from "../components/DisclaimerModal"
 import { LABEL_MAX_LENGTH } from "../../lib/labelUtils"
 
+// Idle sign-out
+const IDLE_TIMEOUT_MS = 45 * 60 * 1000
+const LAST_ACTIVITY_KEY = "timedshot_last_activity"
+
 const MAX_SUBSCRIPTION_RETRIES = 8
 const RETRY_DELAY_MS = 1000
 const SHORT_SUBSCRIPTION_RETRIES = 3
@@ -16,8 +20,6 @@ const DASHBOARD_INIT_TIMEOUT_MS = 30000
 const MAX_AUTO_RETRIES = 3
 const VERIFY_REQUEST_TIMEOUT_MS = 8000
 const ACCESS_TOKEN_COOKIE = "sb-access-token"
-const IDLE_TIMEOUT_MS = 45 * 60 * 1000
-const LAST_ACTIVITY_KEY = "timedshot_last_activity"
 
 export default function Dashboard() {
   const router = useRouter()
