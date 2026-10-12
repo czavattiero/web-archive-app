@@ -61,6 +61,8 @@ export default function LoginPage() {
   useEffect(() => {
     if (searchParams.get("error") === "email_not_confirmed") {
       setLoginError("Please verify your email before accessing the dashboard.")
+    } else if (searchParams.get("reason") === "idle") {
+      setLoginError("You were signed out after 45 minutes of inactivity. Please log in again.")
     }
   }, [searchParams])
 
