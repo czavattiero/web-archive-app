@@ -16,6 +16,7 @@ const DASHBOARD_INIT_TIMEOUT_MS = 30000
 const MAX_AUTO_RETRIES = 3
 const VERIFY_REQUEST_TIMEOUT_MS = 8000
 const ACCESS_TOKEN_COOKIE = "sb-access-token"
+const VISIBLE_POLL_MS = 30000
 const PENDING_CAPTURE_POLL_MS = 10000
 const PENDING_CAPTURE_POLL_WINDOW_MS = 15 * 60 * 1000
 
@@ -24,9 +25,8 @@ export default function Dashboard() {
   const searchParams = useSearchParams()
 
   const [user, setUser] = useState<any>(null)
-  // Timestamp (ms) until which the dashboard auto-refreshes. 0 = no polling.
-  // Set only after the user queues an immediate capture, so the new PDF
-  // appears without a manual reload; otherwise the page does not poll.
+  // Timestamp (ms) until which the dashboard refreshes at the faster rate.
+  // Set after the user queues an immediate capture; 0 = normal rate.
   const [pollUntil, setPollUntil] = useState<number>(0)
   const [loading, setLoading] = useState(true)
   const [paymentProcessing, setPaymentProcessing] = useState(false)
@@ -339,19 +339,22 @@ export default function Dashboard() {
     return () => document.removeEventListener("visibilitychange", onVisible)
   }, [user])
 
-  // Short-lived polling only while a just-queued capture is pending,
-  // and only while the tab is visible. No polling otherwise.
+  // Auto-refresh only while the tab is visible, so new captures and
+  // accepted team invites appear on their own. Hidden tabs do nothing.
+  // Refreshes faster for a short window after an immediate capture is queued.
   useEffect(() => {
     if (!user) return
-    const msLeft = pollUntil - Date.now()
-    if (msLeft <= 0) return
+    const msLeftFast = pollUntil - Date.now()
+    const pollMs = msLeftFast > 0 ? PENDING_CAPTURE_POLL_MS : VISIBLE_POLL_MS
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") fetchData(user)
-    }, PENDING_CAPTURE_POLL_MS)
-    const stop = setTimeout(() => clearInterval(interval), msLeft)
+    }, pollMs)
+    // When the fast window ends, re-run this effect at the normal rate.
+    const slowDown =
+      msLeftFast > 0 ? setTimeout(() => setPollUntil(0), msLeftFast) : null
     return () => {
       clearInterval(interval)
-      clearTimeout(stop)
+      if (slowDown) clearTimeout(slowDown)
     }
   }, [user, pollUntil])
 
