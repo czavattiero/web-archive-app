@@ -16,12 +16,18 @@ const DASHBOARD_INIT_TIMEOUT_MS = 30000
 const MAX_AUTO_RETRIES = 3
 const VERIFY_REQUEST_TIMEOUT_MS = 8000
 const ACCESS_TOKEN_COOKIE = "sb-access-token"
+const PENDING_CAPTURE_POLL_MS = 10000
+const PENDING_CAPTURE_POLL_WINDOW_MS = 15 * 60 * 1000
 
 export default function Dashboard() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
   const [user, setUser] = useState<any>(null)
+  // Timestamp (ms) until which the dashboard auto-refreshes. 0 = no polling.
+  // Set only after the user queues an immediate capture, so the new PDF
+  // appears without a manual reload; otherwise the page does not poll.
+  const [pollUntil, setPollUntil] = useState<number>(0)
   const [loading, setLoading] = useState(true)
   const [paymentProcessing, setPaymentProcessing] = useState(false)
   const [autoRetryCount, setAutoRetryCount] = useState(0)
@@ -323,11 +329,31 @@ export default function Dashboard() {
     return () => clearInterval(retryInterval)
   }, [paymentProcessing, autoRetryCount])
 
+  // Refresh once whenever the user comes back to this tab.
   useEffect(() => {
     if (!user) return
-    const interval = setInterval(() => fetchData(user), 5000)
-    return () => clearInterval(interval)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchData(user)
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => document.removeEventListener("visibilitychange", onVisible)
   }, [user])
+
+  // Short-lived polling only while a just-queued capture is pending,
+  // and only while the tab is visible. No polling otherwise.
+  useEffect(() => {
+    if (!user) return
+    const msLeft = pollUntil - Date.now()
+    if (msLeft <= 0) return
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") fetchData(user)
+    }, PENDING_CAPTURE_POLL_MS)
+    const stop = setTimeout(() => clearInterval(interval), msLeft)
+    return () => {
+      clearInterval(interval)
+      clearTimeout(stop)
+    }
+  }, [user, pollUntil])
 
   async function fetchData(currentUser: any) {
     const { data: urlsData } = await supabase
@@ -533,6 +559,7 @@ export default function Dashboard() {
         }
 
         console.log("✅ Workflow triggered successfully")
+        setPollUntil(Date.now() + PENDING_CAPTURE_POLL_WINDOW_MS)
         alert("✅ URL added and queued for immediate capture!")
       } catch (err: any) {
         console.error("❌ Fetch error:", err.message)
