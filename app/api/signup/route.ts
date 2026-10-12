@@ -4,7 +4,7 @@ import { Resend } from "resend"
 import { buildVerifyUrl } from "../../../lib/buildVerifyUrl"
 import { type SignupPlan, normalizeSignupPlan } from "../../../lib/signupPlan"
 import { alertAdmin } from "../../../lib/server/alertAdmin"
-import { notifyNewSignup } from "../../../lib/server/notifyNewSignup"
+import { notifyNewSignup } from "../../../lib/server/adminNotifications"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

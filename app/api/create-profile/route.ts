@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { isEmailVerified } from "../../../lib/emailVerification"
+import { notifyEmailConfirmed } from "../../../lib/server/adminNotifications"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -84,6 +85,16 @@ export async function POST(req: Request) {
       console.error("Create profile upsert error")
     }
     return NextResponse.json({ error: "Failed to create profile" }, { status: 500 })
+  }
+
+  // Runs right after the user confirms their email. Sent once per user, and
+  // only for a recent confirmation, so account-setup repairs of older
+  // accounts never look like a new confirmation.
+  const confirmedAt = authData.user.email_confirmed_at
+    ? Date.parse(authData.user.email_confirmed_at)
+    : NaN
+  if (Number.isFinite(confirmedAt) && Date.now() - confirmedAt < 24 * 60 * 60 * 1000) {
+    await notifyEmailConfirmed(userId, email, plan)
   }
 
   return NextResponse.json({ ok: true })
