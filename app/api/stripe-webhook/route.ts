@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
 import { alertAdmin } from "../../../lib/server/alertAdmin"
+import { notifyNewPaidSubscription } from "../../../lib/server/adminNotifications"
 
 // 🔥 Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -119,6 +120,14 @@ export async function POST(req: Request) {
           onConflict: "stripe_subscription_id",
         }
       )
+
+      // Admin notice — sent once per subscription, even if Stripe retries.
+      await notifyNewPaidSubscription({
+        dedupeKey: subscriptionId || session.id,
+        email: session.customer_details?.email ?? session.customer_email,
+        plan,
+        firstTime: !existingProfile?.subscription_started_at,
+      })
     }
 
     // =====================================================

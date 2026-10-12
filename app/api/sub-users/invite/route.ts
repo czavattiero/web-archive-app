@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js"
 import { Resend } from "resend"
 import { getAuthenticatedUserFromRequest, getBillingAccessDecision } from "../../../../lib/server/billingAccess"
 import { alertAdmin } from "../../../../lib/server/alertAdmin"
+import { notifyTeamInvite } from "../../../../lib/server/adminNotifications"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -138,6 +139,7 @@ export async function POST(req: Request) {
             { onConflict: "id" }
           )
         }
+        await notifyTeamInvite(email, authUser.email)
         return NextResponse.json({ success: true })
       }
 
@@ -169,6 +171,7 @@ export async function POST(req: Request) {
         }
       }
 
+      await notifyTeamInvite(email, authUser.email)
       return NextResponse.json({ success: true })
     }
 
@@ -201,6 +204,7 @@ export async function POST(req: Request) {
       }
     }
 
+    await notifyTeamInvite(email, authUser.email)
     return NextResponse.json({ success: true })
   } catch (err: any) {
     console.error("❌ Invite error:", err)

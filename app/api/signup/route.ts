@@ -4,6 +4,7 @@ import { Resend } from "resend"
 import { buildVerifyUrl } from "../../../lib/buildVerifyUrl"
 import { type SignupPlan, normalizeSignupPlan } from "../../../lib/signupPlan"
 import { alertAdmin } from "../../../lib/server/alertAdmin"
+import { notifyNewSignup } from "../../../lib/server/adminNotifications"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -222,6 +223,9 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: linkError.message }, { status: 400 })
       }
 
+      // generateLink succeeded without "already registered" → a new account exists.
+      await notifyNewSignup(email, safePlan)
+
       const confirmationUrl = linkData?.properties?.action_link
       if (confirmationUrl) {
         console.log("Signup: generateLink succeeded, sending via Resend")
@@ -289,6 +293,7 @@ export async function POST(req: Request) {
     }
 
     console.log("Signup: user created and confirmation email sent via Supabase SMTP")
+    await notifyNewSignup(email, safePlan)
     return NextResponse.json({ ok: true })
   } catch (err: any) {
     console.error("Signup API error:", err)
