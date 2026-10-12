@@ -8,6 +8,10 @@ import DisclaimerBanner from "../components/DisclaimerBanner"
 import DisclaimerModal from "../components/DisclaimerModal"
 import { LABEL_MAX_LENGTH } from "../../lib/labelUtils"
 
+// Idle sign-out
+const IDLE_TIMEOUT_MS = 45 * 60 * 1000
+const LAST_ACTIVITY_KEY = "timedshot_last_activity"
+
 const MAX_SUBSCRIPTION_RETRIES = 8
 const RETRY_DELAY_MS = 1000
 const SHORT_SUBSCRIPTION_RETRIES = 3
@@ -582,6 +586,10 @@ export default function Dashboard() {
   }
 
   const handleLogout = async () => {
+    await signOutAndRedirect("/")
+  }
+
+  async function signOutAndRedirect(destination: string) {
     await supabase.auth.signOut()
     document.cookie = `${ACCESS_TOKEN_COOKIE}=; ${getCookieAttributes(0)}`
     // Preserve disclaimer acknowledgement flags so the modal doesn't re-appear on next login
@@ -590,8 +598,79 @@ export default function Dashboard() {
       .map((key): [string, string] => [key, localStorage.getItem(key) as string])
     localStorage.clear()
     disclaimerEntries.forEach(([key, value]) => localStorage.setItem(key, value))
-    window.location.href = "/"
+    window.location.href = destination
   }
+
+  // Sign the user out after IDLE_TIMEOUT_MS without interaction.
+  // Last activity is shared across tabs via localStorage, so working in one
+  // tab keeps the others signed in. Background auto-refresh is not activity.
+  useEffect(() => {
+    if (!user) return
+
+    const readLastActivity = () => {
+      try {
+        const stored = Number(localStorage.getItem(LAST_ACTIVITY_KEY))
+        return Number.isFinite(stored) ? stored : 0
+      } catch {
+        return 0
+      }
+    }
+    const writeLastActivity = (ts: number) => {
+      try {
+        localStorage.setItem(LAST_ACTIVITY_KEY, String(ts))
+      } catch {
+        // storage unavailable — the in-memory fallback below still works
+      }
+    }
+
+    // A fresh password login counts as activity, so a stale timestamp left
+    // over from an earlier session never logs out someone who just signed in.
+    const lastSignIn = user.last_sign_in_at ? Date.parse(user.last_sign_in_at) : 0
+    let lastActivity = Math.max(readLastActivity(), lastSignIn || 0)
+    let loggingOut = false
+
+    const checkIdle = () => {
+      if (loggingOut) return
+      lastActivity = Math.max(lastActivity, readLastActivity())
+      if (Date.now() - lastActivity >= IDLE_TIMEOUT_MS) {
+        loggingOut = true
+        signOutAndRedirect("/login?reason=idle")
+      }
+    }
+
+    // Check first: someone returning after a long absence is signed out
+    // before their activity on this load can reset the clock.
+    checkIdle()
+    if (loggingOut) return
+
+    lastActivity = Date.now()
+    writeLastActivity(lastActivity)
+
+    let lastWrite = lastActivity
+    const onActivity = () => {
+      const now = Date.now()
+      lastActivity = now
+      // Throttle storage writes to once every 15s.
+      if (now - lastWrite > 15000) {
+        lastWrite = now
+        writeLastActivity(now)
+      }
+    }
+    const onVisible = () => {
+      if (document.visibilityState === "visible") checkIdle()
+    }
+
+    const events = ["mousedown", "keydown", "scroll", "touchstart", "mousemove"]
+    events.forEach((e) => window.addEventListener(e, onActivity, { passive: true }))
+    document.addEventListener("visibilitychange", onVisible)
+    const interval = setInterval(checkIdle, 30000)
+
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, onActivity))
+      document.removeEventListener("visibilitychange", onVisible)
+      clearInterval(interval)
+    }
+  }, [user])
 
   async function handleInviteSubUser() {
     const trimmed = inviteEmail.trim()
