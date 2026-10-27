@@ -357,13 +357,27 @@ async function handleRetry(item) {
 // captures stop once the account owner's access has ended:
 //   • a regular trial (plan "trial", not subscribed) whose trial_ends_at has passed
 //   • an enterprise account whose end date (trial_ends_at) has passed
-// Anything uncertain — profile lookup error, missing profile, no date, any
-// other plan — is captured as normal. A missed capture costs a paying
-// customer far more than an extra capture costs us.
+//   • a basic/pro account that is not subscribed AND whose latest Stripe
+//     subscription has definitively ended (canceled / unpaid /
+//     incomplete_expired). A past_due subscription is still in Stripe's retry
+//     window (grace period) and keeps being captured.
+// Anything uncertain — lookup error, missing profile or subscription row, no
+// date, any other plan — is captured as normal. A missed capture costs a
+// paying customer far more than an extra capture costs us.
 // Skipped URLs are left untouched (no capture row, no email, next_capture_at
 // unchanged), so capturing resumes on the next run after the owner pays.
-function hasAccessEnded(ownerProfile, now) {
-  if (!ownerProfile || !ownerProfile.trial_ends_at) return false
+const ENDED_SUBSCRIPTION_STATUSES = new Set(["canceled", "unpaid", "incomplete_expired"])
+
+function hasAccessEnded(ownerProfile, now, latestSubscriptionStatus) {
+  if (!ownerProfile) return false
+  if (
+    (ownerProfile.plan === "basic" || ownerProfile.plan === "pro") &&
+    !ownerProfile.subscribed &&
+    ENDED_SUBSCRIPTION_STATUSES.has(latestSubscriptionStatus)
+  ) {
+    return true
+  }
+  if (!ownerProfile.trial_ends_at) return false
   const endsAt = new Date(ownerProfile.trial_ends_at)
   if (Number.isNaN(endsAt.getTime()) || endsAt >= now) return false
   if (ownerProfile.plan === "enterprise") return true
@@ -405,9 +419,32 @@ async function filterUrlsWithActiveAccess(urls) {
   const ownerById = new Map((owners || []).map((owner) => [owner.id, owner]))
   const now = new Date()
 
+  // Latest Stripe subscription status, only for unsubscribed basic/pro owners.
+  const latestStatusByOwner = new Map()
+  const unpaidOwnerIds = (owners || [])
+    .filter((owner) => (owner.plan === "basic" || owner.plan === "pro") && !owner.subscribed)
+    .map((owner) => owner.id)
+
+  if (unpaidOwnerIds.length > 0) {
+    const { data: subscriptionRows, error: subscriptionError } = await supabase
+      .from("subscriptions")
+      .select("user_id, status, created_at")
+      .in("user_id", unpaidOwnerIds)
+      .order("created_at", { ascending: false })
+
+    if (subscriptionError) {
+      // Without subscription data no basic/pro owner is skipped (fail-open).
+      console.warn("⚠️ Billing gate: subscription lookup failed, not skipping basic/pro URLs:", subscriptionError.message)
+    } else {
+      for (const row of subscriptionRows || []) {
+        if (!latestStatusByOwner.has(row.user_id)) latestStatusByOwner.set(row.user_id, row.status)
+      }
+    }
+  }
+
   return urls.filter((item) => {
     const ownerId = ownerByUser.get(item.user_id) || item.user_id
-    if (hasAccessEnded(ownerById.get(ownerId), now)) {
+    if (hasAccessEnded(ownerById.get(ownerId), now, latestStatusByOwner.get(ownerId))) {
       console.log(`  🚫 ${item.url} - skipped: account access ended (owner ${ownerId})`)
       return false
     }

@@ -244,9 +244,15 @@ if (event.type === "invoice.payment_succeeded") {
 
       const priceId = subscription.items.data[0]?.price?.id
       const plan = priceId === process.env.STRIPE_PRO_PRICE_ID ? "pro" : "basic"
-      // Only active/trialing users are treated as subscribed for app access.
-      // All other statuses (past_due, unpaid, canceled, incomplete, etc.) are denied.
-      const isSubscribed = subscription.status === "active" || subscription.status === "trialing"
+      // active/trialing users are subscribed. past_due is also kept subscribed
+      // as a grace period: Stripe is still retrying the card, and the customer
+      // keeps dashboard access (and can update their card in the billing
+      // portal) until Stripe gives up and the subscription becomes canceled or
+      // unpaid. All other statuses (unpaid, canceled, incomplete, etc.) are denied.
+      const isSubscribed =
+        subscription.status === "active" ||
+        subscription.status === "trialing" ||
+        subscription.status === "past_due"
 
       await supabase
         .from("subscriptions")
@@ -280,10 +286,11 @@ if (event.type === "invoice.payment_succeeded") {
           .eq("stripe_subscription_id", subscriptionId)
       }
 
-      await supabase
-        .from("profiles")
-        .update({ subscribed: false })
-        .eq("stripe_customer_id", customerId)
+      // Access is intentionally NOT removed here. A failed charge starts
+      // Stripe's retry window (grace period); access ends only when Stripe
+      // cancels the subscription (customer.subscription.deleted) or marks it
+      // unpaid (customer.subscription.updated).
+      console.log(`⚠️ Payment failed for customer ${customerId} — grace period while Stripe retries`)
     }
 
     // =====================================================
