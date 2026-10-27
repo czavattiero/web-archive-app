@@ -352,6 +352,69 @@ async function handleRetry(item) {
   }
 }
 
+// ── Billing gate ──────────────────────────────────────────────────────────
+// Mirrors the expiry rules in lib/server/billingAccess.ts so scheduled
+// captures stop once the account owner's access has ended:
+//   • a regular trial (plan "trial", not subscribed) whose trial_ends_at has passed
+//   • an enterprise account whose end date (trial_ends_at) has passed
+// Anything uncertain — profile lookup error, missing profile, no date, any
+// other plan — is captured as normal. A missed capture costs a paying
+// customer far more than an extra capture costs us.
+// Skipped URLs are left untouched (no capture row, no email, next_capture_at
+// unchanged), so capturing resumes on the next run after the owner pays.
+function hasAccessEnded(ownerProfile, now) {
+  if (!ownerProfile || !ownerProfile.trial_ends_at) return false
+  const endsAt = new Date(ownerProfile.trial_ends_at)
+  if (Number.isNaN(endsAt.getTime()) || endsAt >= now) return false
+  if (ownerProfile.plan === "enterprise") return true
+  if (ownerProfile.plan === "trial" && !ownerProfile.subscribed) return true
+  return false
+}
+
+async function filterUrlsWithActiveAccess(urls) {
+  const userIds = [...new Set(urls.map((item) => item.user_id).filter(Boolean))]
+  if (userIds.length === 0) return urls
+
+  const { data: userProfiles, error: userError } = await supabase
+    .from("profiles")
+    .select("id, parent_user_id")
+    .in("id", userIds)
+
+  if (userError) {
+    console.warn("⚠️ Billing gate: profile lookup failed, capturing all URLs:", userError.message)
+    return urls
+  }
+
+  // Sub-users are billed through their parent account.
+  const ownerByUser = new Map()
+  for (const profile of userProfiles || []) {
+    ownerByUser.set(profile.id, profile.parent_user_id || profile.id)
+  }
+  const ownerIds = [...new Set(userIds.map((id) => ownerByUser.get(id) || id))]
+
+  const { data: owners, error: ownerError } = await supabase
+    .from("profiles")
+    .select("id, plan, subscribed, trial_ends_at")
+    .in("id", ownerIds)
+
+  if (ownerError) {
+    console.warn("⚠️ Billing gate: owner lookup failed, capturing all URLs:", ownerError.message)
+    return urls
+  }
+
+  const ownerById = new Map((owners || []).map((owner) => [owner.id, owner]))
+  const now = new Date()
+
+  return urls.filter((item) => {
+    const ownerId = ownerByUser.get(item.user_id) || item.user_id
+    if (hasAccessEnded(ownerById.get(ownerId), now)) {
+      console.log(`  🚫 ${item.url} - skipped: account access ended (owner ${ownerId})`)
+      return false
+    }
+    return true
+  })
+}
+
 async function runWorker() {
   console.log("🚀 Worker started")
 
@@ -385,7 +448,13 @@ async function runWorker() {
 
     console.log(`📦 Found ${urls.length} URL(s) needing immediate capture`)
 
-    for (const url of urls) {
+    const allowedUrls = await filterUrlsWithActiveAccess(urls)
+    if (allowedUrls.length === 0) {
+      console.log("⛔ No URLs with active account access need immediate capture")
+      return
+    }
+
+    for (const url of allowedUrls) {
       console.log(`🔒 Locking URL: ${url.id}`)
       await supabase
         .from("urls")
@@ -396,7 +465,7 @@ async function runWorker() {
         .neq("status", "deleted")
     }
 
-    urlsToCapture = urls
+    urlsToCapture = allowedUrls
 
   } else {
     console.log("📋 Fetching URLs due for scheduled capture...")
@@ -432,6 +501,8 @@ async function runWorker() {
       console.log(`  ${isDue ? "✅" : "⏭️"} ${item.url} - due: ${nextCapture.toISOString()}`)
       return isDue
     })
+
+    urlsToCapture = await filterUrlsWithActiveAccess(urlsToCapture)
 
     if (urlsToCapture.length === 0) {
       console.log("⛔ No URLs are due for capture")
