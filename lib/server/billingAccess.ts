@@ -231,6 +231,28 @@ export async function getBillingAccessDecision(userId: string): Promise<BillingA
     }
   }
 
+  // Enterprise accounts are granted manually (subscribed: true, no Stripe
+  // subscription), so the subscribed flag alone never expires. If an end date
+  // is set in trial_ends_at, access ends once that date passes — the same
+  // outcome as an expired regular trial. Leave trial_ends_at empty (null) to
+  // give an enterprise account open-ended access. Paying for a plan through
+  // Stripe changes plan to basic/pro and clears trial_ends_at, so this check
+  // never blocks a paying customer.
+  const enterpriseAccessEnded =
+    billingProfile.plan === "enterprise" &&
+    !!billingProfile.trial_ends_at &&
+    new Date(billingProfile.trial_ends_at) < new Date()
+
+  if (enterpriseAccessEnded) {
+    return {
+      allowed: false,
+      reason: "trial_expired",
+      ownerId,
+      userProfile,
+      billingProfile,
+    }
+  }
+
   if (billingProfile.subscribed) {
     const subscriptionStartedAt = await getOptionalSubscriptionStartedAt(ownerId)
     const hydratedBillingProfile: ProfileRow = {
