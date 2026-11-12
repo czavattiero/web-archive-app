@@ -49,8 +49,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
+      # Production captures run on Browserless (remote browser); the local
+      # browser is only used if BROWSERLESS_TOKEN is unset. Cap this step and
+      # don't let an Ubuntu apt mirror outage block the whole day's captures.
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
+        timeout-minutes: 5
+        continue-on-error: true
 
       - name: Run capture worker
         uses: nick-fields/retry@v3
